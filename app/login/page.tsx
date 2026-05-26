@@ -4,6 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
+const NAME_TO_EMAIL: Record<string, string> = {
+  bia: 'annybeatrizjpg@gmail.com',
+  samuel: 'samuel@timeclock.interno',
+  zion: 'zion@timeclock.interno',
+  klenio: 'klenio@timeclock.interno',
+  thiago: 'thiago@timeclock.interno',
+  malu: 'malu@timeclock.interno',
+  mariaclara: 'maria@timeclock.interno',
+}
+
 export default function LoginPage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
@@ -16,14 +26,16 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data: email, error: rpcError } = await supabase.rpc('get_email_by_name', { p_name: name.trim() })
-    if (rpcError || !email) {
+    const firstName = name.trim().toLowerCase().split(/\s+/)[0] || ''
+    const resolvedEmail = firstName.includes('@') ? firstName : NAME_TO_EMAIL[firstName]
+
+    if (!resolvedEmail) {
       setError('Usuário ou senha incorretos.')
       setLoading(false)
       return
     }
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: authError } = await supabase.auth.signInWithPassword({ email: resolvedEmail, password })
     if (authError) {
       setError('Usuário ou senha incorretos.')
       setLoading(false)
