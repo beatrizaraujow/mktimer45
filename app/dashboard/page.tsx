@@ -29,7 +29,17 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single()
 
-      setProfile(data)
+      if (data) {
+        setProfile(data)
+        return
+      }
+
+      // Fallback para nao travar em "Carregando..." quando profile ainda nao existe.
+      setProfile({
+        id: user.id,
+        name: (user.user_metadata?.name as string) || (user.email?.split('@')[0] ?? 'Usuario'),
+        role: (user.user_metadata?.role as string) || 'member',
+      })
     }
 
     load()
