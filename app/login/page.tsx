@@ -17,6 +17,7 @@ const NAME_TO_EMAIL: Record<string, string> = {
 export default function LoginPage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -46,66 +47,103 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
-      <div className="w-full max-w-sm">
+    <main className="min-h-screen bg-[#040507] p-2 md:p-6">
+      <div className="mx-auto flex min-h-[calc(100vh-1rem)] max-w-7xl items-center justify-center border border-zinc-800 bg-black p-3 md:min-h-[calc(100vh-3rem)] md:p-5">
+        <section className="grid w-full max-w-6xl gap-6 md:grid-cols-[1.05fr_1fr]">
+          <aside className="relative hidden min-h-[680px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 md:block">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_60%,rgba(251,191,36,0.55),rgba(0,0,0,0.05)_36%,rgba(0,0,0,0.96)_70%)]" />
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.06)_0,rgba(255,255,255,0.06)_2px,transparent_2px,transparent_30px)] opacity-25" />
 
-        {/* Logo / Marca */}
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 bg-[#E8FF47] rounded-sm flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <rect x="1" y="1" width="6" height="6" fill="#09090b"/>
-                <rect x="9" y="1" width="6" height="6" fill="#09090b"/>
-                <rect x="1" y="9" width="6" height="6" fill="#09090b"/>
-                <rect x="9" y="9" width="6" height="2" fill="#09090b"/>
-              </svg>
+            <div className="relative flex h-full flex-col justify-between p-10">
+              <div className="max-w-[260px]">
+                <h1 className="font-['Syne'] text-6xl font-bold leading-[0.95] text-zinc-100">
+                  O prazer
+                  <br />
+                  no trabalho
+                  <br />
+                  aperfeiçoa
+                  <br />
+                  a obra.
+                </h1>
+                <p className="mt-7 text-7xl leading-none text-[#f3c501]">”</p>
+              </div>
+
+              <p className="font-['Syne'] text-4xl text-zinc-100">- Aristóteles</p>
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">TimeClock</span>
-          </div>
-          <p className="text-zinc-500 text-sm mono">Grupo Quatro5 — Controle de horas</p>
-        </div>
+          </aside>
 
-        {/* Form */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-400 mono uppercase tracking-wider">Nome</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              placeholder="Seu nome"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#E8FF47] transition-colors mono"
-            />
-          </div>
+          <section className="flex min-h-[680px] flex-col justify-center rounded-2xl border border-zinc-900 bg-black px-6 py-8 md:px-14">
+            <div className="mb-8 inline-grid w-fit grid-cols-2 gap-1.5">
+              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
+              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
+              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
+              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-xs text-zinc-400 mono uppercase tracking-wider">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              placeholder="••••••••"
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#E8FF47] transition-colors mono"
-            />
-          </div>
+            <h2 className="font-['Syne'] text-5xl font-semibold leading-[0.95] text-zinc-100 md:text-6xl">
+              Pronto para
+              <br />
+              começar?
+            </h2>
 
-          {error && (
-            <p className="text-red-400 text-xs mono bg-red-950/40 border border-red-900/50 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+            <div className="mt-10 space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm text-zinc-300">ID do usuário</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  placeholder="Digite seu primeiro nome"
+                  className="h-14 w-full rounded-xl border border-zinc-900 bg-zinc-950 px-4 text-base text-zinc-100 placeholder-zinc-600 outline-none transition-colors focus:border-[#f3c501]"
+                />
+              </div>
 
-          <button
-            onClick={handleLogin}
-            disabled={loading || !name || !password}
-            className="w-full bg-[#E8FF47] text-zinc-950 font-bold py-3 rounded-lg text-sm hover:bg-[#c8df30] disabled:opacity-40 disabled:cursor-not-allowed transition-colors mt-2"
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </div>
+              <div className="space-y-2">
+                <label className="text-sm text-zinc-300">Senha</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    placeholder="••••••"
+                    className="h-14 w-full rounded-xl border border-zinc-900 bg-zinc-950 px-4 pr-12 text-base text-zinc-100 placeholder-zinc-600 outline-none transition-colors focus:border-[#f3c501]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-500 hover:text-zinc-200"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showPassword ? 'OCULTAR' : 'VER'}
+                  </button>
+                </div>
+              </div>
 
+              {error && (
+                <p className="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                  {error}
+                </p>
+              )}
+
+              <button
+                onClick={handleLogin}
+                disabled={loading || !name || !password}
+                className="mt-2 h-14 w-full rounded-xl bg-[#f3c501] font-semibold text-black transition-colors hover:bg-[#ffd233] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? 'Entrando...' : 'Entrar'}
+              </button>
+
+              <button
+                type="button"
+                className="text-left text-sm text-zinc-500 transition-colors hover:text-zinc-300"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          </section>
+        </section>
       </div>
     </main>
   )
