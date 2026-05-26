@@ -80,15 +80,15 @@ function StatCard({
 }) {
   return (
     <div className="bg-black rounded-[24px] px-7 py-4 h-[160px] flex flex-col justify-between shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
-      <div className={`text-center text-[24px] font-semibold leading-none ${brandColor}`}>
+      <div className={`text-center text-[22px] font-semibold leading-none ${brandColor}`}>
         {brand}
       </div>
 
       <div className="text-center">
-        <div className="text-white text-[46px] leading-none font-light tracking-[-0.04em]">
+        <div className="text-white text-[42px] leading-none font-light tracking-[-0.04em]">
           {time}
         </div>
-        <div className="text-zinc-400 text-[17px] mt-1">{tasks}</div>
+        <div className="text-zinc-400 text-[15px] mt-1">{tasks}</div>
       </div>
 
       <div className="w-full h-[14px] bg-zinc-900 rounded-full overflow-hidden">
@@ -160,10 +160,10 @@ export default function DashboardPage() {
           </div>
 
           <nav className="mt-20 space-y-8">
-            <div className="text-white text-[24px] font-medium">Time cheat</div>
-            <div className="text-zinc-500 text-[24px] font-normal">Painel Daily</div>
-            <div className="text-zinc-500 text-[24px] font-normal">Calendario</div>
-            <div className="text-zinc-500 text-[24px] font-normal">Time</div>
+            <div className="text-white text-[22px] font-medium">Time cheat</div>
+            <div className="text-zinc-500 text-[22px] font-normal">Painel Daily</div>
+            <div className="text-zinc-500 text-[22px] font-normal">Calendario</div>
+            <div className="text-zinc-500 text-[22px] font-normal">Time</div>
           </nav>
         </div>
 
@@ -189,7 +189,7 @@ export default function DashboardPage() {
             <div className="bg-black rounded-[26px] p-6 h-full flex flex-col">
               <div className="flex items-center gap-3 text-yellow-400">
                 <CalendarDays size={24} />
-                <span className="text-white text-[28px] leading-none">10 a 15 de Maio</span>
+                <span className="text-white text-[26px] leading-none">10 a 15 de Maio</span>
               </div>
 
               <div className="flex-1 mt-3 min-h-0">
@@ -207,7 +207,7 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-7 text-center text-white text-[16px] leading-none mt-1 px-6">
+              <div className="grid grid-cols-7 text-center text-white text-[15px] leading-none mt-1 px-6">
                 {lineData.map((item) => (
                   <span key={item.name}>{item.name}</span>
                 ))}
@@ -215,7 +215,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-black rounded-[26px] p-6 h-full flex flex-col">
-              <h3 className="text-white text-[24px] leading-none mb-3">Tempo total</h3>
+              <h3 className="text-white text-[22px] leading-none mb-3">Tempo total</h3>
 
               <div className="flex-1 flex items-center justify-center relative">
                 <div className="w-[210px] h-[210px] relative">
@@ -238,13 +238,13 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
 
-                  <div className="absolute left-[14px] top-[64px] text-black text-[14px] font-medium">
+                  <div className="absolute left-[14px] top-[64px] text-black text-[13px] font-medium">
                     17,5%
                   </div>
-                  <div className="absolute right-[10px] top-[62px] text-black text-[14px] font-medium">
+                  <div className="absolute right-[10px] top-[62px] text-black text-[13px] font-medium">
                     75%
                   </div>
-                  <div className="absolute left-[82px] bottom-[12px] text-white text-[14px] font-medium">
+                  <div className="absolute left-[82px] bottom-[12px] text-white text-[13px] font-medium">
                     7,5%
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-3 text-[24px] leading-none text-white">
+          <div className="mt-3 text-[22px] leading-none text-white">
             Tempo medio diario: <span className="font-bold">4h32min</span>
           </div>
         </div>
