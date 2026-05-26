@@ -147,13 +147,14 @@ export default function LoginPage() {
 
       <style jsx>{`
         .login-root {
-          min-height: 100vh;
+          height: 100dvh;
           background: #050608;
           padding: 8px;
+          overflow: hidden;
         }
         .shell {
           max-width: 1500px;
-          min-height: calc(100vh - 16px);
+          height: calc(100dvh - 16px);
           margin: 0 auto;
           display: flex;
           align-items: center;
@@ -161,6 +162,7 @@ export default function LoginPage() {
           border: 1px solid #27272a;
           background: #000;
           padding: 8px;
+          overflow: hidden;
         }
         .layout-grid {
           width: 100%;
@@ -170,7 +172,7 @@ export default function LoginPage() {
         }
         .quote-panel {
           position: relative;
-          min-height: 760px;
+          height: 100%;
           overflow: hidden;
           border-radius: 16px;
           border: 1px solid #27272a;
@@ -223,7 +225,7 @@ export default function LoginPage() {
           color: #f4f4f5;
         }
         .form-panel {
-          min-height: 760px;
+          height: 100%;
           border-radius: 16px;
           border: 1px solid #18181b;
           background: #000;
@@ -358,7 +360,7 @@ export default function LoginPage() {
             display: none;
           }
           .form-panel {
-            min-height: calc(100vh - 32px);
+            height: calc(100dvh - 32px);
             padding: 24px;
           }
           .form-title {
@@ -367,6 +369,12 @@ export default function LoginPage() {
           .field-label {
             font-size: 18px;
           }
+        }
+
+        :global(html),
+        :global(body) {
+          height: 100%;
+          overflow: hidden;
         }
       `}</style>
     </main>
