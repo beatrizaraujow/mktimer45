@@ -79,19 +79,19 @@ function StatCard({
   progressColor: string
 }) {
   return (
-    <div className="bg-black rounded-[28px] px-8 py-5 h-[180px] flex flex-col justify-between shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
-      <div className={`text-center text-[30px] font-semibold leading-none ${brandColor}`}>
+    <div className="bg-black rounded-[24px] px-7 py-4 h-[160px] flex flex-col justify-between shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+      <div className={`text-center text-[24px] font-semibold leading-none ${brandColor}`}>
         {brand}
       </div>
 
       <div className="text-center">
-        <div className="text-white text-[54px] leading-none font-light tracking-[-0.04em]">
+        <div className="text-white text-[46px] leading-none font-light tracking-[-0.04em]">
           {time}
         </div>
-        <div className="text-zinc-400 text-[20px] mt-2">{tasks}</div>
+        <div className="text-zinc-400 text-[17px] mt-1">{tasks}</div>
       </div>
 
-      <div className="w-full h-[16px] bg-zinc-900 rounded-full overflow-hidden">
+      <div className="w-full h-[14px] bg-zinc-900 rounded-full overflow-hidden">
         <div
           className={`${progressColor} h-full rounded-full`}
           style={{ width: `${progress}%` }}
@@ -153,17 +153,17 @@ export default function DashboardPage() {
 
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden">
-      <aside className="w-[280px] px-10 py-12 flex flex-col justify-between border-r border-zinc-900 h-full">
+      <aside className="w-[250px] px-8 py-9 flex flex-col justify-between border-r border-zinc-900 h-full">
         <div>
-          <div className="w-[96px] h-[96px] rounded-full bg-white text-black flex items-center justify-center text-[68px] font-serif font-bold">
+          <div className="w-[84px] h-[84px] rounded-full bg-white text-black flex items-center justify-center text-[56px] font-serif font-bold">
             {profile.name.slice(0, 1).toUpperCase()}
           </div>
 
-          <nav className="mt-24 space-y-10">
-            <div className="text-white text-[38px] font-medium">Time cheat</div>
-            <div className="text-zinc-500 text-[36px] font-normal">Painel Daily</div>
-            <div className="text-zinc-500 text-[36px] font-normal">Calendario</div>
-            <div className="text-zinc-500 text-[36px] font-normal">Time</div>
+          <nav className="mt-20 space-y-8">
+            <div className="text-white text-[24px] font-medium">Time cheat</div>
+            <div className="text-zinc-500 text-[24px] font-normal">Painel Daily</div>
+            <div className="text-zinc-500 text-[24px] font-normal">Calendario</div>
+            <div className="text-zinc-500 text-[24px] font-normal">Time</div>
           </nav>
         </div>
 
@@ -173,26 +173,26 @@ export default function DashboardPage() {
           onClick={handleLogout}
           aria-label="Sair"
         >
-          <LogOut size={42} strokeWidth={2} />
+          <LogOut size={34} strokeWidth={2} />
         </button>
       </aside>
 
-      <main className="flex-1 p-7 h-full">
-        <div className="bg-[#151515] rounded-[36px] p-7 h-full flex flex-col">
+      <main className="flex-1 p-5 h-full">
+        <div className="bg-[#151515] rounded-[30px] p-5 h-full flex flex-col">
           <div className="grid grid-cols-3 gap-4">
             {cards.map((card) => (
               <StatCard key={card.brand} {...card} />
             ))}
           </div>
 
-          <div className="grid grid-cols-[1fr_340px] gap-5 mt-4 flex-1 min-h-0">
-            <div className="bg-black rounded-[30px] p-7 h-full flex flex-col">
-              <div className="flex items-center gap-4 text-yellow-400">
-                <CalendarDays size={28} />
-                <span className="text-white text-[34px] leading-none">10 a 15 de Maio</span>
+          <div className="grid grid-cols-[1fr_300px] gap-4 mt-4 flex-1 min-h-0">
+            <div className="bg-black rounded-[26px] p-6 h-full flex flex-col">
+              <div className="flex items-center gap-3 text-yellow-400">
+                <CalendarDays size={24} />
+                <span className="text-white text-[28px] leading-none">10 a 15 de Maio</span>
               </div>
 
-              <div className="flex-1 mt-4 min-h-0">
+              <div className="flex-1 mt-3 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={lineData} margin={{ top: 20, right: 10, left: 10, bottom: 35 }}>
                     <Line
@@ -207,26 +207,26 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-7 text-center text-white text-[22px] leading-none mt-1 px-8">
+              <div className="grid grid-cols-7 text-center text-white text-[16px] leading-none mt-1 px-6">
                 {lineData.map((item) => (
                   <span key={item.name}>{item.name}</span>
                 ))}
               </div>
             </div>
 
-            <div className="bg-black rounded-[30px] p-7 h-full flex flex-col">
-              <h3 className="text-white text-[40px] leading-none mb-4">Tempo total</h3>
+            <div className="bg-black rounded-[26px] p-6 h-full flex flex-col">
+              <h3 className="text-white text-[24px] leading-none mb-3">Tempo total</h3>
 
               <div className="flex-1 flex items-center justify-center relative">
-                <div className="w-[250px] h-[250px] relative">
+                <div className="w-[210px] h-[210px] relative">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={pieData}
                         dataKey="value"
                         nameKey="name"
-                        innerRadius={58}
-                        outerRadius={110}
+                        innerRadius={46}
+                        outerRadius={92}
                         startAngle={90}
                         endAngle={-270}
                         stroke="none"
@@ -238,13 +238,13 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
 
-                  <div className="absolute left-[16px] top-[78px] text-black text-[17px] font-medium">
+                  <div className="absolute left-[14px] top-[64px] text-black text-[14px] font-medium">
                     17,5%
                   </div>
-                  <div className="absolute right-[12px] top-[74px] text-black text-[17px] font-medium">
+                  <div className="absolute right-[10px] top-[62px] text-black text-[14px] font-medium">
                     75%
                   </div>
-                  <div className="absolute left-[104px] bottom-[16px] text-white text-[17px] font-medium">
+                  <div className="absolute left-[82px] bottom-[12px] text-white text-[14px] font-medium">
                     7,5%
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-4 text-[42px] leading-none text-white">
+          <div className="mt-3 text-[24px] leading-none text-white">
             Tempo medio diario: <span className="font-bold">4h32min</span>
           </div>
         </div>
