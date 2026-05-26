@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+// @ts-ignore - Next.js global CSS side-effect import
 import './globals.css'
 
 export const metadata: Metadata = {
