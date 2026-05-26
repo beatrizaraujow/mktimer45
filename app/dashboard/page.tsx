@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import Timer from '@/components/Timer'
-import EntryList from '@/components/EntryList'
 
 interface Profile {
   id: string
@@ -14,28 +12,26 @@ interface Profile {
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [passwordSuccess, setPasswordSuccess] = useState('')
-  const [savingPassword, setSavingPassword] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
       const { data } = await supabase
         .from('profiles')
         .select('id, name, role')
         .eq('id', user.id)
         .single()
+
       setProfile(data)
     }
+
     load()
   }, [])
 
@@ -44,150 +40,407 @@ export default function DashboardPage() {
     router.push('/login')
   }
 
-  async function handleChangePassword() {
-    setPasswordError('')
-    setPasswordSuccess('')
+  if (!profile) {
+    return (
+      <div className="loading-wrap">
+        <div className="loading-text">Carregando...</div>
+        <style jsx>{`
+          .loading-wrap {
+            min-height: 100vh;
+            background: #050608;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Preencha todos os campos de senha.')
-      return
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('A nova senha e a confirmação não conferem.')
-      return
-    }
-
-    setSavingPassword(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) {
-      setPasswordError('Não foi possível identificar o usuário autenticado.')
-      setSavingPassword(false)
-      return
-    }
-
-    const { error: checkError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    })
-
-    if (checkError) {
-      setPasswordError('Senha atual incorreta.')
-      setSavingPassword(false)
-      return
-    }
-
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
-    if (updateError) {
-      setPasswordError(updateError.message || 'Não foi possível alterar a senha.')
-      setSavingPassword(false)
-      return
-    }
-
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    setPasswordSuccess('Senha alterada com sucesso.')
-    setSavingPassword(false)
+          .loading-text {
+            color: #71717a;
+            font-size: 14px;
+            font-family: 'IBM Plex Mono', monospace;
+          }
+        `}</style>
+      </div>
+    )
   }
 
-  if (!profile) return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <div className="text-zinc-600 mono text-sm">Carregando...</div>
-    </div>
-  )
-
   return (
-    <main className="min-h-screen bg-zinc-950 pb-16">
-      {/* Header */}
-      <header className="border-b border-zinc-900 px-6 py-4 flex items-center justify-between max-w-2xl mx-auto">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 bg-[#E8FF47] rounded-sm flex items-center justify-center">
-            <span className="text-zinc-950 font-black text-xs">Q5</span>
+    <main className="dashboard-root">
+      <div className="dashboard-shell">
+        <aside className="sidebar">
+          <div className="brand-row">
+            <div className="logo-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="user-avatar">{profile.name.slice(0, 2).toUpperCase()}</div>
           </div>
-          <div>
-            <p className="text-white font-semibold text-sm leading-none">{profile.name}</p>
-            <p className="text-zinc-600 text-xs mono mt-0.5 capitalize">{profile.role}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {profile.role === 'admin' && (
-            <button
-              onClick={() => router.push('/admin')}
-              className="text-xs text-zinc-400 hover:text-[#E8FF47] mono transition-colors px-3 py-1.5 border border-zinc-800 rounded-lg"
-            >
-              Admin →
+
+          <nav className="menu">
+            <button type="button" className="menu-item menu-item-active">Time cheat</button>
+            <button type="button" className="menu-item">Painel Daily</button>
+            <button type="button" className="menu-item">Calendario</button>
+            <button type="button" className="menu-item">Time</button>
+          </nav>
+
+          <div className="sidebar-footer">
+            {profile.role === 'admin' && (
+              <button type="button" className="admin-link" onClick={() => router.push('/admin')}>
+                Ir para Admin
+              </button>
+            )}
+            <button type="button" className="logout-link" onClick={handleLogout}>
+              Sair
             </button>
-          )}
-          <button
-            onClick={handleLogout}
-            className="text-xs text-zinc-600 hover:text-zinc-300 mono transition-colors"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
+          </div>
+        </aside>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 pt-8 space-y-6">
-        <Timer
-          userId={profile.id}
-          onEntryCreated={() => setRefreshKey(k => k + 1)}
-        />
+        <section className="panel">
+          <div className="kpi-row">
+            <article className="kpi-card">
+              <p className="kpi-brand kpi-brand-green">ONEVO</p>
+              <p className="kpi-time">3h12m</p>
+              <p className="kpi-sub">8 tarefas</p>
+              <div className="progress-track"><span className="progress-fill progress-green" /></div>
+            </article>
 
-        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-200 mono uppercase tracking-wider">Alterar senha</h2>
-            <p className="text-zinc-500 text-xs mono mt-1">A senha nova será atualizada no Supabase Auth.</p>
+            <article className="kpi-card">
+              <p className="kpi-brand kpi-brand-yellow">SeuBone</p>
+              <p className="kpi-time">7h18m</p>
+              <p className="kpi-sub">45 tarefas</p>
+              <div className="progress-track"><span className="progress-fill progress-yellow" /></div>
+            </article>
+
+            <article className="kpi-card">
+              <p className="kpi-brand kpi-brand-muted">CARBONE EDUCACAO</p>
+              <p className="kpi-time">32h00m</p>
+              <p className="kpi-sub">64 tarefas</p>
+              <div className="progress-track"><span className="progress-fill progress-orange" /></div>
+            </article>
           </div>
 
-          <div className="grid gap-3">
-            <input
-              type="password"
-              placeholder="Senha atual"
-              value={currentPassword}
-              onChange={e => setCurrentPassword(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 mono"
-            />
-            <input
-              type="password"
-              placeholder="Nova senha"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 mono"
-            />
-            <input
-              type="password"
-              placeholder="Confirmar nova senha"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 mono"
-            />
+          <div className="chart-row">
+            <article className="chart-card">
+              <p className="chart-title">10 a 15 de Maio</p>
+              <svg viewBox="0 0 420 170" className="line-chart" aria-label="grafico semanal">
+                <polyline
+                  points="20,120 92,66 160,82 228,72 296,63 356,86 404,120"
+                  fill="none"
+                  stroke="#f3c501"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <g fill="#f3c501">
+                  <circle cx="20" cy="120" r="4" />
+                  <circle cx="92" cy="66" r="4" />
+                  <circle cx="160" cy="82" r="4" />
+                  <circle cx="228" cy="72" r="4" />
+                  <circle cx="296" cy="63" r="4" />
+                  <circle cx="356" cy="86" r="4" />
+                  <circle cx="404" cy="120" r="4" />
+                </g>
+              </svg>
+              <div className="week-days">
+                <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sab</span>
+              </div>
+              <p className="chart-foot">Tempo medio diario: <strong>4h32min</strong></p>
+            </article>
+
+            <article className="donut-card">
+              <p className="donut-title">Tempo total</p>
+              <div className="donut" aria-hidden="true">
+                <div className="donut-hole" />
+              </div>
+              <div className="donut-legend">
+                <span>75%</span>
+                <span>17.5%</span>
+                <span>7.5%</span>
+              </div>
+            </article>
           </div>
-
-          {passwordError && (
-            <p className="text-red-400 text-xs mono bg-red-950/40 border border-red-900/50 rounded-lg px-3 py-2">{passwordError}</p>
-          )}
-
-          {passwordSuccess && (
-            <p className="text-emerald-300 text-xs mono bg-emerald-950/40 border border-emerald-900/50 rounded-lg px-3 py-2">{passwordSuccess}</p>
-          )}
-
-          <button
-            onClick={handleChangePassword}
-            disabled={savingPassword}
-            className="w-full bg-zinc-800 text-zinc-100 font-bold py-3 rounded-lg text-sm hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {savingPassword ? 'Salvando...' : 'Atualizar senha'}
-          </button>
         </section>
-
-        <EntryList
-          userId={profile.id}
-          refreshKey={refreshKey}
-        />
       </div>
+
+      <style jsx>{`
+        .dashboard-root {
+          min-height: 100vh;
+          background: #050608;
+          padding: 8px;
+          overflow: hidden;
+        }
+
+        .dashboard-shell {
+          min-height: calc(100vh - 16px);
+          border: 1px solid #27272a;
+          background: #000;
+          display: grid;
+          grid-template-columns: 230px 1fr;
+          gap: 0;
+          overflow: hidden;
+        }
+
+        .sidebar {
+          border-right: 1px solid #1f2023;
+          padding: 24px 18px;
+          display: flex;
+          flex-direction: column;
+          background: #050608;
+        }
+
+        .brand-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .logo-dots {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+        }
+
+        .logo-dots span {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: #f3c501;
+        }
+
+        .user-avatar {
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          background: #111318;
+          border: 1px solid #2b2d32;
+          color: #f4f4f5;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+        }
+
+        .menu {
+          margin-top: 56px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .menu-item {
+          border: 0;
+          background: transparent;
+          color: #6f7178;
+          font-size: 31px;
+          font-family: 'Syne', sans-serif;
+          text-align: left;
+          line-height: 1;
+          cursor: pointer;
+          padding: 0;
+          transition: color .2s;
+        }
+
+        .menu-item:hover,
+        .menu-item-active {
+          color: #f4f4f5;
+        }
+
+        .sidebar-footer {
+          margin-top: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .admin-link,
+        .logout-link {
+          border: 0;
+          background: transparent;
+          color: #81838b;
+          text-align: left;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 13px;
+          cursor: pointer;
+          padding: 0;
+        }
+
+        .admin-link:hover,
+        .logout-link:hover {
+          color: #f3c501;
+        }
+
+        .panel {
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          background: #08090c;
+          border-radius: 18px;
+          margin: 18px;
+          border: 1px solid #17181c;
+        }
+
+        .kpi-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+
+        .kpi-card {
+          background: #020304;
+          border: 1px solid #17181c;
+          border-radius: 14px;
+          padding: 14px;
+          min-height: 155px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .kpi-brand { margin: 0; font-size: 12px; font-weight: 700; }
+        .kpi-brand-green { color: #5bf7c5; }
+        .kpi-brand-yellow { color: #f3c501; }
+        .kpi-brand-muted { color: #d4d4d8; font-size: 10px; }
+
+        .kpi-time {
+          margin: 12px 0 4px;
+          color: #f4f4f5;
+          font-size: 44px;
+          font-family: 'Syne', sans-serif;
+          line-height: 1;
+        }
+
+        .kpi-sub { margin: 0; color: #6f7178; font-size: 14px; }
+
+        .progress-track {
+          margin-top: 14px;
+          width: 100%;
+          height: 10px;
+          border-radius: 999px;
+          background: #101115;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          display: block;
+          height: 100%;
+          border-radius: 999px;
+        }
+
+        .progress-green { width: 20%; background: #43ddae; }
+        .progress-yellow { width: 58%; background: #53df9b; }
+        .progress-orange { width: 90%; background: #ff4b00; }
+
+        .chart-row {
+          display: grid;
+          grid-template-columns: 2.2fr 0.9fr;
+          gap: 12px;
+        }
+
+        .chart-card,
+        .donut-card {
+          background: #020304;
+          border: 1px solid #17181c;
+          border-radius: 14px;
+          padding: 18px;
+        }
+
+        .chart-title,
+        .donut-title {
+          margin: 0 0 12px;
+          color: #d4d4d8;
+          font-size: 26px;
+          font-family: 'Syne', sans-serif;
+          line-height: 1;
+        }
+
+        .line-chart {
+          width: 100%;
+          height: 190px;
+          display: block;
+        }
+
+        .week-days {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          color: #7a7c83;
+          font-size: 12px;
+          text-align: center;
+        }
+
+        .chart-foot {
+          margin: 16px 0 0;
+          color: #b7b9c0;
+          font-size: 22px;
+          font-family: 'Syne', sans-serif;
+        }
+
+        .chart-foot strong { color: #fff; font-weight: 700; }
+
+        .donut {
+          width: 180px;
+          height: 180px;
+          margin: 8px auto 0;
+          border-radius: 999px;
+          background: conic-gradient(#f3c501 0 75%, #f4f4f5 75% 92.5%, #173646 92.5% 100%);
+          position: relative;
+        }
+
+        .donut-hole {
+          position: absolute;
+          inset: 28%;
+          border-radius: 999px;
+          background: #020304;
+          border: 1px solid #17181c;
+        }
+
+        .donut-legend {
+          margin-top: 14px;
+          display: flex;
+          justify-content: space-between;
+          color: #b7b9c0;
+          font-size: 13px;
+        }
+
+        @media (max-width: 1200px) {
+          .kpi-time { font-size: 36px; }
+          .chart-foot { font-size: 18px; }
+        }
+
+        @media (max-width: 980px) {
+          .dashboard-root {
+            padding: 0;
+            overflow: auto;
+          }
+
+          .dashboard-shell {
+            min-height: 100vh;
+            grid-template-columns: 1fr;
+          }
+
+          .sidebar {
+            border-right: 0;
+            border-bottom: 1px solid #1f2023;
+            gap: 20px;
+          }
+
+          .menu {
+            margin-top: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .menu-item { font-size: 24px; }
+          .panel { margin: 0; border-radius: 0; }
+          .kpi-row,
+          .chart-row { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </main>
   )
 }
