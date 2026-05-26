@@ -47,16 +47,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050608] p-1 md:p-4">
-      <div className="mx-auto flex min-h-[calc(100vh-0.5rem)] max-w-[1500px] items-center justify-center border border-zinc-800 bg-black p-2 md:min-h-[calc(100vh-2rem)] md:p-4">
-        <section className="grid h-full w-full gap-5 md:grid-cols-[0.95fr_1fr]">
-          <aside className="relative hidden min-h-[680px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 md:block lg:min-h-[760px]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_56%,rgba(255,241,171,0.88)_0%,rgba(255,214,72,0.62)_24%,rgba(13,11,5,0.88)_56%,rgba(0,0,0,1)_74%)]" />
-            <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_2px,transparent_2px,transparent_32px)] opacity-30" />
+    <main className="login-root">
+      <div className="shell">
+        <section className="layout-grid">
+          <aside className="quote-panel">
+            <div className="quote-glow" />
+            <div className="quote-lines" />
 
-            <div className="relative flex h-full flex-col justify-between px-3 py-6">
-              <div className="max-w-[280px]">
-                <h1 className="font-['Syne'] text-[56px] font-semibold leading-[0.93] tracking-[-0.03em] text-zinc-100">
+            <div className="quote-content">
+              <div className="quote-text-wrap">
+                <h1 className="quote-title">
                   O prazer
                   <br />
                   no trabalho
@@ -65,54 +65,54 @@ export default function LoginPage() {
                   <br />
                   a obra.
                 </h1>
-                <p className="mt-6 font-['Syne'] text-7xl leading-none text-[#f3c501]">”</p>
+                <p className="quote-mark">”</p>
               </div>
 
-              <p className="font-['Syne'] text-[38px] leading-none text-zinc-100">- Aristóteles</p>
+              <p className="quote-author">- Aristóteles</p>
             </div>
           </aside>
 
-          <section className="flex min-h-[680px] flex-col justify-center rounded-2xl border border-zinc-900 bg-black px-6 py-8 md:px-16 lg:min-h-[760px]">
-            <div className="mb-8 inline-grid w-fit grid-cols-2 gap-1.5">
-              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
-              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
-              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
-              <span className="h-5 w-5 rounded-full bg-[#f3c501]" />
+          <section className="form-panel">
+            <div className="logo-dots">
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
             </div>
 
-            <h2 className="font-['Syne'] text-[58px] font-semibold leading-[0.9] tracking-[-0.03em] text-zinc-100 md:text-[64px]">
+            <h2 className="form-title">
               Pronto para
               <br />
               começar?
             </h2>
 
-            <div className="mt-12 space-y-5">
-              <div className="space-y-2">
-                <label className="text-[24px] leading-none text-zinc-300">ID do usuário</label>
+            <div className="form-block">
+              <div className="field-wrap">
+                <label className="field-label">ID do usuário</label>
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                  className="h-14 w-full rounded-lg border border-zinc-900 bg-zinc-950 px-4 text-base text-zinc-100 outline-none transition-colors focus:border-[#f3c501]"
+                  className="field-input"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[24px] leading-none text-zinc-300">Senha</label>
-                <div className="relative">
+              <div className="field-wrap">
+                <label className="field-label">Senha</label>
+                <div className="password-wrap">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleLogin()}
                     placeholder="••••••"
-                    className="h-14 w-full rounded-lg border border-zinc-900 bg-zinc-950 px-4 pr-12 text-base text-zinc-100 placeholder-zinc-600 outline-none transition-colors focus:border-[#f3c501]"
+                    className="field-input field-input-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-zinc-500 hover:text-zinc-200"
+                    className="password-toggle"
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -124,7 +124,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p className="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+                <p className="error-box">
                   {error}
                 </p>
               )}
@@ -132,18 +132,243 @@ export default function LoginPage() {
               <button
                 onClick={handleLogin}
                 disabled={loading || !name || !password}
-                className="mt-2 h-14 w-full rounded-lg bg-[#f3c501] text-lg font-medium text-black transition-colors hover:bg-[#ffd233] disabled:cursor-not-allowed disabled:opacity-50"
+                className="submit-btn"
               >
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
 
-              <button type="button" className="text-left text-sm text-zinc-500 transition-colors hover:text-zinc-300">
+              <button type="button" className="forgot-btn">
                 Esqueci minha senha
               </button>
             </div>
           </section>
         </section>
       </div>
+
+      <style jsx>{`
+        .login-root {
+          min-height: 100vh;
+          background: #050608;
+          padding: 8px;
+        }
+        .shell {
+          max-width: 1500px;
+          min-height: calc(100vh - 16px);
+          margin: 0 auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #27272a;
+          background: #000;
+          padding: 8px;
+        }
+        .layout-grid {
+          width: 100%;
+          display: grid;
+          gap: 20px;
+          grid-template-columns: 0.95fr 1fr;
+        }
+        .quote-panel {
+          position: relative;
+          min-height: 760px;
+          overflow: hidden;
+          border-radius: 16px;
+          border: 1px solid #27272a;
+          background: #09090b;
+          padding: 24px;
+        }
+        .quote-glow {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 78% 56%, rgba(255, 241, 171, 0.88) 0%, rgba(255, 214, 72, 0.62) 24%, rgba(13, 11, 5, 0.88) 56%, rgba(0, 0, 0, 1) 74%);
+        }
+        .quote-lines {
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0px, rgba(255, 255, 255, 0.08) 2px, transparent 2px, transparent 32px);
+          opacity: 0.3;
+        }
+        .quote-content {
+          position: relative;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 24px 12px;
+        }
+        .quote-text-wrap {
+          max-width: 280px;
+        }
+        .quote-title {
+          font-family: 'Syne', sans-serif;
+          font-size: 56px;
+          font-weight: 600;
+          line-height: 0.93;
+          letter-spacing: -0.03em;
+          color: #f4f4f5;
+          margin: 0;
+        }
+        .quote-mark {
+          margin: 24px 0 0;
+          font-family: 'Syne', sans-serif;
+          font-size: 72px;
+          line-height: 1;
+          color: #f3c501;
+        }
+        .quote-author {
+          margin: 0;
+          font-family: 'Syne', sans-serif;
+          font-size: 38px;
+          line-height: 1;
+          color: #f4f4f5;
+        }
+        .form-panel {
+          min-height: 760px;
+          border-radius: 16px;
+          border: 1px solid #18181b;
+          background: #000;
+          padding: 32px 64px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        .logo-dots {
+          margin-bottom: 32px;
+          width: fit-content;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px;
+        }
+        .dot {
+          width: 20px;
+          height: 20px;
+          border-radius: 9999px;
+          background: #f3c501;
+        }
+        .form-title {
+          margin: 0;
+          font-family: 'Syne', sans-serif;
+          font-size: 64px;
+          font-weight: 600;
+          line-height: 0.9;
+          letter-spacing: -0.03em;
+          color: #f4f4f5;
+        }
+        .form-block {
+          margin-top: 48px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .field-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .field-label {
+          font-size: 24px;
+          line-height: 1;
+          color: #d4d4d8;
+        }
+        .field-input {
+          height: 56px;
+          width: 100%;
+          border-radius: 8px;
+          border: 1px solid #18181b;
+          background: #09090b;
+          color: #f4f4f5;
+          padding: 0 16px;
+          font-size: 16px;
+          outline: none;
+          transition: border-color 0.2s;
+        }
+        .field-input::placeholder {
+          color: #52525b;
+        }
+        .field-input:focus {
+          border-color: #f3c501;
+        }
+        .password-wrap {
+          position: relative;
+        }
+        .field-input-password {
+          padding-right: 48px;
+        }
+        .password-toggle {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          border: 0;
+          background: transparent;
+          color: #71717a;
+          cursor: pointer;
+          padding: 4px;
+        }
+        .password-toggle:hover {
+          color: #e4e4e7;
+        }
+        .error-box {
+          margin: 0;
+          border-radius: 8px;
+          border: 1px solid rgba(127, 29, 29, 0.6);
+          background: rgba(69, 10, 10, 0.3);
+          padding: 8px 12px;
+          font-size: 14px;
+          color: #fca5a5;
+        }
+        .submit-btn {
+          margin-top: 8px;
+          height: 56px;
+          width: 100%;
+          border: 0;
+          border-radius: 8px;
+          background: #f3c501;
+          color: #000;
+          font-size: 18px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s, opacity 0.2s;
+        }
+        .submit-btn:hover {
+          background: #ffd233;
+        }
+        .submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .forgot-btn {
+          border: 0;
+          background: transparent;
+          color: #71717a;
+          text-align: left;
+          font-size: 14px;
+          cursor: pointer;
+          padding: 0;
+        }
+        .forgot-btn:hover {
+          color: #d4d4d8;
+        }
+
+        @media (max-width: 1023px) {
+          .layout-grid {
+            grid-template-columns: 1fr;
+          }
+          .quote-panel {
+            display: none;
+          }
+          .form-panel {
+            min-height: calc(100vh - 32px);
+            padding: 24px;
+          }
+          .form-title {
+            font-size: 48px;
+          }
+          .field-label {
+            font-size: 18px;
+          }
+        }
+      `}</style>
     </main>
   )
 }
