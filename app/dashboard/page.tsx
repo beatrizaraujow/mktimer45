@@ -1,13 +1,104 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { CalendarDays, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import {
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+} from 'recharts'
+
 import { createClient } from '@/lib/supabase-client'
 
 interface Profile {
   id: string
   name: string
   role: string
+}
+
+const lineData = [
+  { name: 'Dom', value: 18 },
+  { name: 'Seg', value: 62 },
+  { name: 'Ter', value: 50 },
+  { name: 'Qua', value: 57 },
+  { name: 'Qui', value: 64 },
+  { name: 'Sex', value: 48 },
+  { name: 'Sab', value: 18 },
+]
+
+const pieData = [
+  { name: 'Amarelo', value: 17.5, color: '#F6BE00' },
+  { name: 'Azul', value: 7.5, color: '#0D2E3E' },
+  { name: 'Branco', value: 75, color: '#F2F2F2' },
+]
+
+const cards = [
+  {
+    brand: 'ONEVO',
+    brandColor: 'text-emerald-400',
+    time: '3h12m',
+    tasks: '8 tarefas',
+    progress: 18,
+    progressColor: 'bg-emerald-400',
+  },
+  {
+    brand: 'SeuBone',
+    brandColor: 'text-yellow-400',
+    time: '7h18m',
+    tasks: '45 tarefas',
+    progress: 58,
+    progressColor: 'bg-emerald-400',
+  },
+  {
+    brand: 'CARBONE EDUCACAO',
+    brandColor: 'text-zinc-100',
+    time: '32h00m',
+    tasks: '64 tarefas',
+    progress: 90,
+    progressColor: 'bg-orange-500',
+  },
+]
+
+function StatCard({
+  brand,
+  brandColor,
+  time,
+  tasks,
+  progress,
+  progressColor,
+}: {
+  brand: string
+  brandColor: string
+  time: string
+  tasks: string
+  progress: number
+  progressColor: string
+}) {
+  return (
+    <div className="bg-black rounded-[28px] p-8 min-h-[280px] flex flex-col justify-between shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
+      <div className={`text-center text-[20px] font-semibold ${brandColor}`}>
+        {brand}
+      </div>
+
+      <div className="text-center">
+        <div className="text-white text-[68px] leading-none font-light tracking-[-0.04em]">
+          {time}
+        </div>
+        <div className="text-zinc-400 text-[24px] mt-6">{tasks}</div>
+      </div>
+
+      <div className="w-full h-[22px] bg-zinc-900 rounded-full overflow-hidden">
+        <div
+          className={`${progressColor} h-full rounded-full`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -17,7 +108,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       if (!user) {
         router.push('/login')
         return
@@ -34,7 +128,6 @@ export default function DashboardPage() {
         return
       }
 
-      // Fallback para nao travar em "Carregando..." quando profile ainda nao existe.
       setProfile({
         id: user.id,
         name: (user.user_metadata?.name as string) || (user.email?.split('@')[0] ?? 'Usuario'),
@@ -52,405 +145,118 @@ export default function DashboardPage() {
 
   if (!profile) {
     return (
-      <div className="loading-wrap">
-        <div className="loading-text">Carregando...</div>
-        <style jsx>{`
-          .loading-wrap {
-            min-height: 100vh;
-            background: #050608;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .loading-text {
-            color: #71717a;
-            font-size: 14px;
-            font-family: 'IBM Plex Mono', monospace;
-          }
-        `}</style>
+      <div className="min-h-screen bg-black text-zinc-500 flex items-center justify-center mono text-sm">
+        Carregando...
       </div>
     )
   }
 
   return (
-    <main className="dashboard-root">
-      <div className="dashboard-shell">
-        <aside className="sidebar">
-          <div className="brand-row">
-            <div className="logo-dots" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="user-avatar">{profile.name.slice(0, 2).toUpperCase()}</div>
+    <div className="min-h-screen bg-black text-white flex">
+      <aside className="w-[280px] px-10 py-12 flex flex-col justify-between border-r border-zinc-900">
+        <div>
+          <div className="w-[96px] h-[96px] rounded-full bg-white text-black flex items-center justify-center text-[68px] font-serif font-bold">
+            {profile.name.slice(0, 1).toUpperCase()}
           </div>
 
-          <nav className="menu">
-            <button type="button" className="menu-item menu-item-active">Time cheat</button>
-            <button type="button" className="menu-item">Painel Daily</button>
-            <button type="button" className="menu-item">Calendario</button>
-            <button type="button" className="menu-item">Time</button>
+          <nav className="mt-24 space-y-10">
+            <div className="text-white text-[38px] font-medium">Time cheat</div>
+            <div className="text-zinc-500 text-[36px] font-normal">Painel Daily</div>
+            <div className="text-zinc-500 text-[36px] font-normal">Calendario</div>
+            <div className="text-zinc-500 text-[36px] font-normal">Time</div>
           </nav>
+        </div>
 
-          <div className="sidebar-footer">
-            {profile.role === 'admin' && (
-              <button type="button" className="admin-link" onClick={() => router.push('/admin')}>
-                Ir para Admin
-              </button>
-            )}
-            <button type="button" className="logout-link" onClick={handleLogout}>
-              Sair
-            </button>
-          </div>
-        </aside>
+        <button
+          type="button"
+          className="text-white/90 hover:text-white transition"
+          onClick={handleLogout}
+          aria-label="Sair"
+        >
+          <LogOut size={42} strokeWidth={2} />
+        </button>
+      </aside>
 
-        <section className="panel">
-          <div className="kpi-row">
-            <article className="kpi-card">
-              <p className="kpi-brand kpi-brand-green">ONEVO</p>
-              <p className="kpi-time">3h12m</p>
-              <p className="kpi-sub">8 tarefas</p>
-              <div className="progress-track"><span className="progress-fill progress-green" /></div>
-            </article>
-
-            <article className="kpi-card">
-              <p className="kpi-brand kpi-brand-yellow">SeuBone</p>
-              <p className="kpi-time">7h18m</p>
-              <p className="kpi-sub">45 tarefas</p>
-              <div className="progress-track"><span className="progress-fill progress-yellow" /></div>
-            </article>
-
-            <article className="kpi-card">
-              <p className="kpi-brand kpi-brand-muted">CARBONE EDUCACAO</p>
-              <p className="kpi-time">32h00m</p>
-              <p className="kpi-sub">64 tarefas</p>
-              <div className="progress-track"><span className="progress-fill progress-orange" /></div>
-            </article>
+      <main className="flex-1 p-10">
+        <div className="bg-[#151515] rounded-[36px] p-10 min-h-[calc(100vh-80px)]">
+          <div className="grid grid-cols-3 gap-4">
+            {cards.map((card) => (
+              <StatCard key={card.brand} {...card} />
+            ))}
           </div>
 
-          <div className="chart-row">
-            <article className="chart-card">
-              <p className="chart-title">10 a 15 de Maio</p>
-              <svg viewBox="0 0 420 170" className="line-chart" aria-label="grafico semanal">
-                <polyline
-                  points="20,120 92,66 160,82 228,72 296,63 356,86 404,120"
-                  fill="none"
-                  stroke="#f3c501"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <g fill="#f3c501">
-                  <circle cx="20" cy="120" r="4" />
-                  <circle cx="92" cy="66" r="4" />
-                  <circle cx="160" cy="82" r="4" />
-                  <circle cx="228" cy="72" r="4" />
-                  <circle cx="296" cy="63" r="4" />
-                  <circle cx="356" cy="86" r="4" />
-                  <circle cx="404" cy="120" r="4" />
-                </g>
-              </svg>
-              <div className="week-days">
-                <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sab</span>
+          <div className="grid grid-cols-[1fr_380px] gap-5 mt-5">
+            <div className="bg-black rounded-[30px] p-8 h-[520px] flex flex-col">
+              <div className="flex items-center gap-4 text-yellow-400">
+                <CalendarDays size={34} />
+                <span className="text-white text-[26px]">10 a 15 de Maio</span>
               </div>
-              <p className="chart-foot">Tempo medio diario: <strong>4h32min</strong></p>
-            </article>
 
-            <article className="donut-card">
-              <p className="donut-title">Tempo total</p>
-              <div className="donut" aria-hidden="true">
-                <div className="donut-hole" />
+              <div className="flex-1 mt-10">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={lineData} margin={{ top: 20, right: 10, left: 10, bottom: 35 }}>
+                    <Line
+                      type="linear"
+                      dataKey="value"
+                      stroke="#F6C400"
+                      strokeWidth={4}
+                      dot={{ r: 7, fill: '#F6C400', stroke: '#F6C400' }}
+                      activeDot={{ r: 8 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <div className="donut-legend">
-                <span>75%</span>
-                <span>17.5%</span>
-                <span>7.5%</span>
+
+              <div className="grid grid-cols-7 text-center text-white text-[18px] mt-[-18px] px-8">
+                {lineData.map((item) => (
+                  <span key={item.name}>{item.name}</span>
+                ))}
               </div>
-            </article>
+            </div>
+
+            <div className="bg-black rounded-[30px] p-8 h-[520px] flex flex-col">
+              <h3 className="text-white text-[24px] mb-8">Tempo total</h3>
+
+              <div className="flex-1 flex items-center justify-center relative">
+                <div className="w-[270px] h-[270px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={58}
+                        outerRadius={110}
+                        startAngle={90}
+                        endAngle={-270}
+                        stroke="none"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  <div className="absolute left-[16px] top-[88px] text-black text-[18px] font-medium">
+                    17,5%
+                  </div>
+                  <div className="absolute right-[14px] top-[84px] text-black text-[18px] font-medium">
+                    75%
+                  </div>
+                  <div className="absolute left-[112px] bottom-[18px] text-white text-[18px] font-medium">
+                    7,5%
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </section>
-      </div>
 
-      <style jsx>{`
-        .dashboard-root {
-          min-height: 100vh;
-          background: #050608;
-          padding: 8px;
-          overflow: hidden;
-        }
-
-        .dashboard-shell {
-          min-height: calc(100vh - 16px);
-          border: 1px solid #27272a;
-          background: #000;
-          display: grid;
-          grid-template-columns: 230px 1fr;
-          gap: 0;
-          overflow: hidden;
-        }
-
-        .sidebar {
-          border-right: 1px solid #1f2023;
-          padding: 24px 18px;
-          display: flex;
-          flex-direction: column;
-          background: #050608;
-        }
-
-        .brand-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .logo-dots {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
-        }
-
-        .logo-dots span {
-          width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          background: #f3c501;
-        }
-
-        .user-avatar {
-          width: 34px;
-          height: 34px;
-          border-radius: 999px;
-          background: #111318;
-          border: 1px solid #2b2d32;
-          color: #f4f4f5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-        }
-
-        .menu {
-          margin-top: 56px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .menu-item {
-          border: 0;
-          background: transparent;
-          color: #6f7178;
-          font-size: 31px;
-          font-family: 'Syne', sans-serif;
-          text-align: left;
-          line-height: 1;
-          cursor: pointer;
-          padding: 0;
-          transition: color .2s;
-        }
-
-        .menu-item:hover,
-        .menu-item-active {
-          color: #f4f4f5;
-        }
-
-        .sidebar-footer {
-          margin-top: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .admin-link,
-        .logout-link {
-          border: 0;
-          background: transparent;
-          color: #81838b;
-          text-align: left;
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 13px;
-          cursor: pointer;
-          padding: 0;
-        }
-
-        .admin-link:hover,
-        .logout-link:hover {
-          color: #f3c501;
-        }
-
-        .panel {
-          padding: 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          background: #08090c;
-          border-radius: 18px;
-          margin: 18px;
-          border: 1px solid #17181c;
-        }
-
-        .kpi-row {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-        }
-
-        .kpi-card {
-          background: #020304;
-          border: 1px solid #17181c;
-          border-radius: 14px;
-          padding: 14px;
-          min-height: 155px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .kpi-brand { margin: 0; font-size: 12px; font-weight: 700; }
-        .kpi-brand-green { color: #5bf7c5; }
-        .kpi-brand-yellow { color: #f3c501; }
-        .kpi-brand-muted { color: #d4d4d8; font-size: 10px; }
-
-        .kpi-time {
-          margin: 12px 0 4px;
-          color: #f4f4f5;
-          font-size: 44px;
-          font-family: 'Syne', sans-serif;
-          line-height: 1;
-        }
-
-        .kpi-sub { margin: 0; color: #6f7178; font-size: 14px; }
-
-        .progress-track {
-          margin-top: 14px;
-          width: 100%;
-          height: 10px;
-          border-radius: 999px;
-          background: #101115;
-          overflow: hidden;
-        }
-
-        .progress-fill {
-          display: block;
-          height: 100%;
-          border-radius: 999px;
-        }
-
-        .progress-green { width: 20%; background: #43ddae; }
-        .progress-yellow { width: 58%; background: #53df9b; }
-        .progress-orange { width: 90%; background: #ff4b00; }
-
-        .chart-row {
-          display: grid;
-          grid-template-columns: 2.2fr 0.9fr;
-          gap: 12px;
-        }
-
-        .chart-card,
-        .donut-card {
-          background: #020304;
-          border: 1px solid #17181c;
-          border-radius: 14px;
-          padding: 18px;
-        }
-
-        .chart-title,
-        .donut-title {
-          margin: 0 0 12px;
-          color: #d4d4d8;
-          font-size: 26px;
-          font-family: 'Syne', sans-serif;
-          line-height: 1;
-        }
-
-        .line-chart {
-          width: 100%;
-          height: 190px;
-          display: block;
-        }
-
-        .week-days {
-          display: grid;
-          grid-template-columns: repeat(7, 1fr);
-          color: #7a7c83;
-          font-size: 12px;
-          text-align: center;
-        }
-
-        .chart-foot {
-          margin: 16px 0 0;
-          color: #b7b9c0;
-          font-size: 22px;
-          font-family: 'Syne', sans-serif;
-        }
-
-        .chart-foot strong { color: #fff; font-weight: 700; }
-
-        .donut {
-          width: 180px;
-          height: 180px;
-          margin: 8px auto 0;
-          border-radius: 999px;
-          background: conic-gradient(#f3c501 0 75%, #f4f4f5 75% 92.5%, #173646 92.5% 100%);
-          position: relative;
-        }
-
-        .donut-hole {
-          position: absolute;
-          inset: 28%;
-          border-radius: 999px;
-          background: #020304;
-          border: 1px solid #17181c;
-        }
-
-        .donut-legend {
-          margin-top: 14px;
-          display: flex;
-          justify-content: space-between;
-          color: #b7b9c0;
-          font-size: 13px;
-        }
-
-        @media (max-width: 1200px) {
-          .kpi-time { font-size: 36px; }
-          .chart-foot { font-size: 18px; }
-        }
-
-        @media (max-width: 980px) {
-          .dashboard-root {
-            padding: 0;
-            overflow: auto;
-          }
-
-          .dashboard-shell {
-            min-height: 100vh;
-            grid-template-columns: 1fr;
-          }
-
-          .sidebar {
-            border-right: 0;
-            border-bottom: 1px solid #1f2023;
-            gap: 20px;
-          }
-
-          .menu {
-            margin-top: 0;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-          }
-
-          .menu-item { font-size: 24px; }
-          .panel { margin: 0; border-radius: 0; }
-          .kpi-row,
-          .chart-row { grid-template-columns: 1fr; }
-        }
-      `}</style>
-    </main>
+          <div className="mt-12 text-[24px] text-white">
+            Tempo medio diario: <span className="font-bold">4h32min</span>
+          </div>
+        </div>
+      </main>
+    </div>
   )
 }
