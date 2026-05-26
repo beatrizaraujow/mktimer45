@@ -152,8 +152,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-      <div className="w-[70vw] h-[70vh] min-w-[320px] min-h-[520px] bg-black rounded-[30px] overflow-hidden flex">
+    <div className="min-h-screen bg-black text-white flex">
       <aside className="w-[280px] px-10 py-12 flex flex-col justify-between border-r border-zinc-900">
         <div>
           <div className="w-[96px] h-[96px] rounded-full bg-white text-black flex items-center justify-center text-[68px] font-serif font-bold">
@@ -178,8 +177,8 @@ export default function DashboardPage() {
         </button>
       </aside>
 
-      <main className="flex-1 p-10 overflow-auto">
-        <div className="bg-[#151515] rounded-[36px] p-10 min-h-full">
+      <main className="flex-1 p-10">
+        <div className="bg-[#151515] rounded-[36px] p-10 min-h-[calc(100vh-80px)]">
           <div className="grid grid-cols-3 gap-4">
             {cards.map((card) => (
               <StatCard key={card.brand} {...card} />
@@ -258,7 +257,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      </div>
     </div>
   )
 }
