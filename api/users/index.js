@@ -6,8 +6,14 @@ module.exports = async function handler(req, res) {
   const auth = requireAuth(req, res);
   if (!auth) return;
 
+  // Verifica role no banco (JWT pode estar desatualizado)
+  const roleRes = await db.query(
+    'SELECT role FROM users WHERE id = $1 AND active = TRUE', [auth.sub]
+  );
+  const isAdmin = roleRes.rows[0]?.role === 'admin';
+
   if (req.method === 'GET') {
-    if (!requireAdmin(auth, res)) return;
+    if (!isAdmin) return json(res, 403, { error: 'Forbidden.' });
     const result = await db.query(
       `SELECT id, name, role, COALESCE(cargo,'') AS cargo, COALESCE(daily_points_goal,26) AS daily_points_goal, active
        FROM users WHERE active = TRUE ORDER BY name`
@@ -16,7 +22,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    if (!requireAdmin(auth, res)) return;
+    if (!isAdmin) return json(res, 403, { error: 'Forbidden.' });
     const body = req.body || {};
     const { id, cargo, dailyPointsGoal } = body;
     if (!id) return json(res, 400, { error: 'User id required.' });

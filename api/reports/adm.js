@@ -14,7 +14,16 @@ module.exports = async function handler(req, res) {
     if (!auth) return;
 
     if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
-    if (!requireAdmin(auth, res)) return;
+
+    // Verifica role no banco (JWT pode estar desatualizado após promoção)
+    const roleRes = await db.query(
+      'SELECT role FROM users WHERE id = $1 AND active = TRUE',
+      [auth.sub]
+    );
+    const dbRole = roleRes.rows[0]?.role;
+    if (dbRole !== 'admin') {
+      return json(res, 403, { error: 'Acesso restrito a administradores.' });
+    }
 
     const { from: fromRaw, to: toRaw, fromMonth, toMonth, userId } = req.query;
 
