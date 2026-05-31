@@ -1617,8 +1617,16 @@ async function init() {
   initAdmFilters();
   initTeamDaily();
 
+  // Revelar o app e remover loading overlay
+  const appShell = document.querySelector('.app-shell');
+  if (appShell) appShell.style.visibility = '';
+  const loading = document.getElementById('app-loading');
+  if (loading) {
+    loading.style.opacity = '0';
+    setTimeout(() => loading.remove(), 300);
+  }
+
   await refreshAll();
-  // auto-refresh removido (Time Cheat panel removido)
 }
 
 // ═══════════════════════════════════════════════════════════════════════

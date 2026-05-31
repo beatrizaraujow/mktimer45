@@ -10,7 +10,15 @@
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <!-- Loading overlay — hidden by JS after init() completes -->
+    <div id="app-loading">
+      <div class="app-loading-inner">
+        <span class="app-loading-logo">⏱ MKTimer</span>
+        <div class="app-loading-bar"><div class="app-loading-fill"></div></div>
+      </div>
+    </div>
+
+    <div class="app-shell" style="visibility:hidden">
 
       <!-- ── Top Navigation ──────────────────────────────────────────── -->
       <nav class="top-nav" id="mainNav">
@@ -73,7 +81,7 @@
         </section>
 
         <!-- ── Time Cheat ────────────────────────────────────────────── -->
-        <div data-lockable="true" data-panel-view="time-cheat">
+        <div data-lockable="true" data-panel-view="time-cheat" hidden>
 
           <!-- Company Cards + Chart + Gauge -->
           <section class="hero-panel module">
