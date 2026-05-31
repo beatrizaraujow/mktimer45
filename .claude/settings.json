@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git commit -m ' *)",
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\annyb\\\\OneDrive\\\\Documentos\\\\mktimer\" -Recurse -File)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\annyb\\\\OneDrive\\\\Documentos\\\\mktimer\" -Recurse -File)",
+      "Bash(git commit -m 'chore: promover bia e maria clara para role admin *)"
     ]
   }
 }
