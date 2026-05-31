@@ -1601,8 +1601,8 @@ async function init() {
   // Show admin-only UI
   if (userProfile && userProfile.role === 'admin') {
     _isAdminUser = true;
-    const admBtn = document.getElementById('admNavBtn');
-    if (admBtn) admBtn.style.display = '';
+    const admNavTab = document.getElementById('admNavTab');
+    if (admNavTab) admNavTab.style.display = '';
     const syncBtn = document.getElementById('clickupSyncBtn');
     if (syncBtn) syncBtn.style.display = '';
   }
@@ -2679,7 +2679,48 @@ function initHistoricoFilters() {
 // VERSÃO ADM PANEL
 // ═══════════════════════════════════════════════════════════════════════
 
+let admActiveMetric  = 'all';
+let admActiveMonths  = null; // null = all
+
+const ADM_MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function populateAdmMonthSelects() {
+  const fromSel = document.getElementById('admFromMonth');
+  const toSel   = document.getElementById('admToMonth');
+  if (!fromSel || !toSel || fromSel.options.length) return;
+
+  const now = new Date();
+  for (let i = 17; i >= 0; i--) {
+    const d  = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const lb = `${ADM_MONTHS_PT[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
+    [fromSel, toSel].forEach(sel => {
+      const o = document.createElement('option');
+      o.value = ym; o.textContent = lb;
+      sel.appendChild(o);
+    });
+  }
+
+  const curYM  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const d6     = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  const sixYM  = `${d6.getFullYear()}-${String(d6.getMonth() + 1).padStart(2, '0')}`;
+  fromSel.value = sixYM;
+  toSel.value   = curYM;
+}
+
+function updateAdmMonthCount() {
+  const fromSel = document.getElementById('admFromMonth');
+  const toSel   = document.getElementById('admToMonth');
+  const el      = document.getElementById('admMonthCount');
+  if (!fromSel || !toSel || !el) return;
+  const [fy, fm] = fromSel.value.split('-').map(Number);
+  const [ty, tm] = toSel.value.split('-').map(Number);
+  const n = Math.max(1, (ty - fy) * 12 + (tm - fm) + 1);
+  el.textContent = `${n} mês${n > 1 ? 'es' : ''}`;
+}
+
 async function loadAdmPanel() {
+  populateAdmMonthSelects();
   await Promise.all([loadAdmUsersIfNeeded(), loadAdmData()]);
 }
 
@@ -2690,8 +2731,7 @@ async function loadAdmUsersIfNeeded() {
     const data = await api('/api/users');
     (data.users || []).forEach((u) => {
       const opt = document.createElement('option');
-      opt.value = u.id;
-      opt.textContent = u.name;
+      opt.value = u.id; opt.textContent = u.name;
       select.appendChild(opt);
     });
   } catch (err) {
@@ -2700,163 +2740,170 @@ async function loadAdmUsersIfNeeded() {
 }
 
 async function loadAdmData() {
-  const { from, to } = getDateRange(admFilter, admCustomFrom, admCustomTo);
-  updateAdmPeriodBadge(from, to);
+  const fromSel  = document.getElementById('admFromMonth');
+  const toSel    = document.getElementById('admToMonth');
+  const fromMonth = fromSel?.value;
+  const toMonth   = toSel?.value;
+  if (!fromMonth || !toMonth) return;
+
+  updateAdmMonthCount();
+
+  const personName = document.getElementById('admUserSelect')?.selectedOptions[0]?.text || 'Toda a equipe';
+  const subtitle   = document.getElementById('admChartSubtitle');
+  if (subtitle) subtitle.textContent = `${personName} · Tasks, Horas e Pontos por mês`;
+
   const qs = admSelectedUser ? `&userId=${admSelectedUser}` : '';
 
   try {
-    const data = await api(`/api/reports/adm?from=${from}&to=${to}${qs}`);
+    const data = await api(`/api/reports/adm?fromMonth=${fromMonth}&toMonth=${toMonth}${qs}`);
     renderAdmStats(data.stats || {});
-    admMonthlyData = data.monthlyBreakdown || [];
-    renderAdmMonthFilter(admMonthlyData);
-    renderAdmChart(admMonthlyData, null);
+    admMonthlyData  = data.months || [];
+    admActiveMonths = null;
+    renderAdmMonthChips(admMonthlyData);
+    renderAdmChart(admMonthlyData, null, admActiveMetric);
   } catch (err) {
     console.error('[adm] erro ao carregar dados:', err.message);
   }
 }
 
-function updateAdmPeriodBadge(from, to) {
-  const el = document.getElementById('admPeriodBadge');
-  if (el) el.textContent = `${formatDateBR(from)} – ${formatDateBR(to)}`;
-}
-
 function renderAdmStats(stats) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('admStatTasks',  stats.totalTasks  ?? '—');
-  set('admStatDone',   stats.totalDone   ?? '—');
   set('admStatHours',  stats.totalHours  != null ? `${Number(stats.totalHours).toFixed(1)}h` : '—');
   set('admStatPoints', stats.totalPoints ?? '—');
 }
 
-function renderAdmMonthFilter(monthlyData) {
+function renderAdmMonthChips(months) {
   const container = document.getElementById('admMonthFilter');
   if (!container) return;
-  container.innerHTML = '';
-  if (!monthlyData.length) return;
+  container.innerHTML = months.map(m =>
+    `<span class="adm-chip active" data-ym="${m.ym}">${m.label}</span>`
+  ).join('');
 
-  const allBtn = document.createElement('button');
-  allBtn.type = 'button';
-  allBtn.className = 'adm-month-btn active';
-  allBtn.textContent = 'Todos';
-  allBtn.addEventListener('click', () => {
-    container.querySelectorAll('.adm-month-btn').forEach((b) => b.classList.remove('active'));
-    allBtn.classList.add('active');
-    renderAdmChart(admMonthlyData, null);
-  });
-  container.appendChild(allBtn);
-
-  monthlyData.forEach((row) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'adm-month-btn';
-    btn.textContent = monthShortBR(row.month);
-    btn.dataset.month = row.month;
-    btn.addEventListener('click', () => {
-      // multi-select months
-      btn.classList.toggle('active');
-      allBtn.classList.remove('active');
-      const active = Array.from(container.querySelectorAll('.adm-month-btn[data-month].active'))
-        .map((b) => b.dataset.month);
-      if (!active.length) allBtn.classList.add('active');
-      renderAdmChart(admMonthlyData, active.length ? active : null);
-    });
-    container.appendChild(btn);
+  container.querySelectorAll('.adm-chip').forEach(chip => {
+    chip.onclick = () => {
+      chip.classList.toggle('active');
+      const active = Array.from(container.querySelectorAll('.adm-chip.active')).map(c => c.dataset.ym);
+      admActiveMonths = active.length && active.length < months.length ? active : null;
+      renderAdmChart(admMonthlyData, admActiveMonths, admActiveMetric);
+    };
   });
 }
 
-function renderAdmChart(monthlyData, selectedMonths) {
+function renderAdmChart(months, selectedYMs, metric = 'all') {
   const ctx = document.getElementById('admBarChart');
   if (!ctx) return;
   if (admBarChart) { admBarChart.destroy(); admBarChart = null; }
 
-  const filtered = selectedMonths
-    ? monthlyData.filter((m) => selectedMonths.includes(m.month))
-    : monthlyData;
+  const data = selectedYMs
+    ? months.filter(m => selectedYMs.includes(m.ym))
+    : months;
+  if (!data.length) return;
 
-  if (!filtered.length) return;
+  const labels = data.map(m => m.label);
+  const pts    = data.map(m => m.pts);
+  const tasks  = data.map(m => m.tasksDone);
+  const horas  = data.map(m => m.horas);
 
-  const labels     = filtered.map((m) => monthShortBR(m.month));
-  const taskData   = filtered.map((m) => m.task_count);
-  const pointsData = filtered.map((m) => m.total_points);
-  const hoursData  = filtered.map((m) => Math.round(m.total_hours * 10) / 10);
+  const DL_BASE = { anchor: 'end', align: 'top', font: { size: 10, weight: '700', family: 'Inter' } };
 
-  const dl = typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [];
+  let datasets, scales;
+
+  if (metric === 'pts') {
+    datasets = [
+      { label: 'Pontos', data: pts, type: 'bar', backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1, borderRadius: 5, yAxisID: 'y',
+        datalabels: { ...DL_BASE, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
+      { label: 'Pontos (linha)', data: pts, type: 'line', borderColor: '#3dba6f', backgroundColor: 'transparent',
+        pointBackgroundColor: '#3dba6f', pointRadius: 5, tension: 0.35, yAxisID: 'y2',
+        datalabels: { display: false } },
+    ];
+    scales = {
+      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
+      y:  { display: false, min: 0 },
+      y2: { display: false, min: 0 },
+    };
+  } else if (metric === 'tasks') {
+    datasets = [
+      { label: 'Tasks', data: tasks, type: 'bar', backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1, borderRadius: 5,
+        datalabels: { ...DL_BASE, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
+    ];
+    scales = {
+      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
+      y: { display: false, min: 0 },
+    };
+  } else if (metric === 'horas') {
+    datasets = [
+      { label: 'Horas', data: horas, type: 'bar', backgroundColor: '#e8b84422', borderColor: '#e8b844', borderWidth: 2, borderRadius: 5,
+        datalabels: { ...DL_BASE, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
+    ];
+    scales = {
+      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
+      y: { display: false, min: 0 },
+    };
+  } else {
+    // Todos — barras escuras (Pontos) + barras douradas finas (Horas) + linha verde (Tasks)
+    datasets = [
+      { label: 'Pontos', data: pts, type: 'bar', backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1,
+        borderRadius: 5, yAxisID: 'y1', order: 2,
+        datalabels: { ...DL_BASE, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
+      { label: 'Horas',  data: horas, type: 'bar', backgroundColor: '#e8b84426', borderColor: '#e8b844', borderWidth: 1.5,
+        borderRadius: 5, yAxisID: 'y1', order: 3,
+        datalabels: { ...DL_BASE, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
+      { label: 'Tasks', data: tasks, type: 'line', borderColor: '#3dba6f', backgroundColor: 'transparent',
+        pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7, tension: 0.35,
+        yAxisID: 'y2', order: 1,
+        datalabels: { display: true, anchor: 'top', align: 'top', color: '#3dba6f',
+          font: { size: 10, weight: '700', family: 'Inter' }, formatter: v => v > 0 ? v : '' } },
+    ];
+    scales = {
+      x:  { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
+      y1: { display: false, min: 0, position: 'left' },
+      y2: { display: false, min: 0, position: 'right' },
+    };
+  }
 
   admBarChart = new Chart(ctx, {
     type: 'bar',
-    plugins: dl,
-    data: {
-      labels,
-      datasets: [
-        { label: 'Tasks',  data: taskData,   backgroundColor: 'rgba(42, 213, 138, 0.85)', borderRadius: 6 },
-        { label: 'Pontos', data: pointsData, backgroundColor: 'rgba(246, 194, 0, 0.85)',  borderRadius: 6 },
-        { label: 'Horas',  data: hoursData,  backgroundColor: 'rgba(79, 142, 247, 0.8)',  borderRadius: 6 },
-      ],
-    },
+    plugins: [ChartDataLabels],
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 26 } },
+      layout: { padding: { top: 30 } },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: {
-          display: true,
-          labels: { color: '#8e98a7', font: { size: 11, family: 'Inter' }, boxWidth: 10, boxHeight: 10 },
-        },
-        datalabels: {
-          anchor: 'end',
-          align: 'top',
-          color: '#ffffff',
-          font: { size: 10, weight: '700', family: 'Inter' },
-          formatter: (val) => (val > 0 ? val : ''),
-        },
+        legend: { labels: { color: '#8e98a7', font: { size: 11, family: 'Inter' }, boxWidth: 10, boxHeight: 10 } },
+        tooltip: { backgroundColor: '#1c1e32', titleColor: '#c8d0e7', bodyColor: '#8892b4', borderColor: '#252840', borderWidth: 1 },
+        datalabels: { display: true },
       },
-      scales: {
-        x: { ticks: { color: '#8e98a7', font: { size: 11 } }, grid: { display: false }, border: { display: false } },
-        y: { display: false, min: 0 },
-      },
+      scales,
     },
   });
 }
 
 function initAdmFilters() {
-  document.querySelectorAll('[data-adm-filter]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const f = btn.dataset.admFilter;
-      if (f === 'custom') {
-        const fromEl = document.getElementById('admCustomFromInput');
-        const toEl   = document.getElementById('admCustomToInput');
-        if (fromEl) fromEl.value = admCustomFrom || '';
-        if (toEl)   toEl.value   = admCustomTo   || '';
-        document.getElementById('admCustomDialog').showModal();
-        return;
-      }
-      admFilter = f;
-      document.querySelectorAll('[data-adm-filter]').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      await loadAdmData();
-    });
-  });
-
   document.getElementById('admUserSelect')?.addEventListener('change', async (e) => {
     admSelectedUser = e.target.value;
     await loadAdmData();
   });
 
-  document.getElementById('admCustomCancel')?.addEventListener('click', () =>
-    document.getElementById('admCustomDialog').close()
-  );
-
-  document.getElementById('admCustomApply')?.addEventListener('click', async () => {
-    const from = document.getElementById('admCustomFromInput')?.value;
-    const to   = document.getElementById('admCustomToInput')?.value;
-    if (!from || !to) return;
-    admCustomFrom = from;
-    admCustomTo   = to;
-    admFilter = 'custom';
-    document.querySelectorAll('[data-adm-filter]').forEach((b) => b.classList.remove('active'));
-    document.querySelector('[data-adm-filter="custom"]')?.classList.add('active');
-    document.getElementById('admCustomDialog').close();
+  document.getElementById('admFromMonth')?.addEventListener('change', async () => {
+    admActiveMonths = null;
     await loadAdmData();
+  });
+
+  document.getElementById('admToMonth')?.addEventListener('change', async () => {
+    admActiveMonths = null;
+    await loadAdmData();
+  });
+
+  document.getElementById('admMetricTabs')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-metric]');
+    if (!tab) return;
+    document.querySelectorAll('.adm-metric-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    admActiveMetric = tab.dataset.metric;
+    renderAdmChart(admMonthlyData, admActiveMonths, admActiveMetric);
   });
 }
 

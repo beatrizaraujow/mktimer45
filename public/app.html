@@ -34,6 +34,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
             <span>Score</span>
           </button>
+          <button type="button" class="nav-tab" data-panel="adm" id="admNavTab" role="tab" style="display:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>ADM</span>
+          </button>
         </div>
 
         <div class="nav-actions">
@@ -455,40 +459,31 @@
 
         <!-- ── Versão ADM ─────────────────────────────────────────────── -->
         <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
-          <div class="adm-header">
-            <div class="adm-title-row">
-              <span class="adm-title-bar"></span>
-              <h2 class="adm-title-text">Versão ADM</h2>
-              <span class="adm-period-badge" id="admPeriodBadge">—</span>
-            </div>
-            <div class="adm-controls-row">
-              <select id="admUserSelect" class="adm-user-select">
-                <option value="">Todos</option>
-              </select>
-              <div class="adm-filter-row">
-                <button type="button" class="adm-filter-btn" data-adm-filter="semana">Semana</button>
-                <button type="button" class="adm-filter-btn active" data-adm-filter="mes">Este Mês</button>
-                <button type="button" class="adm-filter-btn" data-adm-filter="90d">90D</button>
-                <button type="button" class="adm-filter-btn adm-filter-custom" data-adm-filter="custom">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  Personalizado
-                </button>
-              </div>
-            </div>
+
+          <!-- Filter bar -->
+          <div class="adm-filter-bar">
+            <span class="adm-filter-label">Pessoa</span>
+            <select id="admUserSelect" class="adm-select">
+              <option value="">Toda a equipe</option>
+            </select>
+            <span class="adm-filter-sep">·</span>
+            <span class="adm-filter-label">Visão Histórica por Mês</span>
+            <span class="adm-filter-label" style="color:#7882a4">De:</span>
+            <select id="admFromMonth" class="adm-select"></select>
+            <span class="adm-filter-label" style="color:#7882a4">Até:</span>
+            <select id="admToMonth" class="adm-select"></select>
+            <span class="adm-month-count" id="admMonthCount"></span>
           </div>
 
+          <!-- Stats -->
           <div class="adm-stats-row">
             <div class="adm-stat-card">
               <span class="adm-stat-value" id="admStatTasks">—</span>
-              <span class="adm-stat-label">Total Tasks</span>
-            </div>
-            <div class="adm-stat-card">
-              <span class="adm-stat-value" id="admStatDone">—</span>
-              <span class="adm-stat-label">Concluídas</span>
+              <span class="adm-stat-label">Total de Tasks</span>
             </div>
             <div class="adm-stat-card">
               <span class="adm-stat-value" id="admStatHours">—</span>
-              <span class="adm-stat-label">Total Horas</span>
+              <span class="adm-stat-label">Total de Horas</span>
             </div>
             <div class="adm-stat-card accent">
               <span class="adm-stat-value" id="admStatPoints">—</span>
@@ -496,11 +491,21 @@
             </div>
           </div>
 
+          <!-- Chart -->
           <div class="adm-comparison">
             <div class="adm-comparison-header">
-              <h3 class="adm-comparison-title">Comparativo Mês a Mês</h3>
-              <div class="adm-month-filter" id="admMonthFilter"></div>
+              <div>
+                <h3 class="adm-comparison-title">Comparativo Mês a Mês</h3>
+                <p class="adm-comparison-subtitle" id="admChartSubtitle"></p>
+              </div>
+              <div class="adm-metric-tabs" id="admMetricTabs">
+                <button type="button" class="adm-metric-tab active" data-metric="all">Todos</button>
+                <button type="button" class="adm-metric-tab" data-metric="pts">Pontos</button>
+                <button type="button" class="adm-metric-tab" data-metric="tasks">Tasks</button>
+                <button type="button" class="adm-metric-tab" data-metric="horas">Horas</button>
+              </div>
             </div>
+            <div id="admMonthFilter" class="adm-month-chips"></div>
             <div class="adm-chart-wrap">
               <canvas id="admBarChart"></canvas>
             </div>
