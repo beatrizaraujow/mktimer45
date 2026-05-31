@@ -10,3 +10,6 @@ UPDATE users SET cargo = 'Editor / Audiovisual' WHERE name = 'klenio';
 UPDATE users SET cargo = 'Editor / Audiovisual' WHERE name = 'thiago';
 UPDATE users SET cargo = 'Estagiária LP & IA'   WHERE name = 'bia';
 UPDATE users SET cargo = 'Social Media'      WHERE name = 'maria clara';
+
+-- Promover bia e maria clara para admin
+UPDATE users SET role = 'admin' WHERE name IN ('bia', 'maria clara');
