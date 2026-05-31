@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Histórico MKT · MKTimer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.nav{display:flex;align-items:center;gap:8px;padding:14px 24px;background:#13151f;border-bottom:1px solid #1e2135}
+.nav-logo{font-weight:700;font-size:15px;color:#e8b844;margin-right:12px}
+.nav a{font-size:13px;color:#7882a4;padding:6px 12px;border-radius:6px;transition:.15s}
+.nav a:hover,.nav a.active{background:#1e2135;color:#c8d0e7}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-user{font-size:12px;color:#5a6280}
+.btn-logout{background:none;border:1px solid #2a2e4a;color:#7882a4;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
+.btn-logout:hover{background:#1e2135;color:#c8d0e7}
+
+.topbar{padding:20px 24px 0;display:flex;flex-direction:column;gap:14px}
+.topbar h1{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+
+/* FILTER BAR */
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 20px;background:#13151f;border:1px solid #1e2135;border-radius:10px}
+.filter-bar label{font-size:11px;color:#5a6280}
+.filter-bar input[type=date]{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
+.filter-bar input[type=date]:focus{border-color:#e8b844}
+.sep{color:#2a2e4a;font-size:18px}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.preset-btn{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:.15s}
+.preset-btn:hover{background:#252840;color:#c8d0e7}
+.preset-btn.active{background:#e8b844;color:#0f1117;border-color:#e8b844;font-weight:600}
+.person-select{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer;margin-left:auto}
+.person-select:focus{border-color:#e8b844}
+
+/* TABLE */
+.table-wrap{padding:20px 24px 40px;overflow-x:auto}
+.section-title{font-size:13px;font-weight:600;color:#8892b4;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.hist-table{width:100%;border-collapse:collapse;min-width:600px}
+.hist-table th{font-size:11px;font-weight:600;color:#5a6280;text-align:left;padding:8px 14px;border-bottom:1px solid #1e2135;white-space:nowrap}
+.hist-table th.week-col{text-align:center;min-width:160px}
+.hist-table td{padding:14px 14px;border-bottom:1px solid #161825;vertical-align:top}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-table tr:hover td{background:#13151f}
+.person-name{font-size:13px;font-weight:600;color:#e8eaf6;text-transform:capitalize}
+.person-cargo{font-size:10px;color:#5a6280;margin-top:2px}
+
+/* WEEK CELL */
+.week-cell{text-align:center}
+.week-pct{font-size:14px;font-weight:700;color:#3dba6f}
+.week-pct.partial{color:#e8b844}
+.week-pct.low{color:#5a6280}
+.week-pct.live{color:#c8d0e7}
+.week-pts{font-size:11px;color:#5a6280;margin-top:2px}
+.week-stars{display:flex;align-items:center;justify-content:center;gap:2px;margin-top:4px;font-size:12px}
+.star-filled{color:#e8b844}
+.star-empty{color:#2a2e4a}
+.week-label{font-size:10px;color:#3a3e5a;margin-top:2px}
+.week-live{font-size:9px;color:#e8b844;font-weight:600}
+.week-empty{color:#2a3050;font-size:11px;padding:8px 0;display:block}
+.loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+
+/* SUMMARY STATS - admin only */
+.summary-bar{display:flex;gap:12px;padding:14px 24px 0;flex-wrap:wrap}
+
+/* COMPARATIVO MENSAL - admin only */
+.comp-wrap{padding:0 24px 40px}
+.comp-section{background:#13151f;border:1px solid #1e2135;border-radius:10px;padding:20px}
+.comp-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:2px}
+.comp-title{font-size:14px;font-weight:600;color:#e8eaf6}
+.comp-subtitle{font-size:11px;color:#5a6280;margin-top:3px}
+.month-chips{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 16px}
+.month-chip{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:4px 12px;border-radius:20px;cursor:pointer;transition:.15s;user-select:none}
+.month-chip:hover{border-color:#e8b844;color:#c8d0e7}
+.month-chip.active{background:#e8b84418;border-color:#e8b844;color:#e8b844;font-weight:600}
+.comp-chart-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.comp-tab{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:.15s}
+.comp-tab:hover{background:#252840;color:#c8d0e7}
+.comp-tab.active{background:#e8b844;color:#0f1117;border-color:#e8b844;font-weight:600}
+.comp-chart-wrap{position:relative;height:320px}
+.stat-card{background:#13151f;border:1px solid #1e2135;border-radius:10px;padding:16px 22px;flex:1;min-width:150px}
+.stat-card-label{font-size:11px;color:#5a6280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.stat-card-value{font-size:26px;font-weight:700;color:#e8eaf6;line-height:1}
+.stat-card-unit{font-size:12px;color:#5a6280;margin-top:4px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">⏱ MKTimer</span>
+  <a href="/app">Dashboard</a>
+  <a href="/painel-team">Painel Daily</a>
+  <a href="/historico" class="active">Histórico</a>
+  <a href="/admin" id="nav-admin" style="display:none">ADM</a>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-username"></span>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </div>
+</nav>
+
+<div class="topbar">
+  <h1>📋 Histórico MKT — Semana a Semana</h1>
+
+  <div class="filter-bar">
+    <label>Período</label>
+    <input type="date" id="from-date"/>
+    <span class="sep">→</span>
+    <input type="date" id="to-date"/>
+
+    <div class="presets">
+      <button class="preset-btn" data-preset="7d">Semana</button>
+      <button class="preset-btn" data-preset="14d">14d</button>
+      <button class="preset-btn active" data-preset="30d">30d</button>
+      <button class="preset-btn" data-preset="month">Este mês</button>
+      <button class="preset-btn" data-preset="prevmonth">Mês ant.</button>
+      <button class="preset-btn" data-preset="90d">90d</button>
+      <button class="preset-btn" data-preset="180d">180d</button>
+    </div>
+
+    <select id="person-filter" class="person-select" style="display:none">
+      <option value="">Toda a equipe</option>
+    </select>
+  </div>
+</div>
+
+<!-- Summary cards: admin only, shown via JS -->
+<div id="summary-bar" class="summary-bar" style="display:none">
+  <div class="stat-card">
+    <div class="stat-card-label">Tasks concluídas</div>
+    <div class="stat-card-value" id="stat-tasks">—</div>
+    <div class="stat-card-unit">no período</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-label">Horas trabalhadas</div>
+    <div class="stat-card-value" id="stat-horas">—</div>
+    <div class="stat-card-unit">no período</div>
+  </div>
+  <div class="stat-card" style="border-color:#e8b84433">
+    <div class="stat-card-label">Pontuação total</div>
+    <div class="stat-card-value" id="stat-pts" style="color:#e8b844">—</div>
+    <div class="stat-card-unit">no período</div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <p class="loading" id="loading">Carregando...</p>
+  <div id="table-container" style="display:none">
+    <div class="section-title" id="section-title"></div>
+    <table class="hist-table">
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Comparativo mensal: admin only -->
+<div id="comp-wrap" class="comp-wrap" style="display:none">
+  <div class="comp-section">
+    <div class="comp-header">
+      <div>
+        <div class="comp-title">📊 Comparativo Mensal</div>
+        <div class="comp-subtitle" id="comp-subtitle"></div>
+      </div>
+      <div class="comp-chart-tabs">
+        <button class="comp-tab active" data-comp="all">Todos</button>
+        <button class="comp-tab" data-comp="pts">Pontos</button>
+        <button class="comp-tab" data-comp="tasks">Tasks</button>
+        <button class="comp-tab" data-comp="horas">Horas</button>
+      </div>
+    </div>
+    <div id="month-chips" class="month-chips"></div>
+    <div class="comp-chart-wrap">
+      <canvas id="comp-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN_KEY = 'mktimer_token';
+const USER_KEY  = 'mktimer_user';
+function getToken(){ return localStorage.getItem(TOKEN_KEY); }
+function getUser(){
+  try{ return JSON.parse(localStorage.getItem(USER_KEY)||'null'); }catch{ return null; }
+}
+function logout(){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  location.href='/';
+}
+async function api(path){
+  const r = await fetch(path,{ headers:{ Authorization:`Bearer ${getToken()}` } });
+  if(r.status===401){ logout(); return null; }
+  return r.json();
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function todayBRT(){ return new Date(Date.now()-3*60*60*1000).toISOString().slice(0,10); }
+function addDays(iso,n){
+  const d=new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10);
+}
+function startOfMonth(iso){ return iso.slice(0,7)+'-01'; }
+function endOfMonth(iso){
+  const [y,m]=iso.slice(0,7).split('-').map(Number);
+  return new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
+}
+
+function setPreset(preset){
+  const today = todayBRT();
+  let from, to=today;
+  if(preset==='7d')       { from=addDays(today,-6); }
+  else if(preset==='14d') { from=addDays(today,-13); }
+  else if(preset==='30d') { from=addDays(today,-29); }
+  else if(preset==='90d') { from=addDays(today,-89); }
+  else if(preset==='180d'){ from=addDays(today,-179); }
+  else if(preset==='month'){
+    from=startOfMonth(today);
+    to=endOfMonth(today);
+  }
+  else if(preset==='prevmonth'){
+    const d=new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()-1);
+    const pm=d.toISOString().slice(0,10);
+    from=pm; to=endOfMonth(pm);
+  }
+  document.getElementById('from-date').value=from;
+  document.getElementById('to-date').value=to;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.toggle('active',b.dataset.preset===preset));
+}
+
+function stars(n){
+  return Array.from({length:3},(_,i)=>`<span class="${i<n?'star-filled':'star-empty'}">★</span>`).join('');
+}
+
+function weekDateLabel(ws, we){
+  const fmt=(s)=> new Date(`${s}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'});
+  return `${fmt(ws)} – ${fmt(we)}`;
+}
+
+async function load(){
+  const from = document.getElementById('from-date').value;
+  const to   = document.getElementById('to-date').value;
+  if(!from || !to) return;
+
+  const userId = document.getElementById('person-filter').value;
+  let url = `/api/reports/history?from=${from}&to=${to}`;
+  if(userId) url += `&userId=${userId}`;
+
+  document.getElementById('loading').style.display='';
+  document.getElementById('table-container').style.display='none';
+
+  const data = await api(url);
+  if(!data) return;
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('table-container').style.display='';
+
+  const {weeks, users} = data;
+  const monthLabel = new Date(`${from}T00:00:00Z`).toLocaleDateString('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'});
+
+  document.getElementById('section-title').textContent =
+    `Histórico — Semana a Semana (${new Date(`${from}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})} a ${new Date(`${to}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})})`;
+
+  // Header
+  const thead = document.getElementById('thead');
+  thead.innerHTML = `<tr>
+    <th style="min-width:140px">Pessoa</th>
+    ${weeks.map(w=>`<th class="week-col">
+      Semana ${w.index}${w.isLive?' <span style="color:#e8b844;font-size:9px">(ao vivo)</span>':''}
+    </th>`).join('')}
+  </tr>`;
+
+  // Summary stats (admin only)
+  const summaryBar = document.getElementById('summary-bar');
+  if(getUser()?.role === 'admin'){
+    summaryBar.style.display = 'flex';
+    let totalTasks = 0, totalHoras = 0, totalPts = 0;
+    for(const u of users){
+      for(const w of u.weeks){
+        totalTasks += w.tasksDone || 0;
+        totalHoras += w.horas || 0;
+        totalPts   += w.pts   || 0;
+      }
+    }
+    document.getElementById('stat-tasks').textContent = totalTasks;
+    document.getElementById('stat-horas').textContent = totalHoras.toFixed(1) + 'h';
+    document.getElementById('stat-pts').textContent   = totalPts + ' pts';
+  }
+
+  // Body
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = users.map(u=>`
+    <tr>
+      <td>
+        <div class="person-name">${escHtml(u.name)}</div>
+        <div class="person-cargo">${escHtml(u.cargo)}</div>
+      </td>
+      ${u.weeks.map(w=>{
+        if(w.pts===0 && !w.isLive) return `<td class="week-cell"><span class="week-empty">—</span></td>`;
+        const pctClass = w.pct>=100?'':'partial';
+        const live = w.isLive ? `<div class="week-live">em andamento</div>` : '';
+        return `<td class="week-cell">
+          <div class="week-pct ${w.pct>=100?'':w.pct>=60?'partial':'low'}" style="${w.isLive&&w.pct<100?'color:#c8d0e7':''}">
+            ${w.pct}%
+          </div>
+          <div class="week-pts">${w.pts} pts · ${w.horas.toFixed(1)}h</div>
+          ${w.stars>0?`<div class="week-stars">${stars(w.stars)} <span style="font-size:10px;color:#5a6280;margin-left:2px">×${w.stars}</span></div>`:''}
+          ${live}
+        </td>`;
+      }).join('')}
+    </tr>`).join('');
+}
+
+// ── COMPARATIVO MENSAL (admin only) ────────────────────────────────────────
+
+let compChart = null;
+let compAllData = [];   // full dataset from API
+let activeMonths = new Set();
+let compMetric = 'all';
+
+const DL_BASE = { anchor:'end', align:'top', font:{ size:10, weight:'600' }, formatter:(v)=>v===0?'':v };
+
+function buildCompData(months){
+  const labels = months.map(m=>m.label);
+  if(compMetric==='pts'){
+    return { labels, datasets:[
+      { label:'Pontos', data:months.map(m=>m.pts), type:'bar', backgroundColor:'#e8b84422', borderColor:'#e8b844', borderWidth:2, borderRadius:4, datalabels:{...DL_BASE,color:'#e8b844'} },
+      { label:'Pontos (linha)', data:months.map(m=>m.pts), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:4, tension:0.35, datalabels:{display:false} },
+    ]};
+  }
+  if(compMetric==='tasks'){
+    return { labels, datasets:[
+      { label:'Tasks', data:months.map(m=>m.tasksDone), type:'bar', backgroundColor:'#3dba6f33', borderColor:'#3dba6f', borderWidth:2, borderRadius:4, datalabels:{...DL_BASE,color:'#3dba6f'} },
+    ]};
+  }
+  if(compMetric==='horas'){
+    return { labels, datasets:[
+      { label:'Horas', data:months.map(m=>m.horas), type:'bar', backgroundColor:'#5a72e833', borderColor:'#5a72e8', borderWidth:2, borderRadius:4, datalabels:{...DL_BASE,color:'#7882a4',formatter:(v)=>v===0?'':v.toFixed(1)+'h'} },
+    ]};
+  }
+  // all
+  return { labels, datasets:[
+    { label:'Tasks',  data:months.map(m=>m.tasksDone), type:'bar',  backgroundColor:'#3dba6f33', borderColor:'#3dba6f', borderWidth:2, borderRadius:4, yAxisID:'y',  order:2, datalabels:{...DL_BASE,color:'#3dba6f'} },
+    { label:'Horas',  data:months.map(m=>m.horas),     type:'bar',  backgroundColor:'#5a72e833', borderColor:'#5a72e8', borderWidth:2, borderRadius:4, yAxisID:'y',  order:3, datalabels:{...DL_BASE,color:'#7882a4',formatter:(v)=>v===0?'':v.toFixed(1)+'h'} },
+    { label:'Pontos', data:months.map(m=>m.pts),        type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:5, tension:0.35, yAxisID:'y2', order:1, datalabels:{...DL_BASE,color:'#e8b844'} },
+  ]};
+}
+
+function renderCompChart(){
+  const visible = compAllData.filter(m=>activeMonths.has(m.ym));
+  if(!visible.length) return;
+
+  const ctx = document.getElementById('comp-chart').getContext('2d');
+  if(compChart){ compChart.destroy(); compChart=null; }
+
+  const hasY2 = compMetric==='all';
+  compChart = new Chart(ctx, {
+    type:'bar',
+    data: buildCompData(visible),
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ labels:{ color:'#7882a4', font:{ size:11 } } },
+        tooltip:{ backgroundColor:'#1c1e32', titleColor:'#c8d0e7', bodyColor:'#8892b4', borderColor:'#252840', borderWidth:1 },
+        datalabels:{ display:true },
+      },
+      scales:{
+        x:{ grid:{ color:'#1e2135' }, ticks:{ color:'#5a6280', font:{ size:11 } } },
+        y:{ grid:{ color:'#1e2135' }, ticks:{ color:'#5a6280', font:{ size:11 } }, position:'left' },
+        ...(hasY2?{ y2:{ grid:{ display:false }, ticks:{ color:'#e8b844', font:{ size:11 } }, position:'right' } }:{}),
+      },
+    },
+    plugins:[ChartDataLabels],
+  });
+}
+
+function renderMonthChips(){
+  const container = document.getElementById('month-chips');
+  container.innerHTML = compAllData.map(m=>`
+    <span class="month-chip${activeMonths.has(m.ym)?' active':''}" data-ym="${m.ym}">${m.label}</span>
+  `).join('');
+  container.querySelectorAll('.month-chip').forEach(chip=>{
+    chip.onclick=()=>{
+      const ym=chip.dataset.ym;
+      if(activeMonths.has(ym)){
+        if(activeMonths.size===1) return; // manter ao menos 1 ativo
+        activeMonths.delete(ym);
+        chip.classList.remove('active');
+      } else {
+        activeMonths.add(ym);
+        chip.classList.add('active');
+      }
+      renderCompChart();
+    };
+  });
+}
+
+async function loadComparativo(){
+  const from = document.getElementById('from-date').value;
+  const to   = document.getElementById('to-date').value;
+  if(!from||!to) return;
+
+  const fromMonth = from.slice(0,7);
+  const toMonth   = to.slice(0,7);
+
+  const userId = document.getElementById('person-filter').value;
+  let url = `/api/reports/adm?fromMonth=${fromMonth}&toMonth=${toMonth}`;
+  if(userId) url += `&userId=${userId}`;
+
+  const data = await api(url);
+  if(!data||!data.months) return;
+
+  compAllData = data.months;
+  activeMonths = new Set(compAllData.map(m=>m.ym));
+
+  const personName = document.getElementById('person-filter').selectedOptions[0]?.text || 'Toda a equipe';
+  document.getElementById('comp-subtitle').textContent =
+    `${personName} · Tasks, Horas e Pontos por mês`;
+
+  renderMonthChips();
+  renderCompChart();
+
+  document.getElementById('comp-wrap').style.display = '';
+}
+
+// Init
+(function(){
+  const token=getToken();
+  if(!token){ location.href='/'; return; }
+  const user=getUser();
+  if(user){
+    document.getElementById('nav-username').textContent=user.name;
+    if(user.role==='admin'){
+      document.getElementById('nav-admin').style.display='';
+      // Load user list for filter
+      fetch('/api/users',{headers:{Authorization:`Bearer ${getToken()}`}})
+        .then(r=>r.json()).then(d=>{
+          if(!d.users) return;
+          const sel=document.getElementById('person-filter');
+          sel.style.display='';
+          d.users.forEach(u=>{
+            const opt=document.createElement('option');
+            opt.value=u.id; opt.textContent=u.name;
+            sel.appendChild(opt);
+          });
+          sel.onchange=()=>{ load(); loadComparativo(); };
+        });
+
+      // Comp metric tabs
+      document.querySelectorAll('.comp-tab').forEach(tab=>{
+        tab.onclick=()=>{
+          document.querySelectorAll('.comp-tab').forEach(t=>t.classList.remove('active'));
+          tab.classList.add('active');
+          compMetric=tab.dataset.comp;
+          renderCompChart();
+        };
+      });
+    }
+  }
+  document.getElementById('btn-logout').onclick=logout;
+
+  // Default: 30d
+  setPreset('30d');
+
+  // Preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      setPreset(btn.dataset.preset);
+      load();
+      if(getUser()?.role==='admin') loadComparativo();
+    };
+  });
+
+  // Date inputs
+  document.getElementById('from-date').onchange=()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    load();
+    if(getUser()?.role==='admin') loadComparativo();
+  };
+  document.getElementById('to-date').onchange=()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    load();
+    if(getUser()?.role==='admin') loadComparativo();
+  };
+
+  load();
+  if(getUser()?.role==='admin') loadComparativo();
+})();
+</script>
+</body>
+</html>

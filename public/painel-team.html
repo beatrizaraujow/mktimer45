@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Painel Daily · MKTimer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+/* NAV */
+.nav{display:flex;align-items:center;gap:8px;padding:14px 24px;background:#13151f;border-bottom:1px solid #1e2135}
+.nav-logo{font-weight:700;font-size:15px;color:#e8b844;margin-right:12px}
+.nav a{font-size:13px;color:#7882a4;padding:6px 12px;border-radius:6px;transition:background .15s,color .15s}
+.nav a:hover,.nav a.active{background:#1e2135;color:#c8d0e7}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-user{font-size:12px;color:#5a6280}
+.btn-logout{background:none;border:1px solid #2a2e4a;color:#7882a4;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
+.btn-logout:hover{background:#1e2135;color:#c8d0e7}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;gap:16px;padding:16px 24px;flex-wrap:wrap}
+.topbar h1{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.topbar h1 .icon{font-size:18px}
+.date-nav{display:flex;align-items:center;gap:8px;margin-left:auto}
+.date-nav button{background:#1c1e32;border:1px solid #222540;color:#c8d0e7;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:13px;transition:.15s}
+.date-nav button:hover{background:#252840}
+#date-display{font-size:13px;color:#9aa3c4;min-width:110px;text-align:center}
+.refresh-info{font-size:11px;color:#4a5270;margin-left:4px}
+#refresh-countdown{color:#e8b844}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:0 24px 24px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+
+/* CARD */
+.card{background:#161825;border:1px solid #1e2135;border-radius:12px;padding:18px;position:relative;transition:border-color .2s}
+.card:hover{border-color:#2a2e4a}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.card-name{font-size:16px;font-weight:700;color:#e8eaf6;text-transform:capitalize}
+.card-cargo{font-size:11px;color:#5a6280;margin-top:2px}
+.online-dot{width:9px;height:9px;border-radius:50%;background:#3dba6f;flex-shrink:0;margin-top:4px}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat-box{background:#1c1e32;border-radius:8px;padding:10px 8px;text-align:center}
+.stat-value{font-size:17px;font-weight:700;color:#e8b844;line-height:1.1}
+.stat-label{font-size:10px;color:#5a6280;margin-top:3px}
+
+/* PROGRESS META */
+.meta-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.meta-label{font-size:11px;color:#5a6280}
+.meta-pct{font-size:11px;color:#9aa3c4}
+.progress-bar{width:100%;height:5px;background:#1e2135;border-radius:3px;overflow:hidden;margin-bottom:10px}
+.progress-fill{height:100%;border-radius:3px;background:#e8b844;transition:width .4s}
+.progress-fill.over{background:#3dba6f}
+
+/* HORAS / COEF */
+.horas-row{font-size:11px;color:#5a6280;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
+.horas-row span{color:#8892b4}
+.coef-val{color:#e8b844;font-weight:600}
+
+/* TASKS */
+.tasks-list{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto}
+.tasks-list::-webkit-scrollbar{width:3px}
+.tasks-list::-webkit-scrollbar-track{background:transparent}
+.tasks-list::-webkit-scrollbar-thumb{background:#2a2e4a;border-radius:2px}
+.task-item{display:flex;align-items:flex-start;gap:8px;font-size:11.5px}
+.task-check{width:13px;height:13px;border:1.5px solid #3a3e5a;border-radius:2px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:9px}
+.task-check.done{background:#3dba6f;border-color:#3dba6f;color:#fff}
+.task-title{flex:1;color:#9aa3c4;line-height:1.4}
+.task-item.done .task-title{color:#5a6280;text-decoration:line-through}
+.task-pts{font-size:11px;font-weight:600;color:#e8b844;white-space:nowrap;margin-left:4px}
+.task-pts-zero{color:#2a3050}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:#3a3e5a}
+.loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">⏱ MKTimer</span>
+  <a href="/app">Dashboard</a>
+  <a href="/painel-team" class="active">Painel Daily</a>
+  <a href="/historico">Histórico</a>
+  <a href="/admin" id="nav-admin" style="display:none">ADM</a>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-username"></span>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </div>
+</nav>
+
+<div class="topbar">
+  <h1><span class="icon">👥</span> Equipe — Painel Daily</h1>
+  <div class="date-nav">
+    <button id="btn-prev">‹</button>
+    <span id="date-display"></span>
+    <button id="btn-next">›</button>
+    <button id="btn-today" style="margin-left:4px;font-size:11px;padding:5px 9px">Hoje</button>
+  </div>
+  <span class="refresh-info">Atualiza em <span id="refresh-countdown">60s</span></span>
+</div>
+
+<div id="content">
+  <p class="loading">Carregando...</p>
+</div>
+
+<script>
+const TOKEN_KEY = 'mktimer_token';
+const USER_KEY  = 'mktimer_user';
+
+function getToken(){ return localStorage.getItem(TOKEN_KEY); }
+function getUser(){
+  try{ return JSON.parse(localStorage.getItem(USER_KEY)||'null'); }catch{ return null; }
+}
+function logout(){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  location.href = '/';
+}
+
+async function api(path){
+  const r = await fetch(path,{ headers:{ Authorization:`Bearer ${getToken()}` } });
+  if(r.status===401){ logout(); return null; }
+  return r.json();
+}
+
+function formatDate(iso){
+  const d = new Date(`${iso}T00:00:00Z`);
+  return d.toLocaleDateString('pt-BR',{ weekday:'short', day:'2-digit', month:'2-digit', timeZone:'UTC' });
+}
+
+function todayBRT(){
+  return new Date(Date.now() - 3*60*60*1000).toISOString().slice(0,10);
+}
+
+let currentDate = todayBRT();
+let refreshTimer = 60;
+let refreshInterval;
+
+function renderCard(u){
+  const pctOver = u.metaPct >= 100;
+  const tasksHtml = u.tasks.map(t=>`
+    <div class="task-item ${t.isDone?'done':''}">
+      <div class="task-check ${t.isDone?'done':''}">
+        ${t.isDone?'✓':''}
+      </div>
+      <span class="task-title">${escHtml(t.title)}</span>
+      <span class="${t.points?'task-pts':'task-pts-zero'}">${t.points?t.points+'p':''}</span>
+    </div>`).join('');
+
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-name">${escHtml(u.name)}</div>
+        <div class="card-cargo">${escHtml(u.cargo)}</div>
+      </div>
+      <div class="online-dot" title="Online"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-value">${u.tasksDone}/${u.tasksTotal}</div>
+        <div class="stat-label">Tasks hoje</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${u.ptsHoje}</div>
+        <div class="stat-label">Pts hoje</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${u.pctSemana}%</div>
+        <div class="stat-label">Sem ${u.weekNum}</div>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span class="meta-label">Meta diária: ${u.dailyGoal} pts</span>
+      <span class="meta-pct">${u.metaPct}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill ${pctOver?'over':''}" style="width:${Math.min(u.metaPct,100)}%"></div>
+    </div>
+
+    <div class="horas-row">
+      <span>🕐 <span>${u.horasStr} validadas</span></span>
+      <span>COEF: <span class="coef-val">${u.coef}%</span></span>
+    </div>
+
+    <div class="tasks-list">
+      ${tasksHtml || '<div style="font-size:11px;color:#3a3e5a;padding:8px 0">Nenhuma task hoje</div>'}
+    </div>
+  </div>`;
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function load(){
+  const data = await api(`/api/team/daily?date=${currentDate}`);
+  if(!data) return;
+
+  const el = document.getElementById('content');
+  if(!data.users || !data.users.length){
+    el.innerHTML='<p class="empty">Nenhum dado encontrado.</p>';
+    return;
+  }
+
+  el.innerHTML=`<div class="grid">${data.users.map(renderCard).join('')}</div>`;
+  document.getElementById('date-display').textContent = formatDate(currentDate);
+}
+
+function startRefresh(){
+  clearInterval(refreshInterval);
+  refreshTimer = 60;
+  document.getElementById('refresh-countdown').textContent = '60s';
+  refreshInterval = setInterval(()=>{
+    refreshTimer--;
+    const el = document.getElementById('refresh-countdown');
+    if(el) el.textContent = refreshTimer+'s';
+    if(refreshTimer<=0){
+      refreshTimer=60;
+      load();
+    }
+  },1000);
+}
+
+// Init
+(function(){
+  const token = getToken();
+  if(!token){ location.href='/'; return; }
+  const user = getUser();
+  if(user){
+    document.getElementById('nav-username').textContent = user.name;
+    if(user.role==='admin') document.getElementById('nav-admin').style.display='';
+  }
+  document.getElementById('date-display').textContent = formatDate(currentDate);
+  document.getElementById('btn-logout').onclick = logout;
+  document.getElementById('btn-today').onclick = ()=>{ currentDate=todayBRT(); load(); startRefresh(); };
+  document.getElementById('btn-prev').onclick = ()=>{
+    const d=new Date(`${currentDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate()-1);
+    currentDate=d.toISOString().slice(0,10);
+    load();
+  };
+  document.getElementById('btn-next').onclick = ()=>{
+    const d=new Date(`${currentDate}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate()+1);
+    currentDate=d.toISOString().slice(0,10);
+    load();
+  };
+  load();
+  startRefresh();
+})();
+</script>
+</body>
+</html>

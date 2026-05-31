@@ -1,0 +1,206 @@
+
+/* RESET */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100vw; height: 100vh; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: #000;
+  color: #fff;
+  min-height: 100vh;
+  min-width: 100vw;
+  overflow: hidden;
+}
+
+.login-split {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+.login-left {
+  width: 50vw;
+  min-width: 400px;
+  background: #000;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 60px 0 60px 80px;
+  overflow: hidden;
+}
+.login-quote-wrap {
+  z-index: 2;
+}
+.login-quote {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1.08;
+  color: #fff;
+  letter-spacing: -1.5px;
+  margin-bottom: 18px;
+}
+.login-quote-mark {
+  display: block;
+  font-size: 3.5rem;
+  color: #f5c200;
+  font-family: 'Inter', Georgia, serif;
+  font-weight: 900;
+  margin-top: 8px;
+  margin-left: 8px;
+}
+.login-gradient {
+  position: absolute;
+  left: 38%;
+  top: 10%;
+  width: 320px;
+  height: 80%;
+  border-radius: 40px;
+  background: repeating-linear-gradient(
+    to right,
+    #f5c200 0 16px,
+    #c99a18 16px 32px,
+    #a87510 32px 48px,
+    #6e4a00 48px 64px,
+    #352400 64px 80px,
+    #181200 80px 96px,
+    #000 96px 112px
+  );
+  filter: blur(1.5px);
+  opacity: 0.92;
+  z-index: 1;
+}
+.login-author {
+  position: absolute;
+  left: 80px;
+  bottom: 40px;
+  font-size: 1.05rem;
+  color: #bdbdbd;
+  z-index: 2;
+  font-weight: 500;
+}
+
+.login-right {
+  width: 50vw;
+  min-width: 400px;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 90px;
+}
+.login-logo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 48px;
+}
+.login-logo span {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f5c200;
+}
+.login-title {
+  font-size: 3.2rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.08;
+  letter-spacing: -1.5px;
+  margin-bottom: 52px;
+  text-align: left;
+}
+.login-form {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.login-label {
+  font-size: 1rem;
+  color: #fff;
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+.login-input {
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: none;
+  background: #191919;
+  color: #fff;
+  font-size: 1.1rem;
+  margin-bottom: 2px;
+  outline: none;
+  transition: box-shadow 0.18s, border 0.18s;
+  box-shadow: 0 0 0 1.5px #232325;
+}
+.login-input:focus {
+  box-shadow: 0 0 0 2px #f5c200;
+}
+.login-pwd-wrap {
+  position: relative;
+  width: 100%;
+}
+.login-eye-btn {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+.login-eye-btn:hover { color: #aaa; }
+.login-eye-btn svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+.login-btn {
+  width: 100%;
+  background: #f5c200;
+  color: #18191c;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 20px 0;
+  font-size: 1.25rem;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px 0 #0002;
+  transition: background 0.18s, color 0.18s;
+  position: relative;
+}
+.login-btn:hover {
+  background: #e8b800;
+  color: #18191c;
+}
+.login-link {
+  display: block;
+  margin-top: 18px;
+  color: #bdbdbd;
+  text-align: left;
+  font-size: 1rem;
+  letter-spacing: 1.2px;
+  text-decoration: none;
+  transition: color 0.18s;
+}
+.login-link:hover {
+  color: #f5c200;
+}
+
+@media (max-width: 900px) {
+  .login-split { flex-direction: column; }
+  .login-left, .login-right { width: 100vw; min-width: unset; padding: 40px 20px; }
+  .login-gradient { left: 50%; width: 220px; }
+  .login-title, .login-quote { font-size: 2.1rem; }
+}

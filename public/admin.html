@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ADM · MKTimer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.nav{display:flex;align-items:center;gap:8px;padding:14px 24px;background:#13151f;border-bottom:1px solid #1e2135}
+.nav-logo{font-weight:700;font-size:15px;color:#e8b844;margin-right:12px}
+.nav a{font-size:13px;color:#7882a4;padding:6px 12px;border-radius:6px;transition:.15s}
+.nav a:hover,.nav a.active{background:#1e2135;color:#c8d0e7}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-user{font-size:12px;color:#5a6280}
+.btn-logout{background:none;border:1px solid #2a2e4a;color:#7882a4;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
+.btn-logout:hover{background:#1e2135;color:#c8d0e7}
+
+.main{padding:24px}
+
+/* FILTER BAR */
+.filter-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;background:#13151f;border:1px solid #1e2135;border-radius:10px;margin-bottom:20px}
+.filter-bar label{font-size:11px;color:#5a6280}
+select,input[type=month]{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
+select:focus,input[type=month]:focus{border-color:#e8b844}
+.sep{color:#2a2e4a;font-size:18px}
+.btn-apply{background:#e8b844;color:#0f1117;border:none;font-size:12px;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;transition:.15s}
+.btn-apply:hover{background:#f0c84e}
+
+/* SUMMARY CARDS */
+.summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:600px){.summary-row{grid-template-columns:1fr}}
+.summary-card{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:18px 20px}
+.summary-card .label{font-size:11px;color:#5a6280;margin-bottom:6px}
+.summary-card .value{font-size:28px;font-weight:700;color:#e8b844;line-height:1}
+.summary-card .sub{font-size:11px;color:#3a3e5a;margin-top:4px}
+
+/* CHART SECTION */
+.chart-section{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px}
+.chart-title{font-size:14px;font-weight:600;color:#e8eaf6}
+.chart-subtitle{font-size:11px;color:#5a6280;margin-bottom:16px}
+.month-range-bar{display:flex;align-items:center;gap:8px}
+.month-range-bar label{font-size:11px;color:#5a6280}
+.chart-tabs{display:flex;gap:6px}
+.chart-tab{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:.15s}
+.chart-tab:hover{background:#252840;color:#c8d0e7}
+.chart-tab.active{background:#e8b844;color:#0f1117;border-color:#e8b844;font-weight:600}
+.chart-wrap{position:relative;height:340px;margin-top:16px}
+.loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+.no-data{text-align:center;padding:40px;color:#3a3e5a;font-size:13px}
+.month-chips{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
+.month-chip{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:4px 12px;border-radius:20px;cursor:pointer;transition:.15s;user-select:none}
+.month-chip:hover{border-color:#e8b844;color:#c8d0e7}
+.month-chip.active{background:#e8b84418;border-color:#e8b844;color:#e8b844;font-weight:600}
+
+/* COMPARATIVO TABLE */
+.comp-section{margin-top:24px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
+.comp-title{font-size:14px;font-weight:600;color:#e8eaf6;margin-bottom:14px}
+.comp-table{width:100%;border-collapse:collapse;overflow-x:auto;display:block}
+.comp-table th{font-size:11px;color:#5a6280;text-align:left;padding:7px 12px;border-bottom:1px solid #1e2135;white-space:nowrap}
+.comp-table td{font-size:12px;padding:10px 12px;border-bottom:1px solid #161825;color:#9aa3c4}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table tr:hover td{background:#13151f}
+.comp-table .val-pts{color:#e8b844;font-weight:600}
+.comp-table .val-tasks{color:#3dba6f;font-weight:600}
+.comp-table .val-horas{color:#7882a4}
+.month-badge{font-size:11px;font-weight:600;color:#c8d0e7}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">⏱ MKTimer</span>
+  <a href="/app">Dashboard</a>
+  <a href="/painel-team">Painel Daily</a>
+  <a href="/historico">Histórico</a>
+  <a href="/admin" class="active">ADM</a>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-username"></span>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </div>
+</nav>
+
+<div class="main" id="main-content" style="display:none">
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <label>Pessoa</label>
+    <select id="person-filter">
+      <option value="">Toda a equipe</option>
+    </select>
+    <span class="sep">·</span>
+    <label>Período</label>
+    <label style="font-size:11px;color:#7882a4">De</label>
+    <input type="month" id="from-month"/>
+    <span class="sep">→</span>
+    <label style="font-size:11px;color:#7882a4">Até</label>
+    <input type="month" id="to-month"/>
+    <button class="btn-apply" id="btn-apply">Aplicar</button>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary-row">
+    <div class="summary-card">
+      <div class="label">Total de Tasks</div>
+      <div class="value" id="sum-tasks">—</div>
+      <div class="sub" id="sum-tasks-sub">no período</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Total de Horas</div>
+      <div class="value" id="sum-horas">—</div>
+      <div class="sub" id="sum-horas-sub">registradas</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Pontuação Total</div>
+      <div class="value" id="sum-pts">—</div>
+      <div class="sub" id="sum-pts-sub">pts acumulados</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title" id="chart-title">Comparativo Mensal</div>
+        <div class="chart-subtitle" id="chart-subtitle"></div>
+      </div>
+      <div class="chart-tabs">
+        <button class="chart-tab active" data-metric="all">Todos</button>
+        <button class="chart-tab" data-metric="pts">Pontos</button>
+        <button class="chart-tab" data-metric="tasks">Tasks</button>
+        <button class="chart-tab" data-metric="horas">Horas</button>
+      </div>
+    </div>
+    <div id="month-chips" class="month-chips"></div>
+    <div class="chart-wrap">
+      <canvas id="monthly-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Comparativo table -->
+  <div class="comp-section">
+    <div class="comp-title">📊 Comparativo Mensal</div>
+    <table class="comp-table">
+      <thead><tr>
+        <th>Mês</th>
+        <th>Tasks</th>
+        <th>Horas</th>
+        <th>Pontos</th>
+      </tr></thead>
+      <tbody id="comp-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<p class="loading" id="loading-init">Carregando...</p>
+
+<script>
+const TOKEN_KEY = 'mktimer_token';
+const USER_KEY  = 'mktimer_user';
+function getToken(){ return localStorage.getItem(TOKEN_KEY); }
+function getUser(){
+  try{ return JSON.parse(localStorage.getItem(USER_KEY)||'null'); }catch{ return null; }
+}
+function logout(){
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  location.href='/';
+}
+async function api(path){
+  const r = await fetch(path,{ headers:{ Authorization:`Bearer ${getToken()}` } });
+  if(r.status===401){ logout(); return null; }
+  return r.json();
+}
+
+let chart = null;
+let allMonths = [];
+let activeMonths = new Set();
+let activeMetric = 'all';
+
+function getVisibleMonths(){
+  return allMonths.filter(m => activeMonths.has(m.ym));
+}
+
+function renderMonthChips(){
+  const container = document.getElementById('month-chips');
+  container.innerHTML = allMonths.map(m =>
+    `<span class="month-chip${activeMonths.has(m.ym)?' active':''}" data-ym="${m.ym}">${m.label}</span>`
+  ).join('');
+  container.querySelectorAll('.month-chip').forEach(chip => {
+    chip.onclick = () => {
+      const ym = chip.dataset.ym;
+      if(activeMonths.has(ym)){
+        if(activeMonths.size === 1) return;
+        activeMonths.delete(ym);
+        chip.classList.remove('active');
+      } else {
+        activeMonths.add(ym);
+        chip.classList.add('active');
+      }
+      renderChart(getVisibleMonths(), activeMetric);
+    };
+  });
+}
+
+const COLORS = {
+  pts:   { bar:'#e8b844', line:'#e8b844' },
+  tasks: { bar:'#3dba6f', line:'#3dba6f' },
+  horas: { bar:'#5a72e8', line:'#5a72e8' },
+};
+
+function buildChartData(months, metric){
+  const labels = months.map(m=>m.label);
+
+  const datalabelPlugin = {
+    anchor:'end', align:'top', color:'#c8d0e7',
+    font:{ size:10, weight:'600' },
+    formatter:(v)=> v===0?'':v,
+  };
+
+  if(metric==='pts'){
+    return {
+      labels,
+      datasets:[{
+        label:'Pontos',
+        data: months.map(m=>m.pts),
+        backgroundColor:'#e8b84422',
+        borderColor:'#e8b844',
+        borderWidth:2,
+        type:'bar',
+        borderRadius:4,
+        datalabels:{ ...datalabelPlugin, color:'#e8b844' },
+      },{
+        label:'Pontos (linha)',
+        data: months.map(m=>m.pts),
+        type:'line',
+        borderColor:'#e8b844',
+        backgroundColor:'transparent',
+        pointBackgroundColor:'#e8b844',
+        pointRadius:4,
+        tension:0.3,
+        datalabels:{ display:false },
+      }]
+    };
+  }
+  if(metric==='tasks'){
+    return {
+      labels,
+      datasets:[{
+        label:'Tasks',
+        data: months.map(m=>m.tasksDone),
+        backgroundColor:'#3dba6f33',
+        borderColor:'#3dba6f',
+        borderWidth:2,
+        type:'bar',
+        borderRadius:4,
+        datalabels:{ ...datalabelPlugin, color:'#3dba6f' },
+      }]
+    };
+  }
+  if(metric==='horas'){
+    return {
+      labels,
+      datasets:[{
+        label:'Horas',
+        data: months.map(m=>m.horas),
+        backgroundColor:'#5a72e833',
+        borderColor:'#5a72e8',
+        borderWidth:2,
+        type:'bar',
+        borderRadius:4,
+        datalabels:{ ...datalabelPlugin, color:'#7882a4', formatter:(v)=>v===0?'':v.toFixed(1) },
+      }]
+    };
+  }
+  // all
+  return {
+    labels,
+    datasets:[
+      {
+        label:'Tasks',
+        data: months.map(m=>m.tasksDone),
+        backgroundColor:'#3dba6f33',
+        borderColor:'#3dba6f',
+        borderWidth:2,
+        type:'bar',
+        borderRadius:4,
+        yAxisID:'y',
+        order:2,
+        datalabels:{ ...datalabelPlugin, color:'#3dba6f' },
+      },
+      {
+        label:'Horas',
+        data: months.map(m=>m.horas),
+        backgroundColor:'#5a72e833',
+        borderColor:'#5a72e8',
+        borderWidth:2,
+        type:'bar',
+        borderRadius:4,
+        yAxisID:'y',
+        order:3,
+        datalabels:{ ...datalabelPlugin, color:'#7882a4', formatter:(v)=>v===0?'':v.toFixed(1) },
+      },
+      {
+        label:'Pontos',
+        data: months.map(m=>m.pts),
+        type:'line',
+        borderColor:'#e8b844',
+        backgroundColor:'transparent',
+        pointBackgroundColor:'#e8b844',
+        pointRadius:5,
+        tension:0.3,
+        yAxisID:'y2',
+        order:1,
+        datalabels:{ ...datalabelPlugin, color:'#e8b844', align:'top', anchor:'end' },
+      },
+    ]
+  };
+}
+
+function renderChart(months, metric){
+  const ctx = document.getElementById('monthly-chart').getContext('2d');
+  if(chart){ chart.destroy(); chart=null; }
+
+  const hasY2 = metric==='all';
+  const chartData = buildChartData(months, metric);
+
+  chart = new Chart(ctx, {
+    type:'bar',
+    data: chartData,
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ labels:{ color:'#7882a4', font:{ size:11 } } },
+        tooltip:{
+          backgroundColor:'#1c1e32',
+          titleColor:'#c8d0e7',
+          bodyColor:'#8892b4',
+          borderColor:'#252840',
+          borderWidth:1,
+        },
+        datalabels:{ display:true },
+      },
+      scales:{
+        x:{ grid:{ color:'#1e2135' }, ticks:{ color:'#5a6280', font:{ size:11 } } },
+        y:{ grid:{ color:'#1e2135' }, ticks:{ color:'#5a6280', font:{ size:11 } }, position:'left' },
+        ...(hasY2?{ y2:{ grid:{ display:false }, ticks:{ color:'#e8b844', font:{ size:11 } }, position:'right' } }:{}),
+      },
+    },
+    plugins:[ChartDataLabels],
+  });
+}
+
+function updateSummary(months){
+  const totalTasks = months.reduce((s,m)=>s+m.tasksDone,0);
+  const totalHoras = months.reduce((s,m)=>s+m.horas,0);
+  const totalPts   = months.reduce((s,m)=>s+m.pts,0);
+  document.getElementById('sum-tasks').textContent = totalTasks;
+  document.getElementById('sum-horas').textContent = totalHoras.toFixed(1)+'h';
+  document.getElementById('sum-pts').textContent   = totalPts;
+
+  const n = months.length;
+  document.getElementById('sum-tasks-sub').textContent = `em ${n} mês${n>1?'es':''}`;
+  document.getElementById('sum-horas-sub').textContent = `em ${n} mês${n>1?'es':''}`;
+  document.getElementById('sum-pts-sub').textContent   = `em ${n} mês${n>1?'es':''}`;
+}
+
+function updateTable(months){
+  const tbody = document.getElementById('comp-tbody');
+  tbody.innerHTML = months.map(m=>`
+    <tr>
+      <td><span class="month-badge">${m.label}</span></td>
+      <td><span class="val-tasks">${m.tasksDone}</span> tasks</td>
+      <td><span class="val-horas">${m.horas.toFixed(1)}h</span></td>
+      <td><span class="val-pts">${m.pts} pts</span></td>
+    </tr>`).join('');
+}
+
+async function load(){
+  const from = document.getElementById('from-month').value;
+  const to   = document.getElementById('to-month').value;
+  const uid  = document.getElementById('person-filter').value;
+  if(!from||!to) return;
+
+  let url=`/api/reports/adm?fromMonth=${from}&toMonth=${to}`;
+  if(uid) url+=`&userId=${uid}`;
+
+  const data = await api(url);
+  if(!data||!data.months) return;
+
+  allMonths = data.months;
+  activeMonths = new Set(allMonths.map(m => m.ym));
+
+  updateSummary(allMonths);
+  updateTable(allMonths);
+  renderMonthChips();
+
+  const personName = document.getElementById('person-filter').selectedOptions[0]?.text || 'Toda a equipe';
+  document.getElementById('chart-title').textContent = `Comparativo Mensal — ${personName}`;
+  document.getElementById('chart-subtitle').textContent = `${from} → ${to} · Tasks, horas e pontos por mês`;
+
+  renderChart(getVisibleMonths(), activeMetric);
+}
+
+// Default months (last 6 months)
+function defaultMonths(){
+  const now = new Date(Date.now()-3*60*60*1000);
+  const to = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}`;
+  const d  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()-5, 1));
+  const from = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+  return { from, to };
+}
+
+(async function(){
+  const token=getToken();
+  if(!token){ location.href='/'; return; }
+  const user=getUser();
+  if(!user||user.role!=='admin'){
+    alert('Acesso restrito a administradores.');
+    location.href='/app';
+    return;
+  }
+  document.getElementById('nav-username').textContent=user.name;
+  document.getElementById('btn-logout').onclick=logout;
+
+  // Load users
+  const usersData = await api('/api/users');
+  if(usersData?.users){
+    const sel=document.getElementById('person-filter');
+    usersData.users.forEach(u=>{
+      const opt=document.createElement('option');
+      opt.value=u.id; opt.textContent=u.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Set default month range
+  const {from,to}=defaultMonths();
+  document.getElementById('from-month').value=from;
+  document.getElementById('to-month').value=to;
+
+  // Chart tabs
+  document.querySelectorAll('.chart-tab').forEach(tab=>{
+    tab.onclick=()=>{
+      document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      activeMetric=tab.dataset.metric;
+      if(allMonths.length) renderChart(getVisibleMonths(), activeMetric);
+    };
+  });
+
+  document.getElementById('btn-apply').onclick=load;
+  document.getElementById('person-filter').onchange=load;
+
+  document.getElementById('loading-init').style.display='none';
+  document.getElementById('main-content').style.display='';
+
+  await load();
+})();
+</script>
+</body>
+</html>

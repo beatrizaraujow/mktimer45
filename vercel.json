@@ -1,0 +1,12 @@
+{
+  "outputDirectory": "public",
+  "devCommand": null,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/app",          "destination": "/app.html" },
+    { "source": "/painel-team",  "destination": "/painel-team.html" },
+    { "source": "/historico",    "destination": "/historico.html" },
+    { "source": "/admin",        "destination": "/admin.html" },
+    { "source": "/",             "destination": "/index.html" }
+  ]
+}

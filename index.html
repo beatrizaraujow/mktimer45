@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <div class="login-split">
+    <!-- LEFT: Citação e gradiente -->
+    <div class="login-left">
+      <div class="login-quote-wrap">
+        <p class="login-quote">O prazer<br>no trabalho<br>aperfeiçoa<br>a obra.</p>
+        <span class="login-quote-mark">&#x201D;&#x201D;</span>
+      </div>
+      <div class="login-gradient"></div>
+      <span class="login-author">- Aristóteles</span>
+    </div>
+    <!-- RIGHT: Formulário -->
+    <div class="login-right">
+      <div class="login-logo">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <h1 class="login-title">Pronto para<br>começar?</h1>
+      <form class="login-form">
+        <label for="uid" class="login-label">ID do usuário</label>
+        <input id="uid" class="login-input" type="text" autocomplete="username" spellcheck="false">
+        <label for="pwd" class="login-label">Senha</label>
+        <div class="login-pwd-wrap">
+          <input id="pwd" class="login-input" type="password" autocomplete="current-password">
+          <button type="button" class="login-eye-btn" aria-label="Mostrar senha">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <button type="submit" class="login-btn">Entrar</button>
+      </form>
+      <a href="#" class="login-link">Esqueci minha senha</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MKTimer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #222222;
+      --ink-deep: #1a1a1a;
+      --ink-soft: #2c2c2c;
+      --ink-field: #383838;
+      --accent: #f0b600;
+      --accent-2: #ffca28;
+      --text: #ffffff;
+      --text-dim: #b8b8b8;
+      --text-muted: #7d7d7d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: radial-gradient(120% 90% at 80% 10%, #2c2c2c 0%, #222222 45%, #161616 100%);
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .stage {
+      position: relative;
+      width: min(880px, 100%);
+      aspect-ratio: 16 / 11;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #262626 0%, var(--ink) 55%, #1c1c1c 100%);
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      box-shadow:
+        0 40px 80px -30px rgba(0,0,0,0.7),
+        0 12px 30px -16px rgba(0,0,0,0.6);
+    }
+
+    .shape { position: absolute; pointer-events: none; }
+    .shape.blob {
+      width: 360px; height: 360px;
+      border-radius: 80px;
+      background: rgba(255,255,255,0.018);
+      transform: rotate(38deg);
+      top: -40px; right: -40px;
+    }
+    .shape.pill {
+      width: 300px; height: 120px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.02);
+      transform: rotate(38deg);
+      bottom: 60px; right: 120px;
+    }
+    .shape.circle {
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.18);
+      left: 60px; bottom: 80px;
+    }
+    .shape.glow {
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(240,182,0,0.10) 0%, transparent 70%);
+      top: 30%; left: 40%;
+    }
+
+    .star {
+      position: absolute;
+      color: rgba(255,255,255,0.12);
+      font-size: 12px;
+    }
+    .star.s1 { top: 16%; left: 18%; }
+    .star.s2 { top: 30%; left: 12%; font-size: 9px; }
+    .star.s3 { bottom: 20%; right: 16%; }
+    .star.s4 { top: 12%; right: 22%; font-size: 9px; }
+    .star.s5 { bottom: 14%; left: 30%; font-size: 9px; }
+
+    .login {
+      position: relative;
+      z-index: 2;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .brand {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 22px;
+      position: relative;
+    }
+    .brand::after {
+      content: "\00AE";
+      font-size: 11px;
+      font-weight: 600;
+      vertical-align: super;
+      margin-left: 2px;
+      color: var(--text-dim);
+    }
+
+    .card {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      backdrop-filter: blur(6px);
+    }
+
+    .field {
+      position: relative;
+      background: var(--ink-field);
+      border: 1px solid transparent;
+      border-radius: 7px;
+      padding: 10px 14px 9px;
+      transition: border-color .15s, background .15s;
+    }
+    .field:focus-within {
+      border-color: var(--accent);
+      background: #404040;
+    }
+    .field .label {
+      display: block;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .field input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font: 600 14px/1.2 "Inter", sans-serif;
+      letter-spacing: 0.01em;
+      -webkit-appearance: none;
+    }
+    .field input::placeholder {
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+    .field.plain {
+      display: flex;
+      align-items: center;
+      min-height: 42px;
+    }
+
+    .error-msg {
+      font-size: 11px;
+      color: #ff6b6b;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+      margin: -2px 0;
+    }
+
+    .btn-login {
+      margin-top: 2px;
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      background: #ffffff;
+      color: var(--ink);
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 22px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: inherit;
+      transition: transform .12s, box-shadow .2s, background .2s;
+      box-shadow: 0 8px 18px -8px rgba(0,0,0,0.5);
+    }
+    .btn-login:hover { transform: translateY(-1px); }
+    .btn-login:active { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-login .chev {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+    .btn-login .chev svg { width: 9px; height: 9px; }
+
+    .alt-link {
+      margin-top: 22px;
+      background: transparent;
+      border: 0;
+      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color .15s;
+    }
+    .alt-link:hover { color: var(--accent); }
+
+    @media (max-width: 600px) {
+      body { padding: 20px; }
+      .stage { aspect-ratio: auto; padding: 52px 24px; }
+      .login { width: 100%; max-width: 300px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" data-screen-label="Login">
+    <div class="shape blob"></div>
+    <div class="shape pill"></div>
+    <div class="shape circle"></div>
+    <div class="shape glow"></div>
+    <span class="star s1">&#10022;</span>
+    <span class="star s2">&#10022;</span>
+    <span class="star s3">&#10022;</span>
+    <span class="star s4">&#10022;</span>
+    <span class="star s5">&#10022;</span>
+
+    <form class="login" id="loginForm" novalidate>
+      <div class="brand">MKTimer</div>
+
+      <div class="card">
+        <label class="field">
+          <span class="label">ID do usuário</span>
+          <input
+            type="text"
+            id="userId"
+            name="name"
+            autocomplete="username"
+            spellcheck="false"
+            placeholder="seu id"
+          >
+        </label>
+
+        <div class="field plain">
+          <input
+            type="password"
+            id="pw"
+            name="password"
+            autocomplete="current-password"
+            placeholder="SENHA"
+          >
+        </div>
+
+        <p class="error-msg" id="errorMsg" role="alert"></p>
+
+        <button type="submit" class="btn-login" id="submitBtn">
+          <span id="submitText">Entrar</span>
+          <span class="chev">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 6l6 6-6 6"/>
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <button type="button" class="alt-link" id="forgotBtn">Esqueci minha senha</button>
+    </form>
+  </div>
+
+  <script>
+    const errorMsg   = document.getElementById('errorMsg');
+    const submitBtn  = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.style.display = 'none';
+
+      const name     = document.getElementById('userId').value.trim();
+      const password = document.getElementById('pw').value;
+
+      if (!name || !password) {
+        errorMsg.textContent   = 'Preencha todos os campos.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled    = true;
+      submitText.textContent = 'Entrando…';
+
+      try {
+        const res  = await fetch('/api/auth/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ name, password }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          localStorage.setItem('mktimer_token', data.token);
+          localStorage.setItem('mktimer_user',  JSON.stringify(data.user));
+          window.location.href = '/app';
+        } else {
+          errorMsg.textContent   = data.error || 'Credenciais inválidas.';
+          errorMsg.style.display = 'block';
+          submitBtn.disabled     = false;
+          submitText.textContent = 'Entrar';
+        }
+      } catch {
+        errorMsg.textContent   = 'Erro de conexão. Tente novamente.';
+        errorMsg.style.display = 'block';
+        submitBtn.disabled     = false;
+        submitText.textContent = 'Entrar';
+      }
+    });
+
+    document.getElementById('forgotBtn').addEventListener('click', () => {
+      alert('Entre em contato com o administrador para redefinir sua senha.');
+    });
+  </script>
+</body>
+</html>

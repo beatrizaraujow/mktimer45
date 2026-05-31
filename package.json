@@ -1,0 +1,20 @@
+{
+  "name": "mktimer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de horas da equipe com Vercel + Postgres",
+  "scripts": {
+    "dev": "echo ready",
+    "build": "echo \"Build concluido\""
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

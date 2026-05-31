@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Demo · MKTimer</title>
+<style>
+  body{background:#0f1117;color:#c8d0e7;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px}
+  .spinner{width:32px;height:32px;border:3px solid #252840;border-top-color:#e8b844;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  p{color:#5a6280;font-size:13px}
+</style>
+</head>
+<body>
+<div class="spinner"></div>
+<p id="msg">Fazendo login automático…</p>
+<script>
+(async () => {
+  const msg = document.getElementById('msg');
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name:'samuel', password:'123456'})
+    });
+    const d = await r.json();
+    if (d.token) {
+      localStorage.setItem('mktimer_token', d.token);
+      localStorage.setItem('mktimer_user', JSON.stringify(d.user));
+      msg.textContent = 'Logado! Redirecionando…';
+      const dest = new URLSearchParams(location.search).get('page') || 'app';
+      location.href = '/' + dest;
+    } else {
+      msg.textContent = 'Erro: ' + JSON.stringify(d);
+    }
+  } catch(e) {
+    msg.textContent = 'Erro: ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>

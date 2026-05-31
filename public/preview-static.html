@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Preview · MKTimer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif}
+.nav{display:flex;align-items:center;gap:8px;padding:14px 24px;background:#13151f;border-bottom:1px solid #1e2135}
+.nav-logo{font-weight:700;font-size:15px;color:#e8b844;margin-right:12px}
+.nav a{font-size:13px;color:#7882a4;padding:6px 12px;border-radius:6px}
+.nav a.active{background:#1e2135;color:#c8d0e7}
+.nav-right{margin-left:auto;font-size:12px;color:#5a6280}
+.topbar{display:flex;align-items:center;gap:16px;padding:16px 24px}
+.topbar h1{font-size:16px;font-weight:600}
+.date-nav{margin-left:auto;display:flex;align-items:center;gap:8px}
+.date-btn{background:#1c1e32;border:1px solid #222540;color:#c8d0e7;padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+.date-lbl{font-size:13px;color:#9aa3c4;min-width:120px;text-align:center}
+.refresh{font-size:11px;color:#4a5270;margin-left:4px}
+.refresh span{color:#e8b844}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:0 24px 24px}
+.card{background:#161825;border:1px solid #1e2135;border-radius:12px;padding:18px}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.card-name{font-size:16px;font-weight:700;color:#e8eaf6;text-transform:capitalize}
+.card-cargo{font-size:11px;color:#5a6280;margin-top:2px}
+.dot{width:9px;height:9px;border-radius:50%;background:#3dba6f;flex-shrink:0;margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:#1c1e32;border-radius:8px;padding:10px 8px;text-align:center}
+.stat-v{font-size:17px;font-weight:700;color:#e8b844;line-height:1.1}
+.stat-l{font-size:10px;color:#5a6280;margin-top:3px}
+.meta-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.meta-l{font-size:11px;color:#5a6280}
+.meta-p{font-size:11px;color:#9aa3c4}
+.bar{width:100%;height:5px;background:#1e2135;border-radius:3px;overflow:hidden;margin-bottom:10px}
+.bar-fill{height:100%;border-radius:3px;background:#e8b844}
+.bar-fill.over{background:#3dba6f}
+.hrow{font-size:11px;color:#5a6280;margin-bottom:12px;display:flex;gap:12px}
+.hrow span{color:#8892b4}
+.coef{color:#e8b844;font-weight:600}
+.tasks{display:flex;flex-direction:column;gap:5px}
+.ti{display:flex;align-items:flex-start;gap:8px;font-size:11.5px}
+.chk{width:13px;height:13px;border:1.5px solid #3a3e5a;border-radius:2px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:9px}
+.chk.done{background:#3dba6f;border-color:#3dba6f;color:#fff}
+.ttl{flex:1;color:#9aa3c4}
+.done .ttl{color:#5a6280;text-decoration:line-through}
+.tpt{font-size:11px;font-weight:600;color:#e8b844}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <span class="nav-logo">⏱ MKTimer</span>
+  <a href="#">Dashboard</a>
+  <a href="#" class="active">Painel Daily</a>
+  <a href="#">Histórico</a>
+  <a href="#">ADM</a>
+  <div class="nav-right">samuel &nbsp;|&nbsp; <span style="cursor:pointer">Sair</span></div>
+</nav>
+<div class="topbar">
+  <h1>👥 Equipe — Painel Daily</h1>
+  <div class="date-nav">
+    <button class="date-btn">‹</button>
+    <span class="date-lbl">Qua, 28/05</span>
+    <button class="date-btn">›</button>
+    <button class="date-btn" style="font-size:11px;padding:5px 9px;margin-left:4px">Hoje</button>
+  </div>
+  <span class="refresh">Atualiza em <span>47s</span></span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const members = [
+  { name:'samuel', cargo:'Diretor de Arte', done:3, total:15, pts:19, pctSem:77, horas:'2h 26min', coef:45.8, meta:26, metaPct:73, tasks:[
+    {t:'[EVENTO] Criar Flyer oficial do CLASS JUNHO',p:1,d:false},
+    {t:'Estático [Prova Social – Feedback Escrito Cliente] - 28/05',p:2,d:false},
+    {t:'ORGANIZAR PASTAS DO FIGMA',p:5,d:false},
+    {t:'[Padrões] Criar modelos para RH usar nas comunicações Grupo SB',p:13,d:false},
+    {t:'[Thumb] Podcast Dr DYEGO COSTA + MAURICIO',p:8,d:true},
+    {t:'[EVENTO] Thumb de apresentação vídeos palestra Carbone Class (Abril)',p:6,d:true},
+  ]},
+  { name:'thiago', cargo:'Editor / Audiovisual', done:2, total:9, pts:18, pctSem:105, horas:'6h 1min', coef:48.0, meta:26, metaPct:69, tasks:[
+    {t:'Animar para TV 1920X1080',p:4,d:false},
+    {t:'[EVENTO] Incompany Edição fotos',p:6,d:false},
+    {t:'[EVENTO] - Incompany - Captação e fotografia',p:12,d:false},
+    {t:'Captação CÁSSIO conteúdo secreto',p:3,d:false},
+    {t:'Reels [Segmento Foco – Restaurante Dono Dor Solução] - 04/06',p:2,d:true},
+    {t:'Reels [Bastidores — Tour Usina] - 01/06',p:2,d:true},
+  ]},
+  { name:'klenio', cargo:'Editor / Audiovisual', done:2, total:8, pts:21, pctSem:115, horas:'9h 0min', coef:57.6, meta:26, metaPct:80, tasks:[
+    {t:'[Edição] - Fotos Bonés SB + Malua',p:9,d:false},
+    {t:'[Edição] Aftermovie Incompany',p:3,d:false},
+    {t:'[EVENTO] - Incompany - Captação_Klenio',p:12,d:false},
+    {t:'ADS IZAURO',p:6,d:true},
+    {t:'Video institucional carbone de 30s',p:8,d:true},
+    {t:'Reels [Auto As Maiores Marcas do Auto Escolhem a SeuBoné] 04/06',p:3,d:false},
+  ]},
+  { name:'bia', cargo:'Estagiária LP & IA', done:1, total:2, pts:10, pctSem:43, horas:'3h 59min', coef:37.9, meta:30, metaPct:33, tasks:[
+    {t:'Daily MKT - Projeto - Etapa dois: Ajuste de estrutura',p:15,d:false},
+    {t:'Painel de MKT - daily (Arquitetura inicial)',p:10,d:true},
+  ]},
+  { name:'malu', cargo:'Storymaker', done:6, total:13, pts:8, pctSem:46, horas:'1h 30min', coef:35.1, meta:26, metaPct:46, tasks:[
+    {t:'Video Aftermovie Incompany - Malu',p:3,d:true},
+    {t:'[EVENTO] - Incompany - Cobertura',p:12,d:false},
+    {t:'Reel trend seubone',p:1,d:false},
+    {t:'"Aftermovie" grupo sb "prorrogação"',p:1,d:true},
+    {t:'5 stories time sb',p:1,d:true},
+    {t:'3 stories Pedro',p:1,d:true},
+  ]},
+  { name:'zion', cargo:'Publisher / UGC', done:5, total:9, pts:13, pctSem:56, horas:'2h 19min', coef:43.2, meta:26, metaPct:55, tasks:[
+    {t:'ajudar maria_galego e etc e tal catalogo seubone editavel',p:2,d:true},
+    {t:'RESOLVER BRASIL PROMOTION MISSAO SECRETA MARIA CLARA',p:4,d:true},
+    {t:'EDITAR E POSTAR TODO O MATERIA DE UGC ATE O FINAL DO DIA',p:1,d:false},
+    {t:'Postar nas 3 empresas, 5 contas, 6 posts',p:10,d:true},
+    {t:'Edição fotos experiência carbone 28_05',p:3,d:true},
+    {t:'Ajuste produtos SB Bolsas',p:6,d:false},
+  ]},
+];
+
+const grid = document.getElementById('grid');
+grid.innerHTML = members.map(m => {
+  const pOver = m.metaPct >= 100;
+  const tasks = m.tasks.map(t => `
+    <div class="ti ${t.d?'done':''}">
+      <div class="chk ${t.d?'done':''}">${t.d?'✓':''}</div>
+      <span class="ttl">${t.t}</span>
+      <span class="tpt">${t.p}p</span>
+    </div>`).join('');
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-name">${m.name}</div>
+        <div class="card-cargo">${m.cargo}</div>
+      </div>
+      <div class="dot"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-v">${m.done}/${m.total}</div><div class="stat-l">Tasks hoje</div></div>
+      <div class="stat"><div class="stat-v">${m.pts}</div><div class="stat-l">Pts hoje</div></div>
+      <div class="stat"><div class="stat-v">${m.pctSem}%</div><div class="stat-l">Sem 4</div></div>
+    </div>
+    <div class="meta-row"><span class="meta-l">Meta diária: ${m.meta} pts</span><span class="meta-p">${m.metaPct}%</span></div>
+    <div class="bar"><div class="bar-fill ${pOver?'over':''}" style="width:${Math.min(m.metaPct,100)}%"></div></div>
+    <div class="hrow">🕐 <span>${m.horas} validadas</span> &nbsp; COEF: <span class="coef">${m.coef}%</span></div>
+    <div class="tasks">${tasks}</div>
+  </div>`;
+}).join('');
+</script>
+</body>
+</html>
