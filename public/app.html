@@ -38,10 +38,6 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Histórico</span>
           </button>
-          <button type="button" class="nav-tab" data-panel="time" role="tab">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span>Score</span>
-          </button>
           <button type="button" class="nav-tab" data-panel="adm" id="admNavTab" role="tab" style="display:none">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>ADM</span>
@@ -447,23 +443,6 @@
           </div>
         </section>
 
-        <!-- ── Score (Leaderboard) ────────────────────────────────────── -->
-        <section class="rank-module" data-lockable="true" data-panel-view="time" hidden>
-          <div class="rank-header">
-            <div class="rank-title-bar"></div>
-            <h2 class="rank-title-text">Score semanal</h2>
-            <select id="leaderboardWeeks" class="rank-weeks-select">
-              <option value="1" selected>Esta semana</option>
-              <option value="2">2 semanas</option>
-              <option value="4">4 semanas</option>
-            </select>
-            <button type="button" class="rank-period-pill" id="rankPeriodPill">Período: —</button>
-            <button type="button" class="rank-cal-btn" id="rankCalBtn" aria-label="Selecionar período">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            </button>
-          </div>
-          <ul class="rank-list" id="leaderboardList"></ul>
-        </section>
 
         <!-- ── Versão ADM ─────────────────────────────────────────────── -->
         <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
