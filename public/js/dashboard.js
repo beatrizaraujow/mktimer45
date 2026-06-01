@@ -2215,12 +2215,7 @@ async function loadTeamDaily() {
   } catch (err) {
     _setLiveBadge(false);
     _stopTdTimers();
-    if (!err.message.includes('não configurado') && !err.message.includes('not_configured')) {
-      // Mostra erro real no header para diagnóstico
-      const dateEl = document.getElementById('tdDate');
-      if (dateEl) dateEl.textContent = `⚠ ${err.message.slice(0, 90)}`;
-      console.error('[clickup-live]', err.message);
-    }
+    console.warn('[clickup-live] sem acesso, usando banco:', err.message);
   }
 
   // Fallback: local database
