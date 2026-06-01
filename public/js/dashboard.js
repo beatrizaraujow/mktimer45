@@ -758,13 +758,16 @@ async function loadConsistency() {
 }
 
 async function loadLeaderboard() {
-  const weeks = document.getElementById('leaderboardWeeks').value;
-  const response = await api(`/api/focus?action=leaderboard&weeks=${weeks}`);
+  const el = document.getElementById('leaderboardWeeks');
+  if (!el) return;
+  const response = await api(`/api/focus?action=leaderboard&weeks=${el.value}`);
   renderLeaderboard(response);
 }
 
 async function refreshAll() {
-  await Promise.all([loadTaskPanel(), loadConsistency(), loadLeaderboard()]);
+  const tasks = [loadTaskPanel(), loadConsistency()];
+  if (document.getElementById('leaderboardWeeks')) tasks.push(loadLeaderboard());
+  await Promise.all(tasks);
 }
 
 function toYmd(d) {
@@ -1562,7 +1565,7 @@ async function init() {
   const stopBtn  = document.getElementById('stopSessionBtn');
   if (startBtn) startBtn.addEventListener('click', startSession);
   if (stopBtn)  stopBtn.addEventListener('click', stopSession);
-  document.getElementById('leaderboardWeeks').addEventListener('change', loadLeaderboard);
+  document.getElementById('leaderboardWeeks')?.addEventListener('change', loadLeaderboard);
   const weeksEl = document.getElementById('overviewWeeks');
   if (weeksEl) weeksEl.addEventListener('change', async (event) => {
     overviewWeeks = Number(event.target.value);
