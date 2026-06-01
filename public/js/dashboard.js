@@ -2857,8 +2857,10 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
         datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
       { label: 'Pontos (linha)', data: pts, type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
-        pointBackgroundColor: '#3dba6f', pointRadius: 5, tension: 0.35,
-        datalabels: { display: false } },
+        pointBackgroundColor: '#3dba6f',
+        pointRadius: pts.map(v => v > 0 ? 5 : 0),
+        pointHoverRadius: pts.map(v => v > 0 ? 7 : 0),
+        tension: 0.35, datalabels: { display: false } },
     ];
     scales = {
       x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
@@ -2897,8 +2899,10 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
         datalabels: { ...DL, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
       { label: 'Tasks', data: tasks, type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
-        pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7, tension: 0.35,
-        yAxisID: 'y2', order: 1,
+        pointBackgroundColor: '#3dba6f',
+        pointRadius: tasks.map(v => v > 0 ? 5 : 0),
+        pointHoverRadius: tasks.map(v => v > 0 ? 7 : 0),
+        tension: 0.35, yAxisID: 'y2', order: 1,
         datalabels: { ...DL, display: true, color: '#3dba6f', formatter: v => v > 0 ? v : '' } },
     ];
     scales = {
