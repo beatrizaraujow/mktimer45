@@ -2855,12 +2855,10 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
       { label: 'Pontos', data: pts, type: 'bar',
         backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1, borderRadius: 5,
         datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
-      { label: 'Pontos (linha)', data: pts, type: 'line',
+      { label: 'Pontos (linha)', data: pts.map(v => v > 0 ? v : null), type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
-        pointBackgroundColor: '#3dba6f',
-        pointRadius: pts.map(v => v > 0 ? 5 : 0),
-        pointHoverRadius: pts.map(v => v > 0 ? 7 : 0),
-        tension: 0.35, datalabels: { display: false } },
+        pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7,
+        tension: 0.35, spanGaps: false, datalabels: { display: false } },
     ];
     scales = {
       x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
@@ -2897,13 +2895,11 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
         backgroundColor: '#e8b84426', borderColor: '#e8b844', borderWidth: 1.5,
         borderRadius: 5, yAxisID: 'y1', order: 3,
         datalabels: { ...DL, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
-      { label: 'Tasks', data: tasks, type: 'line',
+      { label: 'Tasks', data: tasks.map(v => v > 0 ? v : null), type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
-        pointBackgroundColor: '#3dba6f',
-        pointRadius: tasks.map(v => v > 0 ? 5 : 0),
-        pointHoverRadius: tasks.map(v => v > 0 ? 7 : 0),
-        tension: 0.35, yAxisID: 'y2', order: 1,
-        datalabels: { ...DL, display: true, color: '#3dba6f', formatter: v => v > 0 ? v : '' } },
+        pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7,
+        tension: 0.35, spanGaps: false, yAxisID: 'y2', order: 1,
+        datalabels: { ...DL, display: true, color: '#3dba6f', formatter: v => (v && v > 0) ? v : '' } },
     ];
     scales = {
       x:  { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },

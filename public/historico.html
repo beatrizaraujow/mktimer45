@@ -327,7 +327,7 @@ function buildCompData(months){
   if(compMetric==='pts'){
     return { labels, datasets:[
       { label:'Pontos', data:months.map(m=>m.pts), type:'bar', backgroundColor:'#e8b84422', borderColor:'#e8b844', borderWidth:2, borderRadius:4, datalabels:{...DL_BASE,color:'#e8b844'} },
-      { label:'Pontos (linha)', data:months.map(m=>m.pts), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:months.map(m=>m.pts>0?4:0), pointHoverRadius:months.map(m=>m.pts>0?6:0), tension:0.35, datalabels:{display:false} },
+      { label:'Pontos (linha)', data:months.map(m=>m.pts>0?m.pts:null), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:4, pointHoverRadius:6, tension:0.35, spanGaps:false, datalabels:{display:false} },
     ]};
   }
   if(compMetric==='tasks'){
@@ -344,7 +344,7 @@ function buildCompData(months){
   return { labels, datasets:[
     { label:'Tasks',  data:months.map(m=>m.tasksDone), type:'bar',  backgroundColor:'#3dba6f33', borderColor:'#3dba6f', borderWidth:2, borderRadius:4, yAxisID:'y',  order:2, datalabels:{...DL_BASE,color:'#3dba6f'} },
     { label:'Horas',  data:months.map(m=>m.horas),     type:'bar',  backgroundColor:'#5a72e833', borderColor:'#5a72e8', borderWidth:2, borderRadius:4, yAxisID:'y',  order:3, datalabels:{...DL_BASE,color:'#7882a4',formatter:(v)=>v===0?'':v.toFixed(1)+'h'} },
-    { label:'Pontos', data:months.map(m=>m.pts),        type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:months.map(m=>m.pts>0?5:0), pointHoverRadius:months.map(m=>m.pts>0?7:0), tension:0.35, yAxisID:'y2', order:1, datalabels:{...DL_BASE,color:'#e8b844'} },
+    { label:'Pontos', data:months.map(m=>m.pts>0?m.pts:null), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:5, pointHoverRadius:7, tension:0.35, spanGaps:false, yAxisID:'y2', order:1, datalabels:{...DL_BASE,color:'#e8b844',formatter:(v)=>v?v:''} },
   ]};
 }
 
