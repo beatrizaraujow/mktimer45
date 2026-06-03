@@ -1988,6 +1988,7 @@ let _tdCountInterval  = null;
 let _tdIsLive         = false;
 let _tdLastMembers    = [];
 let _tdSelectedPerson = null; // null = all members (grid view)
+const _tdDoneExpanded = {}; // { [memberId]: boolean } — estado de colapso das completas
 
 function getCategoryColor(cat) {
   if (!cat) return '#8b5cf6';
@@ -2045,7 +2046,7 @@ function renderTdView(members) {
 }
 
 function renderPersonTable(member) {
-  const weekPts      = member.ptsSemana || member.ptsToday || member.ptsTotalSemana || 0;
+  const weekPts      = member.ptsSemana || member.ptsToday || 0;
   const adjustedGoal = getDailyAdjustedGoal(member.weeklyGoal);
   const adjustedPct  = adjustedGoal > 0 ? Math.round((weekPts / adjustedGoal) * 100) : member.weekPct;
   const barW = Math.min(adjustedPct, 100);
@@ -2132,8 +2133,36 @@ function taskEmpresaBadge(empresa) {
   return '';
 }
 
+// Renderiza uma linha de task (pai)
+function _mcTaskLi(task, color, isDone) {
+  const pts     = task.points ? `${task.points}p` : '';
+  const title   = task.title.length > 40 ? `${task.title.slice(0, 40)}…` : task.title;
+  const doneClass = isDone ? ' done' : '';
+  const coBadge   = taskEmpresaBadge(task.empresa || '');
+  return `<li class="mc-task">
+    <span class="mc-task-dot" style="background:${task.statusColor || color}"></span>
+    <span class="mc-task-name${doneClass}">${title}</span>
+    ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
+    ${coBadge}
+  </li>`;
+}
+
+// Renderiza uma linha de subtask (filha, indentada)
+function _mcSubtaskLi(sub) {
+  const pts     = sub.points ? `${sub.points}p` : '';
+  const title   = sub.title.length > 36 ? `${sub.title.slice(0, 36)}…` : sub.title;
+  const doneClass = sub.is_done ? ' done' : '';
+  const dotColor  = sub.statusColor || (sub.is_done ? '#22d3a3' : '#4a5568');
+  return `<li class="mc-subtask">
+    <span class="mc-subtask-line"></span>
+    <span class="mc-task-dot" style="background:${dotColor};width:5px;height:5px"></span>
+    <span class="mc-task-name${doneClass}">${title}</span>
+    ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
+  </li>`;
+}
+
 function renderMemberCard(member) {
-  const weekPts      = member.ptsSemana || member.ptsToday || member.ptsTotalSemana || 0;
+  const weekPts      = member.ptsSemana || member.ptsToday || 0;
   const adjustedGoal = getDailyAdjustedGoal(member.weeklyGoal);
   const adjustedPct  = adjustedGoal > 0 ? Math.round((weekPts / adjustedGoal) * 100) : member.weekPct;
   const wColor   = weekPctColor(adjustedPct);
@@ -2143,42 +2172,34 @@ function renderMemberCard(member) {
                  : adjustedPct >= 40  ? '#f6a623'
                  : '#f04444';
 
-  // Contagem de concluídas: X = tasks done (statusCat done), Y = total
   const doneCount  = member.doneSemana  != null ? member.doneSemana  : (member.doneToday  || 0);
   const totalCount = member.totalSemana != null ? member.totalSemana : (member.totalToday || 0);
 
-  const metaLabel = member.isCompletionBased
-    ? `Conclusão: ${doneCount}/${totalCount} tasks`
-    : `${weekPts} / ${adjustedGoal} pts · ${getMetaPeriodLabel(member.weeklyGoal)}`;
   const metaText = member.isCompletionBased
     ? `Conclusão: ${doneCount}/${totalCount} tasks`
     : `Em andamento: ${weekPts} / ${adjustedGoal} pts`;
 
-  // Group tasks by status category
-  // Revision vem entre andamento e para fazer (conforme spec)
+  // Grupos visíveis: pendente, alteração, aprovar, publicar, completas (colapsável)
+  // 'doing' é mapeado para 'todo'; 'leader' é mapeado para 'approval'
   const STATUS_GROUPS = [
-    { cat: 'doing',    label: 'EM ANDAMENTO',        color: '#3b82f6' },
-    { cat: 'revision', label: 'EM ALTERAÇÃO',        color: '#f59e0b' },
-    { cat: 'todo',     label: 'PARA FAZER',          color: '#6b7585' },
-    { cat: 'approval', label: 'EM APROVAÇÃO',        color: '#f6a623' },
-    { cat: 'leader',   label: 'APROVAÇÃO DO LÍDER',  color: '#9b59b6' },
-    { cat: 'done',     label: 'COMPLETAS',           color: '#22d3a3' },
+    { cat: 'todo',     label: 'PENDENTE',   color: '#6b7585', extra: ['doing'] },
+    { cat: 'revision', label: 'ALTERAÇÃO',  color: '#f59e0b', extra: [] },
+    { cat: 'approval', label: 'APROVAR',    color: '#f6a623', extra: ['leader'] },
+    { cat: 'publish',  label: 'PUBLICAR',   color: '#7c3aed', extra: [] },
+    { cat: 'done',     label: 'COMPLETAS',  color: '#22d3a3', extra: [], collapsible: true },
   ];
 
-  // Semanal = todas as tasks por status (abertas + concluídas)
-  // Mensal  = apenas tasks concluídas no período
   const isFiltered = _dfb.daily.preset === 'mes';
 
   let taskRows = '';
   if (isFiltered) {
-    // Filtered view: only completed tasks
     const done = member.tasks.filter((t) => t.statusCat === 'done' || t.is_done);
     if (!done.length) {
       taskRows = '<li class="mc-no-tasks">Nenhuma task concluída no período</li>';
     } else {
       taskRows = done.map((task) => {
-        const pts   = task.points ? `${task.points}p` : '';
-        const title = task.title.length > 44 ? `${task.title.slice(0, 44)}…` : task.title;
+        const pts     = task.points ? `${task.points}p` : '';
+        const title   = task.title.length > 44 ? `${task.title.slice(0, 44)}…` : task.title;
         const coBadge = taskEmpresaBadge(task.empresa);
         return `<li class="mc-task">
           <span class="mc-task-dot" style="background:#22d3a3"></span>
@@ -2189,22 +2210,33 @@ function renderMemberCard(member) {
       }).join('');
     }
   } else {
-    // Current view: tasks grouped by status
-    STATUS_GROUPS.forEach(({ cat, label, color }) => {
-      const group = member.tasks.filter((t) => t.statusCat === cat);
+    STATUS_GROUPS.forEach(({ cat, label, color, extra, collapsible }) => {
+      const allCats = [cat, ...(extra || [])];
+      const group   = member.tasks.filter((t) => allCats.includes(t.statusCat));
       if (!group.length) return;
+
+      if (collapsible) {
+        // Completas: header com toggle de colapso
+        const expanded = _tdDoneExpanded[member.id] === true;
+        taskRows += `<li class="mc-status-header mc-done-header" style="color:${color}">
+          <span>COMPLETAS (${group.length})</span>
+          <button class="mc-done-toggle" data-uid="${member.id}" aria-label="Expandir completas" aria-expanded="${expanded}">
+            <span class="mc-done-arrow${expanded ? ' mc-done-arrow-open' : ''}">›</span>
+          </button>
+        </li>`;
+        if (expanded) {
+          group.forEach((task) => {
+            taskRows += _mcTaskLi(task, color, true);
+            (task.subtasks || []).forEach((sub) => { taskRows += _mcSubtaskLi(sub); });
+          });
+        }
+        return;
+      }
+
       taskRows += `<li class="mc-status-header" style="color:${color}">${label} (${group.length})</li>`;
       group.forEach((task) => {
-        const pts     = task.points ? `${task.points}p` : '';
-        const title   = task.title.length > 40 ? `${task.title.slice(0, 40)}…` : task.title;
-        const done    = cat === 'done' ? ' done' : '';
-        const coBadge = taskEmpresaBadge(task.empresa);
-        taskRows += `<li class="mc-task">
-          <span class="mc-task-dot" style="background:${task.statusColor || color}"></span>
-          <span class="mc-task-name${done}">${title}</span>
-          ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
-          ${coBadge}
-        </li>`;
+        taskRows += _mcTaskLi(task, color, false);
+        (task.subtasks || []).forEach((sub) => { taskRows += _mcSubtaskLi(sub); });
       });
     });
     if (!taskRows) taskRows = '<li class="mc-no-tasks">Sem tasks no período</li>';
@@ -2231,7 +2263,7 @@ function renderMemberCard(member) {
       </div>
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
-        <span class="mc-stat-val" style="color:${wColor}">${adjustedPct}%</span>
+        <span class="mc-stat-val" style="color:${weekPctColor(member.coef)}">${member.coef}%</span>
         <span class="mc-stat-lbl">Coeficiente</span>
       </div>
     </div>
@@ -2250,7 +2282,6 @@ function renderMemberCard(member) {
 
     <div class="mc-coef-row">
       <span class="mc-horas">${member.horasStr}</span>
-      <span class="mc-coef-badge">COEF: ${member.coef}%</span>
     </div>
 
     <ul class="mc-task-list">
@@ -2268,15 +2299,15 @@ function renderDailyRanking(members) {
   }
 
   const sorted = [...members].sort((a, b) => {
-    const ptsA = a.ptsSemana || a.ptsToday || a.ptsTotalSemana || 0;
-    const ptsB = b.ptsSemana || b.ptsToday || b.ptsTotalSemana || 0;
+    const ptsA = a.ptsSemana || a.ptsToday || 0;
+    const ptsB = b.ptsSemana || b.ptsToday || 0;
     return ptsB - ptsA;
   });
 
   const MEDALS = ['🥇', '🥈', '🥉'];
 
   listEl.innerHTML = sorted.map((m, i) => {
-    const pts     = m.ptsSemana || m.ptsToday || m.ptsTotalSemana || 0;
+    const pts     = m.ptsSemana || m.ptsToday || 0;
     const coef    = m.coef != null ? m.coef : (m.weekPct || 0);
     const isPodium = i < 3 && coef >= 100;
     const coefColor = coef >= 100 ? '#f6c200' : coef >= 70 ? '#22d3a3' : coef >= 40 ? '#f6a623' : '#f04444';
@@ -2339,8 +2370,8 @@ function renderRankingFromMembers(members) {
 
   // Ordena por pts semana (desc)
   const sorted = [...members].sort((a, b) => {
-    const pa = a.ptsSemana || a.ptsToday || a.ptsTotalSemana || 0;
-    const pb = b.ptsSemana || b.ptsToday || b.ptsTotalSemana || 0;
+    const pa = a.ptsSemana || a.ptsToday || 0;
+    const pb = b.ptsSemana || b.ptsToday || 0;
     return pb - pa;
   });
 
@@ -2349,29 +2380,46 @@ function renderRankingFromMembers(members) {
     pct >= 100 ? '#f6c200' : pct >= 70 ? '#22d3a3' : pct >= 40 ? '#f6a623' : '#f04444';
 
   const rows = sorted.map((m, i) => {
-    const pts      = m.ptsSemana || m.ptsToday || m.ptsTotalSemana || 0;
-    const coef     = m.coef != null ? m.coef : (m.weekPct || 0);
-    const done     = m.doneSemana != null ? m.doneSemana : (m.doneToday || 0);
-    const total    = m.totalSemana != null ? m.totalSemana : (m.totalToday || 0);
-    const isPodium = i < 3 && coef >= 100;
-    const posLabel = isPodium
+    const pts        = m.ptsSemana || m.ptsToday || 0;
+    const coef       = m.coef != null ? m.coef : (m.weekPct || 0);
+    const done       = m.doneSemana != null ? m.doneSemana : (m.doneToday || 0);
+    const total      = m.totalSemana != null ? m.totalSemana : (m.totalToday || 0);
+    const goal100    = m.weeklyGoal || 0;
+    const goal120    = m.weeklyGoal120 > 0 ? m.weeklyGoal120 : Math.round(goal100 * 1.2);
+    const isPodium   = i < 3 && coef >= 100;
+    const posLabel   = isPodium
       ? `<span class="rk-medal">${MEDALS[i]}</span>`
       : `<span class="rk-pos">#${i + 1}</span>`;
-    const bColor   = coefColor(coef);
-    const barW     = Math.min(coef, 100);
+    const bColor     = coefColor(coef);
+    const barW       = Math.min(coef, 100);
+
+    // Badge de meta: 120% > 100% > sem badge
+    const metaBadge = !m.isCompletionBased && goal100 > 0
+      ? pts >= goal120 ? `<span class="rk-meta-badge rk-meta-120">120%</span>`
+      : pts >= goal100 ? `<span class="rk-meta-badge rk-meta-100">100%</span>`
+      : ''
+      : '';
+
+    // Barra de progresso de pts (% da meta 100%, marcador na meta 120%)
+    const ptsBarW   = goal100 > 0 ? Math.min(Math.round((pts / goal100) * 100), 100) : 0;
+    const marker120 = goal100 > 0 && goal120 > goal100
+      ? `<span class="rk-bar-marker120" style="left:${Math.min(Math.round((goal100/goal120)*100),95)}%"></span>`
+      : '';
+    const ptsLabel  = goal100 > 0 ? `${pts} / ${goal100} pts` : `${pts} pts`;
 
     return `<div class="rk-row${isPodium ? ` rk-podium-${i + 1}` : ''}">
       <div class="rk-left">
         ${posLabel}
         <div class="rk-info">
-          <span class="rk-name">${m.name || '—'}</span>
-          <span class="rk-meta">${m.cargo || '—'} · ${done}/${total} tasks · ${pts} pts · ${m.horasStr || '0h'}</span>
+          <span class="rk-name">${m.name || '—'}${metaBadge}</span>
+          <span class="rk-meta">${m.cargo || '—'} · ${done}/${total} tasks · ${ptsLabel} · ${m.horasStr || '0h'}</span>
         </div>
       </div>
       <div class="rk-right">
         <div class="rk-bar-wrap">
           <div class="rk-bar-track">
-            <div class="rk-bar-fill" style="width:${barW}%;background:${bColor}"></div>
+            <div class="rk-bar-fill" style="width:${ptsBarW}%;background:${bColor}"></div>
+            ${marker120}
           </div>
           <span class="rk-pct" style="color:${bColor}">${coef}%</span>
         </div>
@@ -2792,6 +2840,18 @@ function initTeamDaily() {
       await loadTeamDaily();
       refreshBtn.disabled = false;
       refreshBtn.innerHTML = orig;
+    });
+  }
+
+  // Delegação: toggle de "Completas" por card de membro
+  const grid = document.getElementById('teamDailyGrid');
+  if (grid) {
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mc-done-toggle');
+      if (!btn) return;
+      const uid = Number(btn.dataset.uid);
+      _tdDoneExpanded[uid] = !_tdDoneExpanded[uid];
+      if (_tdLastMembers && _tdLastMembers.length) renderTdView(_tdLastMembers);
     });
   }
 }

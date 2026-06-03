@@ -5365,19 +5365,84 @@ dialog {
   height: 5px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 99px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .rk-bar-fill {
   height: 100%;
   border-radius: 99px;
   transition: width 0.4s ease;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Marcador da meta 120% na barra do ranking */
+.rk-bar-marker120 {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 9px;
+  background: rgba(246,194,0,0.7);
+  border-radius: 1px;
+  transform: translateX(-50%);
 }
 
 .rk-pct {
   font-size: 13px;
   font-weight: 700;
   width: 44px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Badges de meta 100% / 120% no ranking ─────────────────────────── */
+.rk-meta-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.rk-meta-100 { background: rgba(34,211,163,0.18); color: #22d3a3; }
+.rk-meta-120 { background: rgba(246,194,0,0.18);  color: #f6c200; }
+
+/* ── Barra de pts do ranking (% da meta 100%) ───────────────────────── */
+.rk-pts-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+.rk-pts-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+  position: relative;
+  overflow: visible;
+}
+.rk-pts-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.rk-pts-bar-marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  background: rgba(246,194,0,0.6);
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+.rk-pts-bar-pct {
+  font-size: 11px;
+  font-weight: 700;
+  width: 36px;
   text-align: right;
   flex-shrink: 0;
 }
@@ -5607,6 +5672,60 @@ dialog {
   list-style: none;
 }
 .mc-status-header:first-child { padding-top: 2px; }
+
+/* ── Subtasks (filhas, indentadas) ─────────────────────────────────── */
+.mc-subtask {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 0 1px 16px;
+  list-style: none;
+  position: relative;
+}
+.mc-subtask-line {
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255,255,255,0.1);
+}
+.mc-subtask .mc-task-name {
+  font-size: 10px;
+  color: rgba(200,208,220,0.75);
+}
+.mc-subtask .mc-task-pts {
+  font-size: 9px;
+}
+
+/* ── Toggle de completas ────────────────────────────────────────────── */
+.mc-done-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.mc-done-toggle {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.mc-done-arrow {
+  display: inline-block;
+  font-size: 13px;
+  color: #22d3a3;
+  transform: rotate(0deg);
+  transition: transform 0.18s ease;
+  line-height: 1;
+  user-select: none;
+}
+.mc-done-arrow.mc-done-arrow-open {
+  transform: rotate(90deg);
+}
 
 /* ── Responsive ── */
 @media (max-width: 1100px) {

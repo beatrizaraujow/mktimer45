@@ -84,11 +84,13 @@ function cuTaskDone(t) {
 }
 
 function cuTaskStatusCat(t) {
-  if (cuTaskDone(t)) return 'done';
   const s = (t.status?.status || '').toLowerCase().trim();
+  // Publicar e aprovar ficam em categorias próprias (verificados antes do done geral)
+  if (/^publicar$|banco.?de.?criativ/i.test(s))                                      return 'publish';
+  if (/^aprovar$|aguardando/i.test(s))                                               return 'approval';
+  if (cuTaskDone(t)) return 'done';
   if (/altera[cç]|revis/i.test(s))                                                   return 'revision';
-  if (/l[ií]der|leader/i.test(s))                                                    return 'leader';
-  if (/aguardando|approval/i.test(s))                                                return 'approval';
+  if (/l[ií]der|leader/i.test(s))                                                    return 'approval';
   if (/andamento|in.?progress|progresso|working|doing|fazendo|em.?curso/i.test(s))   return 'doing';
   return 'todo';
 }
@@ -403,12 +405,14 @@ module.exports = async function handler(req, res) {
     let usersRes;
     try {
       usersRes = await db.query(
-        `SELECT id, name, COALESCE(cargo,'') AS cargo, COALESCE(daily_points_goal,26) AS daily_points_goal
+        `SELECT id, name, COALESCE(cargo,'') AS cargo,
+                COALESCE(daily_points_goal,26) AS daily_points_goal,
+                COALESCE(weekly_goal_120,0) AS weekly_goal_120
          FROM users WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE ORDER BY name`
       );
     } catch {
       usersRes = await db.query(
-        `SELECT id, name, '' AS cargo, 26 AS daily_points_goal
+        `SELECT id, name, '' AS cargo, 26 AS daily_points_goal, 0 AS weekly_goal_120
          FROM users WHERE active = TRUE ORDER BY name`
       );
     }
@@ -505,8 +509,11 @@ module.exports = async function handler(req, res) {
       const stats    = taskStatsMap.get(uid) || { total_today: 0, done_today: 0, pts_today: 0 };
       const horas    = horasMap.get(uid) || 0;
       const wstats   = weekPtsMap.get(uid) || { pts_semana: 0, total_semana: 0, done_semana: 0 };
-      const dailyGoal  = Number(user.daily_points_goal);
-      const weeklyGoal = dailyGoal * 5;
+      const dailyGoal     = Number(user.daily_points_goal);
+      const weeklyGoal    = dailyGoal * 5;
+      const weeklyGoal120 = Number(user.weekly_goal_120) > 0
+        ? Number(user.weekly_goal_120)
+        : Math.round(weeklyGoal * 1.2);
 
       const ptsToday    = Number(stats.pts_today);
       const doneToday   = Number(stats.done_today);
@@ -514,7 +521,8 @@ module.exports = async function handler(req, res) {
       const routineData = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
       const ptsSemana   = Number(wstats.pts_semana) + Number(routineData.routine_pts);
       const doneSemana  = Number(wstats.done_semana) + Number(routineData.routine_done);
-      const totalSemana = Number(wstats.total_semana);
+      // totalSemana inclui rotinas para que done nunca exceda total
+      const totalSemana = Math.max(Number(wstats.total_semana) + Number(routineData.routine_done), doneSemana);
 
       const cargoLc = (user.cargo || '').toLowerCase();
       const isCompletionBased =
@@ -532,19 +540,27 @@ module.exports = async function handler(req, res) {
         ? (totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0)
         : (dailyGoal  > 0 ? Math.round((ptsToday  / dailyGoal) * 100)  : 0);
 
-      // Productivity coefficient
-      const ptsRate   = dailyGoal > 0 ? Math.min(ptsToday / dailyGoal, 1.5) : 0;
-      const taskRate  = totalToday > 0 ? doneToday / totalToday : 0;
-      const horasRate = Math.min(horas / 8, 1);
-      const coef = horas > 0.01
-        ? Math.round((ptsRate * 0.50 + taskRate * 0.35 + horasRate * 0.15) * 100)
-        : Math.round((ptsRate * 0.60 + taskRate * 0.40) * 100);
+      // Coeficiente — Regras do Sistema (PDF)
+      // Grupo Pontos (Samuel/Thiago/Klenio/Bia): pts/meta×50 + done/total×35 + horas/16h×15
+      // Malu/Zion (isCompletionBased): done/total×70 + horas/16h×30 (sem componente de pontos)
+      const _ptsRate  = weeklyGoal > 0 ? ptsSemana / weeklyGoal : 0;
+      const _taskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
+      const _horaRate = horas / 16; // sem cap — pode ultrapassar 100%
+      const coef = isCompletionBased
+        ? Math.round((_taskRate * 0.70 + _horaRate * 0.30) * 100)
+        : Math.round((_ptsRate  * 0.50 + _taskRate * 0.35 + _horaRate * 0.15) * 100);
 
-      const horasH = Math.floor(horas);
-      const horasM = Math.round((horas - horasH) * 60);
+      let horasH = Math.floor(horas);
+      let horasM = Math.round((horas - horasH) * 60);
+      if (horasM >= 60) { horasH += 1; horasM = 0; }
       const horasStr = horas > 0.01
         ? `${horasH}h ${String(horasM).padStart(2,'0')}min validadas`
         : '0h validadas';
+
+      const metaStatus = ptsSemana >= weeklyGoal120 ? 'above_120'
+                       : ptsSemana >= weeklyGoal    ? 'above_100'
+                       : 'below_100';
+      const percentualMeta = weeklyGoal > 0 ? Math.round((ptsSemana / weeklyGoal) * 100) : 0;
 
       return {
         id: uid,
@@ -552,12 +568,17 @@ module.exports = async function handler(req, res) {
         cargo: user.cargo || '',
         dailyGoal,
         weeklyGoal,
+        weeklyGoal120,
         weekNum,
         weekLabel,
         weekPct,
+        percentualMeta,
+        metaStatus,
         ptsToday,
         doneToday,
         totalToday,
+        doneSemana,
+        totalSemana,
         ptsSemana,
         horas,
         horasStr,
@@ -649,9 +670,9 @@ module.exports = async function handler(req, res) {
 
     if (!firstPage.last_page && (firstPage.tasks || []).length >= 100) {
       for (let page = 1; page < MAX_PAGES; page++) {
-        const r2 = await fetch(
+        const r2 = await fetchClickUp(
           `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
-          { headers: { Authorization: token } }
+          token
         );
         if (!r2.ok) break;
         const body = await r2.json();
@@ -676,6 +697,7 @@ module.exports = async function handler(req, res) {
         `SELECT id, name,
                 COALESCE(cargo,'') AS cargo,
                 COALESCE(daily_points_goal,26) AS daily_points_goal,
+                COALESCE(weekly_goal_120,0) AS weekly_goal_120,
                 COALESCE(clickup_email,'') AS clickup_email,
                 clickup_user_id
          FROM users WHERE active = TRUE
@@ -686,6 +708,7 @@ module.exports = async function handler(req, res) {
       try {
         usersRes = await db.query(
           `SELECT id, name, COALESCE(cargo,'') AS cargo, COALESCE(daily_points_goal,26) AS daily_points_goal,
+                  0 AS weekly_goal_120,
                   COALESCE(clickup_email,'') AS clickup_email, NULL::bigint AS clickup_user_id
            FROM users WHERE active = TRUE
              AND COALESCE(show_in_daily, TRUE) = TRUE
@@ -693,7 +716,7 @@ module.exports = async function handler(req, res) {
         );
       } catch {
         usersRes = await db.query(
-          `SELECT id, name, '' AS cargo, 26 AS daily_points_goal, '' AS clickup_email, NULL::bigint AS clickup_user_id
+          `SELECT id, name, '' AS cargo, 26 AS daily_points_goal, 0 AS weekly_goal_120, '' AS clickup_email, NULL::bigint AS clickup_user_id
            FROM users WHERE active = TRUE ORDER BY name`
         );
       }
@@ -774,9 +797,19 @@ module.exports = async function handler(req, res) {
     const periodFromMs = isFiltered ? new Date(`${fromP}T00:00:00-03:00`).getTime() : null;
     const periodToMs   = isFiltered ? new Date(`${toP}T23:59:59-03:00`).getTime()   : null;
 
-    // Agrupar TODAS as tasks por usuário — sem filtro de data
-    // As métricas (done/total/pts/horas) são calculadas por período separadamente
-    const cuByUid = new Map();
+    // Índice de subtasks por parent ID (para exibir aninhadas no frontend)
+    const subtasksByParent = new Map();
+    for (const task of allCuTasks) {
+      if (task.parent) {
+        if (!subtasksByParent.has(task.parent)) subtasksByParent.set(task.parent, []);
+        subtasksByParent.get(task.parent).push(task);
+      }
+    }
+
+    // cuByUid — TODAS as tasks (inclui subtasks) → usado apenas para métricas
+    // parentByUid — apenas tasks raiz (sem parent) → usada para exibição no grid
+    const cuByUid     = new Map();
+    const parentByUid = new Map();
     for (const task of allCuTasks) {
       for (const a of (Array.isArray(task.assignees) ? task.assignees : [])) {
         const sysUser = matchAssignee(a);
@@ -784,51 +817,41 @@ module.exports = async function handler(req, res) {
         const uid = Number(sysUser.id);
         if (!cuByUid.has(uid)) cuByUid.set(uid, []);
         cuByUid.get(uid).push(task);
+        if (!task.parent) {
+          if (!parentByUid.has(uid)) parentByUid.set(uid, []);
+          parentByUid.get(uid).push(task);
+        }
       }
     }
 
     const members = usersRes.rows.map((user) => {
-      const uid   = Number(user.id);
-      const tasks = cuByUid.get(uid) || [];
-      const horas = horasMap.get(uid) || 0;
+      const uid          = Number(user.id);
+      const tasks        = cuByUid.get(uid) || [];        // todas as tasks (inclui subtasks) — para pts/horas
+      const parentTasks  = parentByUid.get(uid) || [];    // só tasks raiz — para contagem done/total
+      const horas        = horasMap.get(uid) || 0;
 
-      const dailyGoal  = Number(user.daily_points_goal);
-      const weeklyGoal = dailyGoal * 5;
+      const dailyGoal    = Number(user.daily_points_goal);
+      const weeklyGoal   = dailyGoal * 5;
+      // Meta 120% customizada (PDF); fallback para cálculo matemático se não definida
+      const weeklyGoal120 = Number(user.weekly_goal_120) > 0
+        ? Number(user.weekly_goal_120)
+        : Math.round(weeklyGoal * 1.2);
       const cargoLc    = (user.cargo || '').toLowerCase();
       const isCompletionBased =
         cargoLc.includes('storymaker') || cargoLc.includes('ugc') || cargoLc.includes('publisher');
 
-      // Métricas calculadas pelo período selecionado
-      let doneToday, totalToday;
-      if (periodFromMs && periodToMs) {
-        // Tasks concluídas/fechadas no período
-        const doneInPeriod = tasks.filter(t => {
-          if (!cuTaskDone(t)) return false;
-          const closedMs = Number(t.date_closed || t.date_done || 0);
-          return closedMs >= periodFromMs && closedMs <= periodToMs;
-        });
-        // Total: concluídas no período + abertas (em andamento ou sem due_date)
-        const totalInPeriod = tasks.filter(t => {
-          const closedMs = Number(t.date_closed || t.date_done || 0);
-          const dueMs    = Number(t.due_date || 0);
-          const isDone   = cuTaskDone(t);
-          if (isDone && closedMs >= periodFromMs && closedMs <= periodToMs) return true;
-          if (dueMs >= periodFromMs && dueMs <= periodToMs) return true;
-          if (!isDone) return true; // todas as abertas entram no total
-          return false;
-        });
-        doneToday  = doneInPeriod.length;
-        totalToday = totalInPeriod.length;
-      } else {
-        doneToday  = tasks.filter(t => cuTaskDone(t)).length;
-        totalToday = tasks.length;
-      }
+      // Contagem de done/total: snapshot atual de todas as tasks-pai (sem filtro de período)
+      // Tasks em 'aprovar'/'publicar' contam como done (cuTaskDone=true)
+      // O filtro de período se aplica apenas a pts e horas ganhos (doneTasksForMetrics abaixo)
+      const doneToday  = parentTasks.filter(t => cuTaskDone(t)).length;
+      const totalToday = parentTasks.length;
 
       const wdb         = weekPtsMap.get(uid) || { pts_semana: 0, done_semana: 0, total_semana: 0 };
       const routineData = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
       const ptsSemana   = Number(wdb.pts_semana) + Number(routineData.routine_pts);
-      const doneSemana  = doneToday  + Number(routineData.routine_done);
-      const totalSemana = totalToday;
+      const doneSemana  = doneToday + Number(routineData.routine_done);
+      // totalSemana nunca menor que doneSemana (rotinas somam ao done mas não havia contrapartida no total)
+      const totalSemana = Math.max(totalToday + Number(routineData.routine_done), doneSemana);
 
       // Extrai pontos do campo "Ponto de atividade MKT" (seção 1)
       const extractCuPts = (t) => {
@@ -860,11 +883,11 @@ module.exports = async function handler(req, res) {
       // Pts das tasks concluídas no período
       const ptsToday = doneTasksForMetrics.reduce((sum, t) => sum + extractCuPts(t), 0);
 
-      // Pts de todas as tasks (fallback)
+      // Pts de todas as tasks (informativo — NÃO usado para ranking nem barra de progresso)
       const ptsTotalSemana = tasks.reduce((sum, t) => sum + extractCuPts(t), 0);
 
-      // Melhor fonte de pts: banco local > concluídas período > todas
-      const ptsParaBarra = ptsSemana || ptsToday || ptsTotalSemana;
+      // Barra de progresso e ranking usam apenas pts GANHOS (done tasks)
+      const ptsParaBarra = ptsSemana || ptsToday || 0;
 
       // Horas via time_spent no período — cap 16h/dia
       const HORA_CAP_DIA = 16;
@@ -907,19 +930,29 @@ module.exports = async function handler(req, res) {
           : totalToday  > 0 ? Math.round((doneToday  / totalToday)  * 100) : 0)
         : (weeklyGoal  > 0 ? Math.round((ptsParaBarra / weeklyGoal) * 100) : 0);
 
-      // % meta real — pode ultrapassar 120% (seção 6)
+      // % meta real (em relação à meta 100%)
       const percentualMeta = weeklyGoal > 0 ? Math.round((ptsParaBarra / weeklyGoal) * 100) : 0;
-      const metaStatus = percentualMeta >= 120 ? 'above_120' : percentualMeta >= 100 ? 'above_100' : 'below_100';
+      // metaStatus usa os limites customizados do PDF (ex: Bia 120% = 50 pts, não 36)
+      const metaStatus = ptsParaBarra >= weeklyGoal120 ? 'above_120'
+                       : ptsParaBarra >= weeklyGoal    ? 'above_100'
+                       : 'below_100';
 
       const weekLabel = isCompletionBased ? 'Conclusão' : `Sem ${weekNum}`;
-      const taskRate  = totalToday > 0 ? doneToday / totalToday : 0;
       // Usa horas ClickUp se disponíveis; fallback para banco local
       const horasEfetivas = horasCuTotal > 0 ? horasCuTotal : horas;
-      const horasRate     = Math.min(horasEfetivas / 8, 1);
-      const coef          = Math.round((taskRate * 0.70 + horasRate * 0.30) * 100);
+      // Coeficiente — Regras do Sistema (PDF)
+      // Grupo Pontos: pts/meta×50% + done/total×35% + horas/16h×15%
+      // Malu/Zion (isCompletionBased): done/total×70% + horas/16h×30% — sem pts, pode passar 100%
+      const _cuTaskRate = totalToday > 0 ? doneToday / totalToday : 0;
+      const _cuHoraRate = horasEfetivas / 16; // sem cap — pode ultrapassar 100%
+      const _cuPtsRate  = weeklyGoal > 0 ? ptsParaBarra / weeklyGoal : 0;
+      const coef        = isCompletionBased
+        ? Math.round((_cuTaskRate * 0.70 + _cuHoraRate * 0.30) * 100)
+        : Math.round((_cuPtsRate  * 0.50 + _cuTaskRate * 0.35 + _cuHoraRate * 0.15) * 100);
 
-      const horasH   = Math.floor(horasEfetivas);
-      const horasM   = Math.round((horasEfetivas - horasH) * 60);
+      let horasH = Math.floor(horasEfetivas);
+      let horasM = Math.round((horasEfetivas - horasH) * 60);
+      if (horasM >= 60) { horasH += 1; horasM = 0; }
       const horasStr = horasEfetivas > 0.01
         ? `${horasH}h ${String(horasM).padStart(2, '0')}min validadas`
         : '0h validadas';
@@ -930,6 +963,7 @@ module.exports = async function handler(req, res) {
         cargo:  user.cargo || '',
         dailyGoal,
         weeklyGoal,
+        weeklyGoal120,
         weekNum,
         weekLabel,
         weekPct,
@@ -949,9 +983,18 @@ module.exports = async function handler(req, res) {
         missingFieldsCount,
         dailyPct: Math.min(weekPct, 150),
         isCompletionBased,
-        tasks: tasks.slice(0, isFiltered ? 100 : 25).map((t) => {
+        tasks: (parentByUid.get(uid) || []).slice(0, isFiltered ? 100 : 25).map((t) => {
           const pts     = extractCuPts(t);
           const empresa = resolveEmpresa(t);
+          const subs    = (subtasksByParent.get(t.id) || []).map((sub) => ({
+            id:          sub.id,
+            title:       sub.name || '—',
+            is_done:     cuTaskDone(sub),
+            statusLabel: sub.status?.status || '',
+            statusColor: sub.status?.color  || null,
+            statusCat:   cuTaskStatusCat(sub),
+            points:      extractCuPts(sub) > 0 ? extractCuPts(sub) : null,
+          }));
           return {
             id:          t.id,
             title:       t.name || '—',
@@ -962,6 +1005,7 @@ module.exports = async function handler(req, res) {
             statusLabel: t.status?.status || '',
             statusColor: t.status?.color  || null,
             statusCat:   cuTaskStatusCat(t),
+            subtasks:    subs,
           };
         }),
       };
@@ -1097,9 +1141,9 @@ module.exports = async function handler(req, res) {
     const allCuTasks = [];
     const MAX_PAGES = 5;
     for (let page = 0; page < MAX_PAGES; page++) {
-      const r = await fetch(
+      const r = await fetchClickUp(
         `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
-        { headers: { Authorization: token } }
+        token
       );
       if (!r.ok) {
         if (page === 0) return json(res, 502, { error: `ClickUp ${r.status}` });
