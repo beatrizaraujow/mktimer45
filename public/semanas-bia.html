@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle Semanal — Bia (Estagiária)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; background: #fff; color: #1a1a2e; }
+
+  .header {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 18px 28px 14px;
+    text-align: center;
+  }
+  .header h1 { font-size: 17px; font-weight: 700; letter-spacing: 1px; }
+  .header p  { font-size: 10px; color: #aac; margin-top: 4px; font-style: italic; }
+
+  .meta-strip {
+    display: flex;
+    gap: 0;
+    background: #f0f0ff;
+    border-bottom: 2px solid #7c3aed;
+    padding: 10px 28px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .meta-chip {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .meta-chip .val { font-size: 18px; font-weight: 700; color: #7c3aed; }
+  .meta-chip .lbl { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: .4px; }
+  .meta-note { margin-left: auto; font-size: 9.5px; color: #555; text-align: right; line-height: 1.5; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead tr { background: #7c3aed; }
+  thead th {
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    padding: 8px 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid #6d28d9;
+  }
+  tbody tr:nth-child(even) td { background: #f9f8ff; }
+  tbody tr:nth-child(odd)  td { background: #fff; }
+  tbody tr.semana-atual td  { background: #fffbdd !important; }
+  tbody tr.semana-futura td { background: #f5f5f5 !important; color: #bbb; }
+
+  td {
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    vertical-align: middle;
+    text-align: center;
+    line-height: 1.4;
+  }
+  td.col-obs { text-align: left; font-size: 10px; color: #444; }
+
+  .semana-badge {
+    font-weight: 700; font-size: 11px; color: #1a1a2e;
+  }
+  .periodo { font-size: 10px; color: #444; white-space: nowrap; }
+  .pts-val  { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+  .meta-val { font-size: 10px; color: #7c3aed; font-style: italic; }
+  .pct-val  { font-size: 12px; font-weight: 700; }
+  .pct-high  { color: #1a6a2a; }
+  .pct-ok    { color: #856404; }
+  .pct-low   { color: #842029; }
+  .coins-val { font-size: 12px; }
+  .status-concluido { background: #d4edda; color: #1a6a2a; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .status-andamento { background: #fff3cd; color: #856404; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .status-afazer    { background: #e9ecef; color: #555;    border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .validado-sim { color: #1a6a2a; font-size: 14px; font-weight: 700; }
+  .validado-nao { color: #bbb; font-size: 11px; }
+
+  .legend {
+    display: flex; gap: 18px; padding: 10px 28px;
+    background: #f8f8fc; border-top: 2px solid #dde; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .legend-box  { width: 14px; height: 14px; border-radius: 3px; }
+
+  .summary-row td {
+    background: #7c3aed !important;
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .coins-pend { font-size: 9px; color: #999; font-style: italic; }
+
+  @media print {
+    body { font-size: 9.5px; }
+    .header h1 { font-size: 14px; }
+    th, td { padding: 4px 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CONTROLE SEMANAL DE PERFORMANCE — BIA (ESTAGIÁRIA)</h1>
+  <p>Registro semanal de pontos, tarefas e validação de Maria &nbsp;·&nbsp; MKT Hub / Grupo Quatro5 &nbsp;·&nbsp; Atualizado em 02/06/2026</p>
+</div>
+
+<div class="meta-strip">
+  <div class="meta-chip">
+    <span class="val">6</span>
+    <span class="lbl">pts / dia</span>
+  </div>
+  <div class="meta-chip">
+    <span class="val">30</span>
+    <span class="lbl">meta 100% / semana</span>
+  </div>
+  <div class="meta-chip">
+    <span class="val">36</span>
+    <span class="lbl">meta 120% / semana</span>
+  </div>
+  <div class="meta-chip">
+    <span class="val" style="color:#1a6a2a">271</span>
+    <span class="lbl">pts acumulados</span>
+  </div>
+  <div class="meta-chip">
+    <span class="val" style="color:#7c3aed">8</span>
+    <span class="lbl">semanas registradas</span>
+  </div>
+  <div class="meta-note">
+    Estagiária de Landing Page &amp; IA &nbsp;·&nbsp; Cargo: Dev / Admin<br/>
+    Sistema: MKT Hub (mktimer) &nbsp;·&nbsp; Fórmula: ptsRate×0.60 + taskRate×0.40<br/>
+    SB Coins: ★ (proxy, pendente F1.7 backend) &nbsp;·&nbsp; Início estágio: 14/04/2026
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:48px">SEMANA</th>
+      <th style="width:115px">PERÍODO</th>
+      <th style="width:70px">PONTOS<br/>FEITOS</th>
+      <th style="width:60px">META<br/>100%</th>
+      <th style="width:60px">META<br/>120%</th>
+      <th style="width:58px">% META</th>
+      <th style="width:70px">★ COINS<br/>GANHOS</th>
+      <th style="width:65px">POSIÇÃO<br/>RANKING</th>
+      <th>OBSERVAÇÕES</th>
+      <th style="width:70px">VALIDADO<br/>POR MARIA</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- S01 -->
+    <tr>
+      <td><span class="semana-badge">S01</span></td>
+      <td><span class="periodo">14/04 – 18/04/2026</span></td>
+      <td><span class="pts-val">20</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-ok">67%</span></td>
+      <td><span class="coins-val">★☆☆</span><br/><span class="coins-pend">1 coin est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Levantamento de requisitos, arquitetura técnica, setup do repositório (F0.1–F0.3)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S02 -->
+    <tr>
+      <td><span class="semana-badge">S02</span></td>
+      <td><span class="periodo">21/04 – 25/04/2026</span></td>
+      <td><span class="pts-val">26</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-ok">87%</span></td>
+      <td><span class="coins-val">★★☆</span><br/><span class="coins-pend">2 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Mapeamento da API ClickUp, campos custom, endpoints (F0.4–F0.5) + início auth JWT (F1.1)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S03 -->
+    <tr>
+      <td><span class="semana-badge">S03</span></td>
+      <td><span class="periodo">28/04 – 02/05/2026</span></td>
+      <td><span class="pts-val">28</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-ok">93%</span></td>
+      <td><span class="coins-val">★★☆</span><br/><span class="coins-pend">2 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Integração ClickUp ao vivo (polling 60s), cálculo de pontos, coeficiente semanal (F1.2–F1.4)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S04 -->
+    <tr>
+      <td><span class="semana-badge">S04</span></td>
+      <td><span class="periodo">05/05 – 09/05/2026</span></td>
+      <td><span class="pts-val">30</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">100%</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Coeficiente Malu/Zion (isCompletionBased), sistema de Rotinas CRUD (F1.5–F1.6), leaderboard (F1.8)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S05 -->
+    <tr>
+      <td><span class="semana-badge">S05</span></td>
+      <td><span class="periodo">12/05 – 16/05/2026</span></td>
+      <td><span class="pts-val">35</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">117%</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Histórico semanal + ADM mensal (F1.9), tela de login, Time Cheat, Painel Daily pessoal (F2.1–F2.4)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S06 -->
+    <tr>
+      <td><span class="semana-badge">S06</span></td>
+      <td><span class="periodo">19/05 – 23/05/2026</span></td>
+      <td><span class="pts-val">30</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">100%</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Histórico MKT + gráfico, metas 100%/120%, Rotinas colaborador (F2.5–F2.7), Painel Daily do Time (F3.1)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S07 — SEMANA PASSADA -->
+    <tr>
+      <td><span class="semana-badge">S07</span></td>
+      <td><span class="periodo">26/05 – 30/05/2026</span></td>
+      <td><span class="pts-val">30</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">100%</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">Filtros DFB, Painel ADM + gráfico mensal, Painel Rotinas Administrativo, deploy Vercel (F3.2–F3.4, F4.4)</td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S08 — SEMANA ATUAL (EM ANDAMENTO) -->
+    <tr class="semana-atual">
+      <td><span class="semana-badge" style="color:#856404;">S08</span></td>
+      <td><span class="periodo">02/06 – 06/06/2026</span></td>
+      <td><span class="pts-val" style="color:#856404;">88*</span></td>
+      <td><span class="meta-val">30</span></td>
+      <td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">293%*</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">
+        <span class="status-andamento">Em andamento</span>
+        · <strong>01/06:</strong> Revisão + feedback Maria / MKTHub_Ajustes.md (5pts) · bugfixes 7 commits (8pts)
+        · <strong>02/06:</strong> F5.1–F5.8 — rename MKT Hub, contraste, filtros, meta ajustada, EM ALTERAÇÃO + badge empresa, contagem X/Y, Ranking Daily 🥇, rotinas 3x/semana (53pts) · Fix F1.2 paginação ClickUp (3pts)
+        · <strong>03/06:</strong> F5.9 — vínculo ClickUp por User ID: migration + API + 8 users populados via API (8pts) · F5.10 — Gustavo Rocha adicionado, Maria Clara ADM-only, nomes sincronizados com ClickUp (5pts)
+        <br/><em style="color:#999;font-size:9px;">* parcial — semana termina 06/06</em>
+      </td>
+      <td><span class="validado-nao">Pendente</span></td>
+    </tr>
+
+    <!-- S09–S20 — A FAZER -->
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S09</span></td>
+      <td><span class="periodo">09/06 – 13/06/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S10</span></td>
+      <td><span class="periodo">16/06 – 20/06/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S11</span></td>
+      <td><span class="periodo">23/06 – 27/06/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S12</span></td>
+      <td><span class="periodo">30/06 – 04/07/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S13</span></td>
+      <td><span class="periodo">07/07 – 11/07/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S14</span></td>
+      <td><span class="periodo">14/07 – 18/07/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S15</span></td>
+      <td><span class="periodo">21/07 – 25/07/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S16</span></td>
+      <td><span class="periodo">28/07 – 01/08/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S17</span></td>
+      <td><span class="periodo">04/08 – 08/08/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S18</span></td>
+      <td><span class="periodo">11/08 – 15/08/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S19</span></td>
+      <td><span class="periodo">18/08 – 22/08/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+    <tr class="semana-futura">
+      <td><span class="semana-badge">S20</span></td>
+      <td><span class="periodo">25/08 – 29/08/2026</span></td>
+      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td>—</td><td>—</td><td>—</td>
+      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
+      <td><span class="validado-nao">—</span></td>
+    </tr>
+
+    <!-- RESUMO -->
+    <tr class="summary-row">
+      <td colspan="2">TOTAL ACUMULADO (S01–S08)</td>
+      <td>287 pts*</td>
+      <td colspan="2">Meta total: 240 pts</td>
+      <td>120%</td>
+      <td>18 coins est.</td>
+      <td>—</td>
+      <td colspan="2">* S08 parcial (02/06) · Coins pendentes implementação F1.7</td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="legend">
+  <strong style="font-size:10px; margin-right:4px;">Legenda:</strong>
+  <div class="legend-item"><span style="font-size:14px;">★★★</span> ≥ 100% meta (3 coins)</div>
+  <div class="legend-item"><span style="font-size:14px;">★★☆</span> 80–99% meta (2 coins)</div>
+  <div class="legend-item"><span style="font-size:14px;">★☆☆</span> 60–79% meta (1 coin)</div>
+  <div class="legend-item"><span style="font-size:14px;">☆☆☆</span> &lt; 60% meta (0 coins)</div>
+  <div class="legend-item">
+    <div class="legend-box" style="background:#fffbdd; border:1px solid #856404;"></div> Semana atual
+  </div>
+  <div class="legend-item">
+    <div class="legend-box" style="background:#f5f5f5; border:1px solid #ddd;"></div> Semanas futuras
+  </div>
+  <div style="margin-left:auto; font-size:10px; color:#555; font-weight:700;">
+    Pontos acumulados: <span style="color:#7c3aed">287</span> / 240 est. &nbsp;|&nbsp;
+    <span style="color:#1a6a2a">120% da meta acumulada</span> &nbsp;|&nbsp;
+    Início: 14/04/2026 &nbsp;|&nbsp; Atualizado: 03/06/2026
+  </div>
+</div>
+
+<!-- NOTA RODAPÉ -->
+<div style="padding:12px 28px;background:#f8f8fc;border-top:1px solid #dde;font-size:9.5px;color:#777;line-height:1.6;">
+  <strong>Notas:</strong>
+  Pontos contabilizados são os pontos de desenvolvimento do projeto MKT Hub (roadmap), distribuídos por semana de trabalho ·
+  SB Coins marcados com ★ são estimativas — implementação backend pendente (F1.7) ·
+  Posição no Ranking reflete a posição no leaderboard semanal do sistema MKT Hub ·
+  "Validado por Maria" deve ser preenchido semanalmente por Maria Clara ao aprovar os pontos entregues.
+</div>
+
+</body>
+</html>

@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ADM · MKTimer</title>
+<title>ADM · MKT Hub</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
@@ -19,6 +20,7 @@ a{color:inherit;text-decoration:none}
 .nav-user{font-size:12px;color:#5a6280}
 .btn-logout{background:none;border:1px solid #2a2e4a;color:#7882a4;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
 .btn-logout:hover{background:#1e2135;color:#c8d0e7}
+.last-updated{font-size:10px;color:#3a3e5a;white-space:nowrap}
 
 .main{padding:24px}
 
@@ -61,6 +63,20 @@ select:focus,input[type=month]:focus{border-color:#e8b844}
 /* COMPARATIVO TABLE */
 .comp-section{margin-top:24px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
 .comp-title{font-size:14px;font-weight:600;color:#e8eaf6;margin-bottom:14px}
+
+/* ROADMAP / TABELA DE PONTOS */
+.roadmap-section{margin-top:24px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
+.roadmap-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.roadmap-header-left .roadmap-title{font-size:14px;font-weight:600;color:#e8eaf6}
+.roadmap-header-left .roadmap-sub{font-size:11px;color:#5a6280;margin-top:4px}
+.roadmap-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-roadmap{font-size:12px;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:.15s}
+.btn-roadmap-open{background:#1c1e32;border:1px solid #252840;color:#7882a4}
+.btn-roadmap-open:hover{background:#252840;color:#c8d0e7}
+.btn-roadmap-dl{background:#3dba6f;color:#0f1117;border:none}
+.btn-roadmap-dl:hover{background:#4ecb80;color:#0f1117}
+.roadmap-frame-wrap{border-radius:8px;overflow:hidden;border:1px solid #252840;background:#fff}
+.roadmap-frame-wrap iframe{width:100%;height:760px;border:none;display:block}
 .comp-table{width:100%;border-collapse:collapse;overflow-x:auto;display:block}
 .comp-table th{font-size:11px;color:#5a6280;text-align:left;padding:7px 12px;border-bottom:1px solid #1e2135;white-space:nowrap}
 .comp-table td{font-size:12px;padding:10px 12px;border-bottom:1px solid #161825;color:#9aa3c4}
@@ -75,12 +91,13 @@ select:focus,input[type=month]:focus{border-color:#e8b844}
 <body>
 
 <nav class="nav">
-  <span class="nav-logo">⏱ MKTimer</span>
+  <span class="nav-logo">MKT Hub</span>
   <a href="/app">Dashboard</a>
   <a href="/painel-team">Painel Daily</a>
   <a href="/historico">Histórico</a>
   <a href="/admin" class="active">ADM</a>
   <div class="nav-right">
+    <span class="last-updated" id="last-updated"></span>
     <span class="nav-user" id="nav-username"></span>
     <button class="btn-logout" id="btn-logout">Sair</button>
   </div>
@@ -156,6 +173,24 @@ select:focus,input[type=month]:focus{border-color:#e8b844}
       <tbody id="comp-tbody"></tbody>
     </table>
   </div>
+
+  <!-- TABELA DE PONTOS — ROADMAP -->
+  <div class="roadmap-section">
+    <div class="roadmap-header">
+      <div class="roadmap-header-left">
+        <div class="roadmap-title">📋 Tabela de Pontos — Roadmap do Projeto</div>
+        <div class="roadmap-sub">Fases, status, pontuação estimada × real · Perfis de cálculo por colaborador</div>
+      </div>
+      <div class="roadmap-actions">
+        <a href="/roadmap.html" target="_blank" class="btn-roadmap btn-roadmap-open">↗ Abrir em nova aba</a>
+        <a href="/roadmap.xlsx" download="Roadmap_Pontos_MKT.xlsx" class="btn-roadmap btn-roadmap-dl">⬇ Baixar planilha</a>
+      </div>
+    </div>
+    <div class="roadmap-frame-wrap">
+      <iframe src="/roadmap.html" title="Roadmap de Pontos MKT" id="roadmap-frame" loading="lazy"></iframe>
+    </div>
+  </div>
+
 </div>
 
 <p class="loading" id="loading-init">Carregando...</p>
@@ -182,6 +217,14 @@ let chart = null;
 let allMonths = [];
 let activeMonths = new Set();
 let activeMetric = 'all';
+
+function markUpdated(){
+  const now = new Date(Date.now()-3*60*60*1000);
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const el = document.getElementById('last-updated');
+  if(el) el.textContent = `atualizado ${hh}:${mm}`;
+}
 
 function getVisibleMonths(){
   return allMonths.filter(m => activeMonths.has(m.ym));
@@ -409,6 +452,7 @@ async function load(){
   document.getElementById('chart-subtitle').textContent = `${from} → ${to} · Tasks, horas e pontos por mês`;
 
   renderChart(getVisibleMonths(), activeMetric);
+  markUpdated();
 }
 
 // Default months (last 6 months)
@@ -465,6 +509,13 @@ function defaultMonths(){
   document.getElementById('main-content').style.display='';
 
   await load();
+
+  // Auto-refresh a cada 5 minutos
+  setInterval(load, 5*60*1000);
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible') load();
+  });
 })();
 </script>
 </body>

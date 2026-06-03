@@ -19,6 +19,7 @@ a{color:inherit;text-decoration:none}
 .nav-user{font-size:12px;color:#5a6280}
 .btn-logout{background:none;border:1px solid #2a2e4a;color:#7882a4;font-size:12px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
 .btn-logout:hover{background:#1e2135;color:#c8d0e7}
+.last-updated{font-size:10px;color:#3a3e5a;white-space:nowrap}
 
 .topbar{padding:20px 24px 0;display:flex;flex-direction:column;gap:14px}
 .topbar h1{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
@@ -50,7 +51,9 @@ a{color:inherit;text-decoration:none}
 
 /* WEEK CELL */
 .week-cell{text-align:center}
-.week-pct{font-size:14px;font-weight:700;color:#3dba6f}
+.week-pct{font-size:15px;font-weight:700;line-height:1}
+.week-pct.above-120{color:#e8b844}
+.week-pct.above-100{color:#3dba6f}
 .week-pct.partial{color:#e8b844}
 .week-pct.low{color:#5a6280}
 .week-pct.live{color:#c8d0e7}
@@ -59,9 +62,27 @@ a{color:inherit;text-decoration:none}
 .star-filled{color:#e8b844}
 .star-empty{color:#2a2e4a}
 .week-label{font-size:10px;color:#3a3e5a;margin-top:2px}
-.week-live{font-size:9px;color:#e8b844;font-weight:600}
+.week-live{font-size:9px;color:#e8b844;font-weight:600;margin-top:3px}
 .week-empty{color:#2a3050;font-size:11px;padding:8px 0;display:block}
 .loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+
+/* BARRA DE PROGRESSO META (0-100% | 100-120%) */
+.pts-bar-track{display:flex;align-items:stretch;height:5px;border-radius:3px;margin:6px 0 4px;gap:2px}
+.pts-bar-100{flex:5;background:#1e2135;border-radius:3px;overflow:hidden;position:relative}
+.pts-bar-120{flex:1;background:#252840;border-radius:3px;overflow:hidden;position:relative}
+.pts-bar-100::after{content:'';position:absolute;right:0;top:-1px;height:7px;width:1px;background:#2a2e4a}
+.pts-fill-100{height:100%;border-radius:3px;transition:width .4s ease}
+.pts-fill-120{height:100%;background:#e8b844;border-radius:3px;transition:width .4s ease}
+.pts-fill-low {background:#3a4a6a}
+.pts-fill-near{background:#5a72e8}
+.pts-fill-done{background:#3dba6f}
+.week-goal-row{font-size:10px;color:#5a6280;margin-top:1px}
+.week-meta-badge{font-size:10px;font-weight:700;margin-top:4px;border-radius:4px;padding:1px 6px;display:inline-block}
+.week-meta-badge.gold{color:#0f1117;background:#e8b844}
+.week-meta-badge.green{color:#0f1117;background:#3dba6f}
+.week-meta-badge.amber{color:#0f1117;background:#e8902a}
+.week-meta-badge.dim{color:#5a6280;background:#1e2135;font-weight:500}
+.data-source{font-size:9px;color:#3a3e5a;margin-left:6px}
 
 /* SUMMARY STATS - admin only */
 .summary-bar{display:flex;gap:12px;padding:14px 24px 0;flex-wrap:wrap}
@@ -96,6 +117,7 @@ a{color:inherit;text-decoration:none}
   <a href="/historico" class="active">Histórico</a>
   <a href="/admin" id="nav-admin" style="display:none">ADM</a>
   <div class="nav-right">
+    <span class="last-updated" id="last-updated"></span>
     <span class="nav-user" id="nav-username"></span>
     <button class="btn-logout" id="btn-logout">Sair</button>
   </div>
@@ -111,13 +133,11 @@ a{color:inherit;text-decoration:none}
     <input type="date" id="to-date"/>
 
     <div class="presets">
-      <button class="preset-btn" data-preset="7d">Semana</button>
-      <button class="preset-btn" data-preset="14d">14d</button>
-      <button class="preset-btn active" data-preset="30d">30d</button>
+      <button class="preset-btn" data-preset="thisweek">Esta semana</button>
+      <button class="preset-btn active" data-preset="lastweek">Última semana</button>
       <button class="preset-btn" data-preset="month">Este mês</button>
-      <button class="preset-btn" data-preset="prevmonth">Mês ant.</button>
-      <button class="preset-btn" data-preset="90d">90d</button>
-      <button class="preset-btn" data-preset="180d">180d</button>
+      <button class="preset-btn" data-preset="prevmonth">Último mês</button>
+      <button class="preset-btn" data-preset="90d">90 dias</button>
     </div>
 
     <select id="person-filter" class="person-select" style="display:none">
@@ -207,27 +227,53 @@ function endOfMonth(iso){
   return new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
 }
 
+function mondayOfWeek(iso){
+  // Retorna a segunda-feira da semana ISO que contém iso
+  const d=new Date(`${iso}T00:00:00Z`);
+  const dow=d.getUTCDay()||7; // 1=seg ... 7=dom
+  d.setUTCDate(d.getUTCDate()-dow+1);
+  return d.toISOString().slice(0,10);
+}
+function sundayOfWeek(iso){
+  const mon=mondayOfWeek(iso);
+  return addDays(mon,6);
+}
+
 function setPreset(preset){
   const today = todayBRT();
   let from, to=today;
-  if(preset==='7d')       { from=addDays(today,-6); }
-  else if(preset==='14d') { from=addDays(today,-13); }
-  else if(preset==='30d') { from=addDays(today,-29); }
-  else if(preset==='90d') { from=addDays(today,-89); }
-  else if(preset==='180d'){ from=addDays(today,-179); }
+
+  if(preset==='thisweek'){
+    // Esta semana: segunda a domingo da semana atual (seção 5)
+    from=mondayOfWeek(today);
+    to=sundayOfWeek(today);
+  }
+  else if(preset==='lastweek'){
+    // Última semana: segunda a domingo da semana anterior
+    const prevSun=addDays(mondayOfWeek(today),-1);
+    from=mondayOfWeek(prevSun);
+    to=prevSun;
+  }
   else if(preset==='month'){
+    // Este mês: dia 01 até hoje
     from=startOfMonth(today);
-    to=endOfMonth(today);
+    to=today;
   }
   else if(preset==='prevmonth'){
+    // Último mês: mês completo anterior
     const d=new Date(`${today}T00:00:00Z`);
     d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()-1);
     const pm=d.toISOString().slice(0,10);
     from=pm; to=endOfMonth(pm);
   }
+  else if(preset==='90d'){
+    from=addDays(today,-89);
+  }
+
   document.getElementById('from-date').value=from;
   document.getElementById('to-date').value=to;
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.toggle('active',b.dataset.preset===preset));
+  currentPreset=preset;
 }
 
 function stars(n){
@@ -245,30 +291,47 @@ async function load(){
   if(!from || !to) return;
 
   const userId = document.getElementById('person-filter').value;
-  let url = `/api/reports/history?from=${from}&to=${to}`;
-  if(userId) url += `&userId=${userId}`;
+  const qs = `from=${from}&to=${to}${userId?'&userId='+userId:''}`;
 
   document.getElementById('loading').style.display='';
   document.getElementById('table-container').style.display='none';
 
-  const data = await api(url);
+  // Tenta ClickUp direto (fonte de verdade); fallback para banco local
+  let data = await api(`/api/focus?action=clickup-history&${qs}`);
+  if(!data || data.source === 'not_configured' || data.error) {
+    data = await api(`/api/reports/history?${qs}`);
+  }
   if(!data) return;
+  markUpdated();
 
   document.getElementById('loading').style.display='none';
   document.getElementById('table-container').style.display='';
 
   const {weeks, users} = data;
-  const monthLabel = new Date(`${from}T00:00:00Z`).toLocaleDateString('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'});
 
-  document.getElementById('section-title').textContent =
-    `Histórico — Semana a Semana (${new Date(`${from}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})} a ${new Date(`${to}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})})`;
+  // Título dinâmico com mês e indicador de fonte
+  const fromDate = new Date(`${from}T00:00:00Z`);
+  const toDate2  = new Date(`${to}T00:00:00Z`);
+  const fmtDia   = (d) => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'});
+  const fmtMes   = (d) => d.toLocaleDateString('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'});
+  const mesLabel = fromDate.toISOString().slice(0,7) === toDate2.toISOString().slice(0,7)
+    ? fmtMes(fromDate)
+    : `${fmtDia(fromDate)} a ${fmtDia(toDate2)}`;
+  const srcLabel = data.source==='clickup'
+    ? '<span class="data-source">via ClickUp</span>'
+    : '<span class="data-source">banco local</span>';
+  document.getElementById('section-title').innerHTML =
+    `Histórico ${mesLabel} — Semana a Semana ${srcLabel}`;
 
   // Header
+  const fmt = (s) => new Date(`${s}T00:00:00Z`).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'});
   const thead = document.getElementById('thead');
   thead.innerHTML = `<tr>
     <th style="min-width:140px">Pessoa</th>
     ${weeks.map(w=>`<th class="week-col">
-      Semana ${w.index}${w.isLive?' <span style="color:#e8b844;font-size:9px">(ao vivo)</span>':''}
+      Sem ${w.index}
+      <div style="font-size:9px;color:#3a3e5a;font-weight:400;margin-top:2px">${fmt(w.weekStart)} – ${fmt(w.weekEnd)}</div>
+      ${w.isLive?'<div style="color:#e8b844;font-size:9px;font-weight:700">AO VIVO</div>':''}
     </th>`).join('')}
   </tr>`;
 
@@ -289,36 +352,87 @@ async function load(){
     document.getElementById('stat-pts').textContent   = totalPts + ' pts';
   }
 
+  // Verifica se há algum dado real no período
+  const temDados = users.some(u => u.weeks.some(w => w.pts > 0 || w.tasksDone > 0));
+  if (!temDados && data.source === 'clickup') {
+    document.getElementById('loading').textContent =
+      'Nenhuma task concluída encontrada no ClickUp para este período. Tente "Última semana" ou "Último mês".';
+    document.getElementById('loading').style.display = '';
+    document.getElementById('table-container').style.display = 'none';
+    return;
+  }
+
   // Body
   const tbody = document.getElementById('tbody');
-  tbody.innerHTML = users.map(u=>`
-    <tr>
+  tbody.innerHTML = users.map(u=>{
+    const meta100 = u.meta100 || u.weeklyGoal || 130;
+    const meta120 = u.meta120 || Math.round(meta100 * 1.2);
+
+    return `<tr>
       <td>
         <div class="person-name">${escHtml(u.name)}</div>
         <div class="person-cargo">${escHtml(u.cargo)}</div>
+        <div style="font-size:9px;color:#3a3e5a;margin-top:2px">meta ${meta100} / ${meta120} pts</div>
       </td>
       ${u.weeks.map(w=>{
         if(w.pts===0 && !w.isLive) return `<td class="week-cell"><span class="week-empty">—</span></td>`;
-        const pctClass = w.pct>=100?'':'partial';
+
+        const pct       = w.percentualMeta ?? w.pct;
+        const ms        = w.metaStatus ?? (pct>=120?'above_120':pct>=100?'above_100':'below_100');
+        const pctClass  = ms==='above_120'?'above-120':ms==='above_100'?'above-100':pct>=60?'partial':'low';
+        const liveStyle = w.isLive && ms==='below_100' ? 'style="color:#c8d0e7"' : '';
+
+        // Segmento 0-100% (barra principal)
+        const fill100 = Math.min(pct, 100);
+        const fillClass100 = pct>=100?'pts-fill-done':pct>=60?'pts-fill-near':'pts-fill-low';
+
+        // Segmento 100-120% (bônus)
+        const fill120 = ms==='above_120' ? 100 : ms==='above_100' ? Math.round((pct-100)/20*100) : 0;
+
+        const falta = meta100 - w.pts;
+        const badge = ms==='above_120'
+          ? `<div class="week-meta-badge gold">★ +${pct-100}% acima da meta</div>`
+          : ms==='above_100'
+          ? `<div class="week-meta-badge green">✓ meta atingida</div>`
+          : w.isLive && falta > 0
+          ? `<div class="week-meta-badge amber">falta ${falta} pts · ${100-pct}%</div>`
+          : falta > 0 && !w.isLive
+          ? `<div class="week-meta-badge dim">faltaram ${falta} pts</div>`
+          : '';
+
         const live = w.isLive ? `<div class="week-live">em andamento</div>` : '';
+
         return `<td class="week-cell">
-          <div class="week-pct ${w.pct>=100?'':w.pct>=60?'partial':'low'}" style="${w.isLive&&w.pct<100?'color:#c8d0e7':''}">
-            ${w.pct}%
+          <div class="week-pct ${pctClass}" ${liveStyle}>${pct}%</div>
+          <div class="pts-bar-track">
+            <div class="pts-bar-100"><div class="pts-fill-100 ${fillClass100}" style="width:${fill100}%"></div></div>
+            <div class="pts-bar-120"><div class="pts-fill-120" style="width:${fill120}%"></div></div>
           </div>
-          <div class="week-pts">${w.pts} pts · ${w.horas.toFixed(1)}h</div>
-          ${w.stars>0?`<div class="week-stars">${stars(w.stars)} <span style="font-size:10px;color:#5a6280;margin-left:2px">×${w.stars}</span></div>`:''}
+          <div class="week-goal-row">${w.pts} pts · meta ${meta100}${w.horas>0?' · '+w.horas.toFixed(1)+'h':''}</div>
+          ${badge}
+          ${w.stars>0?`<div class="week-stars" style="margin-top:4px">${stars(w.stars)}</div>`:''}
           ${live}
         </td>`;
       }).join('')}
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ── COMPARATIVO MENSAL (admin only) ────────────────────────────────────────
 
 let compChart = null;
-let compAllData = [];   // full dataset from API
+let compAllData = [];
 let activeMonths = new Set();
 let compMetric = 'all';
+let currentPreset = 'lastweek';
+
+function markUpdated(){
+  const now = new Date(Date.now()-3*60*60*1000);
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const el = document.getElementById('last-updated');
+  if(el) el.textContent = `atualizado ${hh}:${mm}`;
+}
 
 const DL_BASE = { anchor:'end', align:'top', font:{ size:10, weight:'600' }, formatter:(v)=>v===0?'':v };
 
@@ -462,8 +576,8 @@ async function loadComparativo(){
   }
   document.getElementById('btn-logout').onclick=logout;
 
-  // Default: 30d
-  setPreset('30d');
+  // Default: última semana (já encerrada, tem dados)
+  setPreset('lastweek');
 
   // Preset buttons
   document.querySelectorAll('.preset-btn').forEach(btn=>{
@@ -476,18 +590,34 @@ async function loadComparativo(){
 
   // Date inputs
   document.getElementById('from-date').onchange=()=>{
+    currentPreset=null;
     document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
     load();
     if(getUser()?.role==='admin') loadComparativo();
   };
   document.getElementById('to-date').onchange=()=>{
+    currentPreset=null;
     document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
     load();
     if(getUser()?.role==='admin') loadComparativo();
   };
 
+  function refreshAll(){
+    if(currentPreset) setPreset(currentPreset); // recalcula datas relativas ao dia atual
+    load();
+    if(getUser()?.role==='admin') loadComparativo();
+  }
+
   load();
   if(getUser()?.role==='admin') loadComparativo();
+
+  // Auto-refresh a cada 5 minutos
+  setInterval(refreshAll, 5*60*1000);
+
+  // Refresh ao voltar para a aba
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible') refreshAll();
+  });
 })();
 </script>
 </body>

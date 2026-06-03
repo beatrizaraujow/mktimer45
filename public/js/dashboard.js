@@ -11,9 +11,6 @@ let histFilter = 'semana';
 let histCustomFrom = null;
 let histCustomTo = null;
 let histBarChart = null;
-let histCompChart = null;
-let histCompData = [];
-let histActiveMonths = new Set();
 
 // ── ADM panel state ───────────────────────────────────────────────────
 let admFilter = 'mes';
@@ -156,13 +153,19 @@ function getTaskCompany(task) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      ...authHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers: {
+        ...authHeaders(),
+        ...(options.headers || {}),
+      },
+    });
+  } catch (networkErr) {
+    // Erro de rede/socket antes de receber resposta
+    throw new Error('Sem conexão com o servidor. Verifique sua internet e tente novamente.');
+  }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -1355,6 +1358,9 @@ function initSidebarPanels() {
     if (panelName === 'calendario')   renderCalendarTasks();
     if (panelName === 'historico')    await loadHistoricoPanel();
     if (panelName === 'adm')          await loadAdmPanel();
+    if (panelName === 'rotina')       await loadRoutinePanel();
+    if (panelName === 'ranking')      await loadRankingPanel();
+    if (panelName === 'tabela-pts')   renderPtsTable();
   };
 
   navButtons.forEach((b) => {
@@ -1610,6 +1616,15 @@ async function init() {
     if (syncBtn) syncBtn.style.display = '';
   }
 
+  // Aba Rotina: visível apenas para bia, maria clara (admins) + malu, zion
+  if (userProfile) {
+    const rotinaUsers = ['bia', 'maria clara', 'malu', 'zion'];
+    const userName = (userProfile.name || '').toLowerCase().trim();
+    const canSeeRotina = userProfile.role === 'admin' || rotinaUsers.includes(userName);
+    const rotinaTab = document.getElementById('rotinaNavTab');
+    if (rotinaTab) rotinaTab.style.display = canSeeRotina ? '' : 'none';
+  }
+
   initSidebarPanels();
   initDailyPanel();
   initTimerSection();
@@ -1637,8 +1652,8 @@ async function init() {
 // ═══════════════════════════════════════════════════════════════════════
 
 const _dfb = {
-  daily: { from: null, to: null, preset: 'hoje' }, // 'hoje' = today view (default)
-  hist:  { from: null, to: null, preset: '30d' },
+  daily: { from: null, to: null, preset: 'semana' },
+  hist:  { from: null, to: null, preset: 'mes' },
 };
 
 function dfbPresetToRange(preset, days) {
@@ -1649,25 +1664,68 @@ function dfbPresetToRange(preset, days) {
     start.setDate(now.getDate() - Number(days) + 1);
     return { from: start.toISOString().slice(0, 10), to: today };
   }
-  if (preset === 'hoje')    return { from: today, to: today };
+  if (preset === 'hoje') return { from: today, to: today };
   if (preset === 'semana') {
+    // Segunda-feira até domingo da semana atual
     const dow = now.getDay() || 7;
     const mon = new Date(now);
     mon.setDate(now.getDate() - dow + 1);
-    const sat = new Date(mon);
-    sat.setDate(mon.getDate() + 5);
-    return { from: mon.toISOString().slice(0, 10), to: sat.toISOString().slice(0, 10) };
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return { from: mon.toISOString().slice(0, 10), to: sun.toISOString().slice(0, 10) };
+  }
+  if (preset === 'ultima-semana') {
+    // Segunda-domingo da semana anterior (fechada)
+    const dow = now.getDay() || 7;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - dow + 1 - 7);
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return { from: mon.toISOString().slice(0, 10), to: sun.toISOString().slice(0, 10) };
   }
   if (preset === 'mes') {
+    // Dia 01 do mês atual até hoje
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
     return { from: first.toISOString().slice(0, 10), to: today };
   }
   if (preset === 'mes-ant') {
+    // Mês anterior completo
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const last  = new Date(now.getFullYear(), now.getMonth(), 0);
     return { from: first.toISOString().slice(0, 10), to: last.toISOString().slice(0, 10) };
   }
   return { from: today, to: today };
+}
+
+// Retorna meta ajustada ao período selecionado no Painel Daily
+function getDailyAdjustedGoal(weeklyGoal) {
+  const from = _dfb.daily.from;
+  const to   = _dfb.daily.to;
+  if (!from || !to || !weeklyGoal) return weeklyGoal || 0;
+  const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+  if (days <= 7)              return weeklyGoal;
+  if (days >= 28 && days <= 31) return weeklyGoal * 4;
+  return Math.round((days / 7) * weeklyGoal);
+}
+
+function getMetaPeriodLabel(weeklyGoal) {
+  const from = _dfb.daily.from;
+  const to   = _dfb.daily.to;
+  if (!from || !to) return `Meta semanal: ${weeklyGoal} pts`;
+  const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+  if (days <= 7)              return `Meta semanal: ${weeklyGoal} pts`;
+  if (days >= 28 && days <= 31) return `Meta mensal: ${weeklyGoal * 4} pts`;
+  const adj = Math.round((days / 7) * weeklyGoal);
+  return `Meta (${days}d): ${adj} pts`;
+}
+
+function dfbFormatPeriodLabel(from, to) {
+  if (!from || !to) return '';
+  const fmt = (iso) => {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  return `${fmt(from)} — ${fmt(to)}`;
 }
 
 function dfbSetInputs(target, from, to) {
@@ -1677,18 +1735,40 @@ function dfbSetInputs(target, from, to) {
   if (toEl)   toEl.value   = to   || '';
 }
 
+// Recalcula from/to do preset armazenado. Presets baseados em dias ficam como '7d', '30d' etc.
+function dfbRecalcPreset(target) {
+  const stored = _dfb[target].preset;
+  if (!stored || stored === 'custom') return;
+  const daysMatch = /^(\d+)d$/.exec(stored);
+  const range = daysMatch
+    ? dfbPresetToRange(null, Number(daysMatch[1]))
+    : dfbPresetToRange(stored, null);
+  _dfb[target].from = range.from;
+  _dfb[target].to   = range.to;
+  dfbSetInputs(target, range.from, range.to);
+}
+
+function dfbUpdatePeriodLabel(target) {
+  if (target !== 'daily') return;
+  const el = document.getElementById('dailyDFBPeriodLabel');
+  if (el) el.textContent = dfbFormatPeriodLabel(_dfb.daily.from, _dfb.daily.to);
+}
+
 function initDateFilterBars() {
   // ── Initialize defaults ──────────────────────────────────────────
-  const todayStr = todayISO();
-  _dfb.daily.from = _dfb.daily.to = todayStr;
-  dfbSetInputs('daily', todayStr, todayStr);
+  const dailyRange = dfbPresetToRange('semana', null);
+  _dfb.daily.from   = dailyRange.from;
+  _dfb.daily.to     = dailyRange.to;
+  _dfb.daily.preset = 'semana';
+  dfbSetInputs('daily', dailyRange.from, dailyRange.to);
+  dfbUpdatePeriodLabel('daily');
 
   const histRange = dfbPresetToRange('mes', null);
-  _dfb.hist.from = histRange.from;
-  _dfb.hist.to   = histRange.to;
+  _dfb.hist.from   = histRange.from;
+  _dfb.hist.to     = histRange.to;
+  _dfb.hist.preset = 'mes';
   dfbSetInputs('hist', histRange.from, histRange.to);
   document.querySelector('.dfb-pill[data-dfb="hist"][data-preset="mes"]')?.classList.add('active');
-  document.querySelector('.dfb-pill[data-dfb="hist"][data-days="30"]')?.classList.remove('active');
 
   // ── Pill clicks ──────────────────────────────────────────────────
   document.querySelectorAll('.dfb-pill').forEach((btn) => {
@@ -1696,19 +1776,6 @@ function initDateFilterBars() {
       const target = btn.dataset.dfb;
       const days   = btn.dataset.days;
       const preset = btn.dataset.preset;
-
-      // Toggle: clicking active non-Hoje pill → return to Hoje
-      if (btn.classList.contains('active') && target === 'daily' && preset !== 'hoje') {
-        const t = todayISO();
-        document.querySelectorAll('.dfb-pill[data-dfb="daily"]').forEach((b) => b.classList.remove('active'));
-        document.querySelector('.dfb-pill[data-dfb="daily"][data-preset="hoje"]')?.classList.add('active');
-        _dfb.daily.from   = t;
-        _dfb.daily.to     = t;
-        _dfb.daily.preset = 'hoje';
-        dfbSetInputs('daily', t, t);
-        await loadTeamDaily();
-        return;
-      }
 
       const range = dfbPresetToRange(preset, days);
 
@@ -1723,6 +1790,7 @@ function initDateFilterBars() {
 
       // Update inputs
       dfbSetInputs(target, range.from, range.to);
+      dfbUpdatePeriodLabel(target);
 
       // Reload
       if (target === 'daily') await loadTeamDaily();
@@ -1743,6 +1811,7 @@ function initDateFilterBars() {
       _dfb[target].to     = t;
       _dfb[target].preset = 'custom';
       document.querySelectorAll(`.dfb-pill[data-dfb="${target}"]`).forEach((b) => b.classList.remove('active'));
+      dfbUpdatePeriodLabel(target);
       if (target === 'daily') await loadTeamDaily();
       else                    await loadHistoricoPanel();
     };
@@ -1976,15 +2045,20 @@ function renderTdView(members) {
 }
 
 function renderPersonTable(member) {
-  const barW = Math.min(member.dailyPct, 100);
-  const barColor = member.dailyPct >= 100 ? '#f6c200'
-                 : member.dailyPct >= 70  ? '#22d3a3'
-                 : member.dailyPct >= 40  ? '#f6a623'
+  const weekPts      = member.ptsSemana || member.ptsToday || member.ptsTotalSemana || 0;
+  const adjustedGoal = getDailyAdjustedGoal(member.weeklyGoal);
+  const adjustedPct  = adjustedGoal > 0 ? Math.round((weekPts / adjustedGoal) * 100) : member.weekPct;
+  const barW = Math.min(adjustedPct, 100);
+  const barColor = adjustedPct >= 100 ? '#f6c200'
+                 : adjustedPct >= 70  ? '#22d3a3'
+                 : adjustedPct >= 40  ? '#f6a623'
                  : '#f04444';
 
+  const doneCount  = member.doneSemana  != null ? member.doneSemana  : (member.doneToday  || 0);
+  const totalCount = member.totalSemana != null ? member.totalSemana : (member.totalToday || 0);
   const metaText = member.isCompletionBased
-    ? `Conclusão: ${member.doneToday}/${member.totalToday} tasks`
-    : `Meta: ${member.ptsToday} / ${member.dailyGoal} pts`;
+    ? `Conclusão: ${doneCount}/${totalCount} tasks`
+    : `Em andamento: ${weekPts} / ${adjustedGoal} pts`;
 
   const dot = (active, color) => active
     ? `<span class="pt-dot" style="background:${color}"></span>`
@@ -1992,18 +2066,20 @@ function renderPersonTable(member) {
 
   const rows = member.tasks.length
     ? member.tasks.map((task) => {
-        const cat   = task.statusCat || 'todo';
-        const title = task.title.length > 60 ? `${task.title.slice(0, 60)}…` : task.title;
-        const pts   = task.points ? `<span class="pt-pts">${task.points}p</span>` : '';
+        const cat     = task.statusCat || 'todo';
+        const title   = task.title.length > 56 ? `${task.title.slice(0, 56)}…` : task.title;
+        const pts     = task.points ? `<span class="pt-pts">${task.points}p</span>` : '';
+        const coBadge = taskEmpresaBadge(task.empresa);
         return `<tr class="pt-row${cat === 'done' ? ' pt-row-done' : ''}">
-          <td class="pt-task-name">${title}${pts}</td>
+          <td class="pt-task-name">${title}${pts}${coBadge}</td>
+          <td class="pt-col">${dot(cat === 'doing',    '#3b82f6')}</td>
           <td class="pt-col">${dot(cat === 'done',     '#22d3a3')}</td>
-          <td class="pt-col">${dot(cat === 'revision', '#4f8ef7')}</td>
+          <td class="pt-col">${dot(cat === 'revision', '#f59e0b')}</td>
           <td class="pt-col">${dot(cat === 'approval', '#f6a623')}</td>
           <td class="pt-col">${dot(cat === 'leader',   '#9b59b6')}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="5" class="pt-empty">Sem tasks no período</td></tr>`;
+    : `<tr><td colspan="6" class="pt-empty">Sem tasks no período</td></tr>`;
 
   return `<div class="person-table-wrap">
     <div class="pt-head">
@@ -2012,22 +2088,23 @@ function renderPersonTable(member) {
         <span class="pt-role">${member.cargo}</span>
       </div>
       <div class="pt-head-stats">
-        <span class="pt-hstat">${member.doneToday}/${member.totalToday} tasks</span>
-        <span class="pt-hstat accent">${member.ptsToday} pts</span>
-        <span class="pt-hstat" style="color:${barColor}">${member.dailyPct}%</span>
+        <span class="pt-hstat">${doneCount}/${totalCount} concluídas</span>
+        <span class="pt-hstat accent">${weekPts} pts</span>
+        <span class="pt-hstat" style="color:${barColor}">${adjustedPct}%</span>
       </div>
     </div>
     <div class="pt-progress-row">
       <div class="pt-progress-track">
         <div class="pt-progress-fill" style="width:${barW}%;background:${barColor}"></div>
       </div>
-      <span class="pt-meta-label">${metaText}</span>
+      <span class="pt-meta-label">${metaText} · ${getMetaPeriodLabel(member.weeklyGoal)}</span>
     </div>
     <div class="pt-table-wrap">
       <table class="person-table">
         <thead>
           <tr>
             <th class="pt-th-task"></th>
+            <th class="pt-th">Andamento</th>
             <th class="pt-th">Completo</th>
             <th class="pt-th">Alteração</th>
             <th class="pt-th">Aprovar</th>
@@ -2040,29 +2117,57 @@ function renderPersonTable(member) {
   </div>`;
 }
 
+// Retorna badge HTML para a empresa de uma task
+// Só exibe quando a empresa é reconhecida — tarefas sem empresa ficam sem badge
+function taskEmpresaBadge(empresa) {
+  const CO = {
+    'SeuBoné':  { abbr: 'SB', color: '#f6c200' },
+    'Onevo':    { abbr: 'ON', color: '#22d3a3' },
+    'Carbone':  { abbr: 'CB', color: '#94a3b8' },
+  };
+  if (empresa && CO[empresa]) {
+    const { abbr, color } = CO[empresa];
+    return `<span class="mc-task-co" style="background:${color}22;color:${color}">${abbr}</span>`;
+  }
+  return '';
+}
+
 function renderMemberCard(member) {
-  const wColor  = weekPctColor(member.weekPct);
-  const barW    = Math.min(member.dailyPct, 100);
-  const barColor = member.dailyPct >= 100 ? '#f6c200'
-                 : member.dailyPct >= 70  ? '#22d3a3'
-                 : member.dailyPct >= 40  ? '#f6a623'
+  const weekPts      = member.ptsSemana || member.ptsToday || member.ptsTotalSemana || 0;
+  const adjustedGoal = getDailyAdjustedGoal(member.weeklyGoal);
+  const adjustedPct  = adjustedGoal > 0 ? Math.round((weekPts / adjustedGoal) * 100) : member.weekPct;
+  const wColor   = weekPctColor(adjustedPct);
+  const barW     = Math.min(adjustedPct, 100);
+  const barColor = adjustedPct >= 100 ? '#f6c200'
+                 : adjustedPct >= 70  ? '#22d3a3'
+                 : adjustedPct >= 40  ? '#f6a623'
                  : '#f04444';
+
+  // Contagem de concluídas: X = tasks done (statusCat done), Y = total
+  const doneCount  = member.doneSemana  != null ? member.doneSemana  : (member.doneToday  || 0);
+  const totalCount = member.totalSemana != null ? member.totalSemana : (member.totalToday || 0);
+
+  const metaLabel = member.isCompletionBased
+    ? `Conclusão: ${doneCount}/${totalCount} tasks`
+    : `${weekPts} / ${adjustedGoal} pts · ${getMetaPeriodLabel(member.weeklyGoal)}`;
   const metaText = member.isCompletionBased
-    ? `Conclusão: ${member.doneToday}/${member.totalToday} tasks`
-    : `Meta: ${member.ptsToday} / ${member.dailyGoal} pts`;
+    ? `Conclusão: ${doneCount}/${totalCount} tasks`
+    : `Em andamento: ${weekPts} / ${adjustedGoal} pts`;
 
   // Group tasks by status category
+  // Revision vem entre andamento e para fazer (conforme spec)
   const STATUS_GROUPS = [
-    { cat: 'todo',     label: 'Para fazer',          color: '#6b7585' },
-    { cat: 'approval', label: 'Em aprovação',        color: '#f6a623' },
-    { cat: 'leader',   label: 'Aprovação do Líder',  color: '#9b59b6' },
-    { cat: 'revision', label: 'Em alteração',        color: '#4f8ef7' },
-    { cat: 'done',     label: 'Completas',           color: '#22d3a3' },
+    { cat: 'doing',    label: 'EM ANDAMENTO',        color: '#3b82f6' },
+    { cat: 'revision', label: 'EM ALTERAÇÃO',        color: '#f59e0b' },
+    { cat: 'todo',     label: 'PARA FAZER',          color: '#6b7585' },
+    { cat: 'approval', label: 'EM APROVAÇÃO',        color: '#f6a623' },
+    { cat: 'leader',   label: 'APROVAÇÃO DO LÍDER',  color: '#9b59b6' },
+    { cat: 'done',     label: 'COMPLETAS',           color: '#22d3a3' },
   ];
 
-  // "Hoje" = show all tasks by status (open + today's done)
-  // Other filters = show only completed tasks in the period
-  const isFiltered = _dfb.daily.preset !== null && _dfb.daily.preset !== 'hoje';
+  // Semanal = todas as tasks por status (abertas + concluídas)
+  // Mensal  = apenas tasks concluídas no período
+  const isFiltered = _dfb.daily.preset === 'mes';
 
   let taskRows = '';
   if (isFiltered) {
@@ -2073,11 +2178,13 @@ function renderMemberCard(member) {
     } else {
       taskRows = done.map((task) => {
         const pts   = task.points ? `${task.points}p` : '';
-        const title = task.title.length > 48 ? `${task.title.slice(0, 48)}…` : task.title;
+        const title = task.title.length > 44 ? `${task.title.slice(0, 44)}…` : task.title;
+        const coBadge = taskEmpresaBadge(task.empresa);
         return `<li class="mc-task">
           <span class="mc-task-dot" style="background:#22d3a3"></span>
           <span class="mc-task-name done">${title}</span>
           ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
+          ${coBadge}
         </li>`;
       }).join('');
     }
@@ -2088,17 +2195,19 @@ function renderMemberCard(member) {
       if (!group.length) return;
       taskRows += `<li class="mc-status-header" style="color:${color}">${label} (${group.length})</li>`;
       group.forEach((task) => {
-        const pts   = task.points ? `${task.points}p` : '';
-        const title = task.title.length > 44 ? `${task.title.slice(0, 44)}…` : task.title;
-        const done  = cat === 'done' ? ' done' : '';
+        const pts     = task.points ? `${task.points}p` : '';
+        const title   = task.title.length > 40 ? `${task.title.slice(0, 40)}…` : task.title;
+        const done    = cat === 'done' ? ' done' : '';
+        const coBadge = taskEmpresaBadge(task.empresa);
         taskRows += `<li class="mc-task">
           <span class="mc-task-dot" style="background:${task.statusColor || color}"></span>
           <span class="mc-task-name${done}">${title}</span>
           ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
+          ${coBadge}
         </li>`;
       });
     });
-    if (!taskRows) taskRows = '<li class="mc-no-tasks">Sem tasks hoje</li>';
+    if (!taskRows) taskRows = '<li class="mc-no-tasks">Sem tasks no período</li>';
   }
 
   return `<div class="member-card">
@@ -2107,23 +2216,23 @@ function renderMemberCard(member) {
         <span class="mc-name">${member.name}</span>
         <span class="mc-role">${member.cargo || '—'}</span>
       </div>
-      <span class="mc-status-dot${member.totalToday > 0 ? ' active' : ''}"></span>
+      <span class="mc-status-dot${doneCount > 0 ? ' active' : ''}"></span>
     </div>
 
     <div class="mc-stats">
       <div class="mc-stat">
-        <span class="mc-stat-val">${member.doneToday}/${member.totalToday}</span>
-        <span class="mc-stat-lbl">Tasks hoje</span>
+        <span class="mc-stat-val">${doneCount}/${totalCount}</span>
+        <span class="mc-stat-lbl">Concluídas</span>
       </div>
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
-        <span class="mc-stat-val">${member.ptsToday}</span>
-        <span class="mc-stat-lbl">Pts hoje</span>
+        <span class="mc-stat-val">${weekPts}</span>
+        <span class="mc-stat-lbl">PTS semana</span>
       </div>
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
-        <span class="mc-stat-val" style="color:${wColor}">${member.weekPct}%</span>
-        <span class="mc-stat-lbl">${member.weekLabel}</span>
+        <span class="mc-stat-val" style="color:${wColor}">${adjustedPct}%</span>
+        <span class="mc-stat-lbl">Coeficiente</span>
       </div>
     </div>
 
@@ -2135,8 +2244,9 @@ function renderMemberCard(member) {
       <div class="mc-progress-track">
         <div class="mc-progress-fill" style="width:${barW}%;background:${barColor}"></div>
       </div>
-      <span class="mc-progress-pct">${member.dailyPct}%</span>
+      <span class="mc-progress-pct">${adjustedPct}%</span>
     </div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:3px;padding-left:2px">${getMetaPeriodLabel(member.weeklyGoal)}</div>
 
     <div class="mc-coef-row">
       <span class="mc-horas">${member.horasStr}</span>
@@ -2144,9 +2254,152 @@ function renderMemberCard(member) {
     </div>
 
     <ul class="mc-task-list">
-      ${taskRows || '<li class="mc-no-tasks">Sem tarefas hoje</li>'}
+      ${taskRows || '<li class="mc-no-tasks">Sem tasks no período</li>'}
     </ul>
   </div>`;
+}
+
+function renderDailyRanking(members) {
+  const rankEl  = document.getElementById('tdRanking');
+  const listEl  = document.getElementById('tdRankList');
+  if (!rankEl || !listEl || !members || !members.length) {
+    if (rankEl) rankEl.style.display = 'none';
+    return;
+  }
+
+  const sorted = [...members].sort((a, b) => {
+    const ptsA = a.ptsSemana || a.ptsToday || a.ptsTotalSemana || 0;
+    const ptsB = b.ptsSemana || b.ptsToday || b.ptsTotalSemana || 0;
+    return ptsB - ptsA;
+  });
+
+  const MEDALS = ['🥇', '🥈', '🥉'];
+
+  listEl.innerHTML = sorted.map((m, i) => {
+    const pts     = m.ptsSemana || m.ptsToday || m.ptsTotalSemana || 0;
+    const coef    = m.coef != null ? m.coef : (m.weekPct || 0);
+    const isPodium = i < 3 && coef >= 100;
+    const coefColor = coef >= 100 ? '#f6c200' : coef >= 70 ? '#22d3a3' : coef >= 40 ? '#f6a623' : '#f04444';
+    const podiumClass = isPodium ? ` rank-podium-${i + 1}` : '';
+    const posCell = isPodium
+      ? `<span class="td-rank-medal">${MEDALS[i]}</span>`
+      : `<span class="td-rank-pos">#${i + 1}</span>`;
+
+    return `<li class="td-rank-item${podiumClass}">
+      ${posCell}
+      <div class="td-rank-info">
+        <span class="td-rank-name">${m.name}</span>
+        <span class="td-rank-cargo">${m.cargo || '—'} · ${pts} pts</span>
+      </div>
+      <span class="td-rank-coef" style="color:${coefColor}">${coef}%</span>
+    </li>`;
+  }).join('');
+
+  rankEl.style.display = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RANKING PANEL — seção dedicada
+// ═══════════════════════════════════════════════════════════════════════
+
+async function loadRankingPanel() {
+  const wrap = document.getElementById('rankingContent');
+  if (!wrap) return;
+
+  // Usa dados já carregados do Painel Daily se disponíveis (mesma fonte ClickUp ao vivo)
+  if (_tdLastMembers && _tdLastMembers.length > 0) {
+    renderRankingFromMembers(_tdLastMembers);
+    return;
+  }
+
+  // Senão, busca do ClickUp ao vivo com filtro da semana atual
+  wrap.innerHTML = '<p style="padding:32px;color:#5a6280;font-size:13px">Carregando ranking...</p>';
+  try {
+    const now  = new Date();
+    const dow  = now.getDay() || 7;
+    const mon  = new Date(now); mon.setDate(now.getDate() - dow + 1);
+    const sun  = new Date(mon); sun.setDate(mon.getDate() + 6);
+    const fmt  = (d) => d.toISOString().slice(0, 10);
+    const data = await api(`/api/focus?action=clickup-live&from=${fmt(mon)}&to=${fmt(sun)}&showOpen=1`);
+    _tdLastMembers = data.members || [];
+    renderRankingFromMembers(_tdLastMembers);
+  } catch (err) {
+    wrap.innerHTML = `<p style="padding:32px;color:#e05252;font-size:13px">Erro ao carregar ranking: ${err.message}</p>`;
+  }
+}
+
+function renderRankingFromMembers(members) {
+  const wrap = document.getElementById('rankingContent');
+  if (!wrap) return;
+
+  if (!members || !members.length) {
+    wrap.innerHTML = '<p style="padding:32px;color:#5a6280;font-size:13px">Nenhum dado disponível.</p>';
+    return;
+  }
+
+  // Ordena por pts semana (desc)
+  const sorted = [...members].sort((a, b) => {
+    const pa = a.ptsSemana || a.ptsToday || a.ptsTotalSemana || 0;
+    const pb = b.ptsSemana || b.ptsToday || b.ptsTotalSemana || 0;
+    return pb - pa;
+  });
+
+  const MEDALS    = ['🥇', '🥈', '🥉'];
+  const coefColor = (pct) =>
+    pct >= 100 ? '#f6c200' : pct >= 70 ? '#22d3a3' : pct >= 40 ? '#f6a623' : '#f04444';
+
+  const rows = sorted.map((m, i) => {
+    const pts      = m.ptsSemana || m.ptsToday || m.ptsTotalSemana || 0;
+    const coef     = m.coef != null ? m.coef : (m.weekPct || 0);
+    const done     = m.doneSemana != null ? m.doneSemana : (m.doneToday || 0);
+    const total    = m.totalSemana != null ? m.totalSemana : (m.totalToday || 0);
+    const isPodium = i < 3 && coef >= 100;
+    const posLabel = isPodium
+      ? `<span class="rk-medal">${MEDALS[i]}</span>`
+      : `<span class="rk-pos">#${i + 1}</span>`;
+    const bColor   = coefColor(coef);
+    const barW     = Math.min(coef, 100);
+
+    return `<div class="rk-row${isPodium ? ` rk-podium-${i + 1}` : ''}">
+      <div class="rk-left">
+        ${posLabel}
+        <div class="rk-info">
+          <span class="rk-name">${m.name || '—'}</span>
+          <span class="rk-meta">${m.cargo || '—'} · ${done}/${total} tasks · ${pts} pts · ${m.horasStr || '0h'}</span>
+        </div>
+      </div>
+      <div class="rk-right">
+        <div class="rk-bar-wrap">
+          <div class="rk-bar-track">
+            <div class="rk-bar-fill" style="width:${barW}%;background:${bColor}"></div>
+          </div>
+          <span class="rk-pct" style="color:${bColor}">${coef}%</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const { from, to } = _dfb.daily;
+  const periodLabel  = from && to ? `${formatDateBR(from)} — ${formatDateBR(to)}` : 'Esta semana';
+
+  wrap.innerHTML = `
+    <div class="rk-panel">
+      <div class="rk-header">
+        <div>
+          <div class="rk-title">🏆 Ranking Semanal</div>
+          <div class="rk-subtitle">${periodLabel} · Ordenado por pontos · Pódio para coef ≥ 100%</div>
+        </div>
+        <button class="rk-refresh-btn" id="rkRefreshBtn">↺ Atualizar</button>
+      </div>
+      <div class="rk-list">${rows}</div>
+    </div>`;
+
+  document.getElementById('rkRefreshBtn')?.addEventListener('click', async () => {
+    _tdLastMembers = [];
+    const btn = document.getElementById('rkRefreshBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    await loadRankingPanel();
+  });
 }
 
 function _stopTdTimers() {
@@ -2201,11 +2454,14 @@ async function loadTeamDaily() {
   const grid = document.getElementById('teamDailyGrid');
   if (!grid) return;
 
+  // Recalcula datas do preset para refletir o dia/semana/mês atual
+  dfbRecalcPreset('daily');
+
   // Try ClickUp live first
   try {
-    // Only pass date range when a historical filter is active
     const { from, to, preset } = _dfb.daily;
-    const qs   = (preset !== null && from && to) ? `&from=${from}&to=${to}` : '';
+    // showOpen=1 sempre: garante tasks abertas + concluídas no período (conta X/Y corretamente)
+    const qs = (preset !== null && from && to) ? `&from=${from}&to=${to}&showOpen=1` : '';
     const data = await api(`/api/focus?action=clickup-live${qs}`);
     _setLiveBadge(true);
     _renderTeamGrid(data);
@@ -2253,8 +2509,292 @@ async function handleClickupSync() {
   }
 }
 
+// ── Modal universal de motivo de rotina não feita ───────────────────
+function initSkipReasonModal() {
+  if (document.getElementById('rpSkipOverlay')) return; // já existe
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div class="rp-modal-overlay" id="rpSkipOverlay" style="display:none">
+      <div class="rp-modal">
+        <h3 class="rp-modal-title">Por que não foi realizada?</h3>
+        <p class="rp-modal-routine" id="rpSkipRoutineTitle"></p>
+        <textarea class="rp-modal-reason" id="rpSkipReason"
+          placeholder="Descreva o motivo (mínimo 10 caracteres)…"
+          rows="4" maxlength="500"></textarea>
+        <p class="rp-modal-chars"><span id="rpSkipChars">0</span>/500 · mínimo 10</p>
+        <div class="rp-modal-btns">
+          <button class="rp-modal-cancel" id="rpSkipCancel">Cancelar</button>
+          <button class="rp-modal-confirm" id="rpSkipConfirm" disabled>Confirmar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(div.firstElementChild);
+
+  document.getElementById('rpSkipReason').addEventListener('input', (e) => {
+    const len = e.target.value.trim().length;
+    document.getElementById('rpSkipChars').textContent = len;
+    document.getElementById('rpSkipConfirm').disabled = len < 10;
+  });
+
+  document.getElementById('rpSkipCancel').addEventListener('click', _closeSkipModal);
+}
+
+function _closeSkipModal() {
+  const overlay = document.getElementById('rpSkipOverlay');
+  const reasonEl = document.getElementById('rpSkipReason');
+  if (overlay)  overlay.style.display = 'none';
+  if (reasonEl) reasonEl.value = '';
+  const chars = document.getElementById('rpSkipChars');
+  const btn   = document.getElementById('rpSkipConfirm');
+  if (chars) chars.textContent = '0';
+  if (btn)   { btn.disabled = true; btn.onclick = null; }
+}
+
+function openSkipReasonModal(routineTitle, onConfirm) {
+  initSkipReasonModal(); // garante que existe
+  const overlay  = document.getElementById('rpSkipOverlay');
+  const titleEl  = document.getElementById('rpSkipRoutineTitle');
+  const reasonEl = document.getElementById('rpSkipReason');
+  const btn      = document.getElementById('rpSkipConfirm');
+  const chars    = document.getElementById('rpSkipChars');
+
+  if (titleEl)  titleEl.textContent = routineTitle || '';
+  if (reasonEl) { reasonEl.value = ''; }
+  if (chars)    chars.textContent = '0';
+  if (btn) {
+    btn.disabled = true;
+    btn.onclick = async () => {
+      const reason = reasonEl?.value?.trim();
+      if (!reason || reason.length < 10) return;
+      btn.disabled = true;
+      try {
+        await onConfirm(reason);
+        _closeSkipModal();
+      } catch { btn.disabled = false; }
+    };
+  }
+  if (overlay) overlay.style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TABELA DE PONTUAÇÃO POR TIPO DE TAREFA
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderPtsTable() {
+  const section = document.querySelector('.pts-table-panel');
+  if (!section) return;
+  section.innerHTML = ''; // sempre re-renderiza com dados atualizados
+
+  const ROLES = [
+    {
+      role: 'Direção de Arte',
+      members: ['Samuel'],
+      color: '#e8b844',
+      groups: [
+        {
+          label: 'Peças Curtas',
+          items: [
+            ['Criativo derivado de padrão', 1],
+            ['Criativo feito do zero', 2],
+            ['Estático', 2],
+            ['Lettering para vídeo', 2],
+            ['Carrossel até 5 páginas', 5],
+            ['Carrossel 6–12 páginas', 8],
+          ],
+        },
+        {
+          label: 'Avulsos / Off',
+          items: [
+            ['Carta / Windbanner / Placa', 1],
+            ['Crachá', 2],
+            ['Convite', 3],
+            ['Animações / Backdrop / Voucher', 4],
+          ],
+        },
+        {
+          label: 'Peças Longas',
+          items: [
+            ['Apresentação até 30 páginas', 15],
+            ['Apresentação 31–60 páginas', 20],
+            ['Apresentação acima de 60 páginas', 30],
+            ['Identidade visual (logo + base)', 15],
+            ['Catálogo simples até 10 páginas', 12],
+            ['Catálogo complexo +10 páginas', 16],
+          ],
+        },
+        {
+          label: 'Alterações',
+          note: '50% da pontuação da peça original',
+          items: [],
+        },
+      ],
+    },
+    {
+      role: 'Audiovisual',
+      members: ['Thiago', 'Klenio'],
+      color: '#3b82f6',
+      groups: [
+        {
+          label: 'Edição',
+          items: [
+            ['Corte podcast complexo', 0.5],
+            ['Vídeo simples (FAQ / ADS / até 1min30)', 2],
+            ['Vídeo médio (entrevista / até 5 min)', 4],
+            ['Vídeo complexo (ADS / Aftermovie / efeitos)', 15],
+          ],
+        },
+        {
+          label: 'Captação',
+          items: [
+            ['Até 1h', 3],
+            ['Até 2h', 6],
+            ['Até 4h', 12],
+          ],
+        },
+      ],
+    },
+    {
+      role: 'Landing Page & IA',
+      members: ['Bia'],
+      color: '#a78bfa',
+      groups: [
+        {
+          label: 'Entregas',
+          items: [
+            ['Landing page do zero', '6', '~2 a 3h'],
+            ['Sistema IA', '15–20', '~1 semana ou mais'],
+            ['Ajuste LP — textos', '1', '2 a 5 min'],
+            ['Ajuste LP — imagem', '1', '2 a 5 min'],
+            ['Post Blog', '4–6', '1 a 2h (varia por qtd.)'],
+            ['Ajuste Sistema IA', '8–10', '3 a 6h, ou mais se complexo'],
+          ],
+        },
+      ],
+    },
+    {
+      role: 'Storymaker',
+      members: ['Malu'],
+      color: '#22d3a3',
+      groups: [
+        {
+          label: 'Referência',
+          note: 'Usa as tabelas de Audiovisual e Geral conforme o tipo de entrega.',
+          items: [],
+        },
+      ],
+    },
+    {
+      role: 'Publisher / UGC',
+      members: ['Zion'],
+      color: '#f97316',
+      groups: [
+        {
+          label: 'Entregas',
+          items: [
+            ['1 UGC (meta por volume)', 1],
+            ['Vídeo simples', 2],
+            ['Arte', 2],
+            ['Criação / execução de processo novo', 15],
+          ],
+        },
+        {
+          label: 'Bônus de Taxa UGC',
+          items: [
+            ['Taxa UGC > 20% na semana', 20],
+            ['Taxa UGC > 25% na semana', 30],
+            ['Taxa UGC > 30% na semana', 40],
+          ],
+        },
+      ],
+    },
+    {
+      role: 'Válido para todos',
+      members: [],
+      color: '#7882a4',
+      groups: [
+        {
+          label: 'Eventos',
+          items: [
+            ['1 turno (até 6h)', 10],
+            ['Dia inteiro (até 12h)', 20],
+            ['Fora da Grande Natal com pernoite', 30],
+          ],
+        },
+        {
+          label: 'Treinamento',
+          items: [
+            ['A cada 1 hora completa', 6],
+            ['Projeto aprovado pela liderança', 10],
+          ],
+        },
+      ],
+    },
+  ];
+
+  function card(role) {
+    const badge = role.members.length
+      ? role.members.map(m => `<span class="ptc-member">${m}</span>`).join('')
+      : '';
+    const groups = role.groups.map(g => {
+      const rows = g.items.map(([label, pts, timeNote]) => {
+        // pts pode ser número (1, 2, 0.5) ou string com faixa ('15–20', '4–6')
+        const ptsStr = typeof pts === 'number'
+          ? `${pts % 1 === 0 ? pts : pts.toFixed(1)} pt${pts !== 1 ? 's' : ''}`
+          : `${pts} pts`;
+        const timeEl = timeNote
+          ? `<span class="ptc-time">${timeNote}</span>`
+          : '';
+        return `<tr>
+          <td class="ptc-label">${label}${timeEl}</td>
+          <td class="ptc-pts" style="color:${role.color}">${ptsStr}</td>
+        </tr>`;
+      }).join('');
+      const note = g.note ? `<p class="ptc-note">${g.note}</p>` : '';
+      const table = rows ? `<table class="ptc-table"><tbody>${rows}</tbody></table>` : '';
+      return `<div class="ptc-group">
+        <div class="ptc-group-label">${g.label}</div>
+        ${note}${table}
+      </div>`;
+    }).join('');
+
+    return `<div class="ptc-card" style="--role-color:${role.color}">
+      <div class="ptc-card-header">
+        <div>
+          <div class="ptc-role">${role.role}</div>
+          <div class="ptc-members">${badge}</div>
+        </div>
+      </div>
+      <div class="ptc-groups">${groups}</div>
+    </div>`;
+  }
+
+  section.innerHTML = `
+    <div class="ptc-wrap">
+      <div class="ptc-title-row">
+        <h2 class="ptc-title">Tabela de Pontuação por Tipo de Tarefa</h2>
+        <p class="ptc-subtitle">Referência de pontos por cargo e tipo de entrega.</p>
+      </div>
+      <div class="ptc-grid">
+        ${ROLES.map(card).join('')}
+      </div>
+    </div>`;
+}
+
 function initTeamDaily() {
   document.getElementById('clickupSyncBtn')?.addEventListener('click', handleClickupSync);
+
+  const refreshBtn = document.getElementById('tdRefreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      const orig = refreshBtn.innerHTML;
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '…';
+      _stopTdTimers();
+      await loadTeamDaily();
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = orig;
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2309,11 +2849,13 @@ function monthShortBR(isoMonth) {
 // ═══════════════════════════════════════════════════════════════════════
 
 async function loadHistoricoPanel() {
-  // Garante datas válidas — padrão: mês corrente
+  // Recalcula datas do preset (garante 1º e último dia do mês/semana automaticamente)
+  dfbRecalcPreset('hist');
   if (!_dfb.hist.from) {
     const r = dfbPresetToRange('mes', null);
     _dfb.hist.from = r.from;
     _dfb.hist.to   = r.to;
+    dfbSetInputs('hist', r.from, r.to);
   }
   const from = _dfb.hist.from;
   const to   = _dfb.hist.to;
@@ -2341,7 +2883,6 @@ async function loadHistoricoPanel() {
     }
 
     renderHistoricoWeeklyTable(histData.weeks || [], histData.users || []);
-    loadHistoricoComparativo();
   } catch (err) {
     console.error('[historico] erro:', err.message);
     if (wrap) wrap.innerHTML = `<p style="padding:24px;color:#e05252;font-size:13px">Erro: ${err.message}</p>`;
@@ -2402,21 +2943,24 @@ function renderHistoricoWeeklyTable(weekLabels, users) {
         ? 'live'
         : w.pct >= 100 ? 'green' : w.pct >= 60 ? 'yellow' : 'gray';
 
-      // % além de 100
-      const overshoot = w.pct > 100 && !w.isLive
-        ? `<div class="hwt-overshoot">+${w.pct - 100}% além da meta</div>`
-        : '';
+      // Pts restantes para atingir a meta (sempre mostrar)
+      const remainingPts = Math.max(0, (u.weeklyGoal || 0) - w.pts);
+      let progressRow = '';
+      if (w.pct >= 100) {
+        const extra = w.pct - 100;
+        progressRow = extra > 0
+          ? `<div class="hwt-overshoot">+${extra}% acima da meta</div>`
+          : '';
+      } else {
+        const verb = w.isLive ? 'falta' : 'faltou';
+        progressRow = `<div class="hwt-missing${w.isLive ? ' live' : ''}">${verb} ${remainingPts} pts · ${100 - w.pct}%</div>`;
+      }
 
-      // % faltante
-      const missing = w.pct < 100 && !w.isLive
-        ? `<div class="hwt-missing">faltou ${100 - w.pct}%</div>`
-        : '';
-
-      // Coins ganhas (só quando bate >= 60%)
+      // SB Coins quando meta atingida (≥60% = 1 coin, ≥80% = 2, 100% = 3)
       const coinsRow = w.stars > 0
         ? `<div class="hwt-coins">
             <div class="hwt-stars">${starsHtml(w.stars)}</div>
-            <span class="hwt-coins-label">+${w.stars} moeda${w.stars > 1 ? 's' : ''}</span>
+            <span class="hwt-coins-label">${w.stars} SB Coin${w.stars !== 1 ? 's' : ''}</span>
            </div>`
         : '';
 
@@ -2426,8 +2970,8 @@ function renderHistoricoWeeklyTable(weekLabels, users) {
 
       return `<td class="hwt-week-cell">
         <div class="hwt-pct ${pctClass}">${w.pct}%</div>
-        <div class="hwt-pts">${w.pts} pts</div>
-        ${overshoot}${missing}${coinsRow}${liveBadge}
+        <div class="hwt-pts">${w.pts} pts · meta ${u.weeklyGoal || '?'}</div>
+        ${progressRow}${coinsRow}${liveBadge}
       </td>`;
     }).join('');
 
@@ -2532,120 +3076,6 @@ function renderHistoricoTaskList(tasks) {
   });
 }
 
-function renderHistMonthFilter() {
-  const container = document.getElementById('histMonthFilter');
-  if (!container) return;
-  container.innerHTML = histCompData.map(m =>
-    `<button class="adm-month-btn${histActiveMonths.has(m.ym) ? ' active' : ''}" data-hym="${m.ym}">${m.label}</button>`
-  ).join('');
-  container.querySelectorAll('.adm-month-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const ym = btn.dataset.hym;
-      if (histActiveMonths.has(ym)) {
-        if (histActiveMonths.size === 1) return;
-        histActiveMonths.delete(ym);
-        btn.classList.remove('active');
-      } else {
-        histActiveMonths.add(ym);
-        btn.classList.add('active');
-      }
-      renderHistCompChart();
-    });
-  });
-}
-
-function renderHistCompChart() {
-  const ctx = document.getElementById('histCompChart');
-  if (!ctx) return;
-  if (histCompChart) { histCompChart.destroy(); histCompChart = null; }
-
-  const visible = histCompData.filter(m => histActiveMonths.has(m.ym));
-  if (!visible.length) return;
-
-  const dl = typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [];
-  const DL = {
-    anchor: 'end', align: 'top',
-    font: { size: 10, weight: '700', family: 'Inter' },
-    formatter: (v) => v > 0 ? v : '',
-    color: '#c8d0dc',
-  };
-
-  histCompChart = new Chart(ctx, {
-    type: 'bar',
-    plugins: dl,
-    data: {
-      labels: visible.map(m => m.label),
-      datasets: [
-        {
-          label: 'Tasks', data: visible.map(m => m.tasksDone),
-          backgroundColor: 'rgba(42,213,138,0.85)', borderRadius: 5,
-          yAxisID: 'y', order: 2,
-          datalabels: { ...DL, color: '#2ad58a' },
-        },
-        {
-          label: 'Horas', data: visible.map(m => m.horas),
-          backgroundColor: 'rgba(79,142,247,0.75)', borderRadius: 5,
-          yAxisID: 'y', order: 3,
-          datalabels: { ...DL, color: '#4f8ef7', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' },
-        },
-        {
-          label: 'Pontos', data: visible.map(m => m.pts > 0 ? m.pts : null),
-          type: 'line', borderColor: '#f6c200', backgroundColor: 'transparent',
-          pointBackgroundColor: '#f6c200',
-          pointRadius: visible.map(m => m.pts > 0 ? 5 : 0),
-          pointHoverRadius: visible.map(m => m.pts > 0 ? 7 : 0),
-          tension: 0.35, spanGaps: false,
-          yAxisID: 'y2', order: 1,
-          datalabels: { ...DL, color: '#f6c200', formatter: v => (v && v > 0) ? v : '' },
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: { padding: { top: 24 } },
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: true, labels: { color: '#8e98a7', font: { size: 11, family: 'Inter' }, boxWidth: 10, boxHeight: 10 } },
-        tooltip: { backgroundColor: '#1a2030', titleColor: '#c8d0dc', bodyColor: '#8e98a7', borderColor: '#252d39', borderWidth: 1 },
-        datalabels: { display: true },
-      },
-      scales: {
-        x: { ticks: { color: '#666', font: { size: 10 } }, grid: { display: false }, border: { display: false } },
-        y: { display: false, min: 0 },
-        y2: { display: false, min: 0 },
-      },
-    },
-  });
-}
-
-async function loadHistoricoComparativo() {
-  if (!_isAdminUser) return;
-  const from = _dfb.hist.from;
-  const to   = _dfb.hist.to;
-  if (!from || !to) return;
-
-  const fromMonth = from.slice(0, 7);
-  const toMonth   = to.slice(0, 7);
-
-  const section = document.getElementById('histCompSection');
-  if (!section) return;
-
-  try {
-    const data = await api(`/api/reports/adm?fromMonth=${fromMonth}&toMonth=${toMonth}`);
-    if (!data || !data.months || !data.months.length) { section.style.display = 'none'; return; }
-
-    histCompData = data.months;
-    histActiveMonths = new Set(histCompData.map(m => m.ym));
-
-    renderHistMonthFilter();
-    renderHistCompChart();
-    section.style.display = '';
-  } catch (err) {
-    console.error('[hist-comp] erro:', err.message);
-    section.style.display = 'none';
-  }
-}
 
 function initHistoricoFilters() {
   document.querySelectorAll('[data-hist-filter]').forEach((btn) => {
@@ -2949,6 +3379,689 @@ function initAdmFilters() {
     admActiveMetric = tab.dataset.metric;
     renderAdmChart(admMonthlyData, admActiveMonths, admActiveMetric);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ROTINA PANEL
+// ═══════════════════════════════════════════════════════════════════════
+
+let _routineWeekFrom = null; // YYYY-MM-DD (Monday of current week)
+let _routineWeekTo   = null; // YYYY-MM-DD (Sunday of current week)
+let _routineFilterUser = null; // null = all (admin) or self (member)
+let _routineFilterCompany = null;
+let _routineOnlyMine = false;
+let _routineData = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+// ROTINA PANEL — Weekly grid view
+// ═══════════════════════════════════════════════════════════════════════
+
+const ROUTINE_DOW_LABELS = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+const ROUTINE_DOW_FULL   = ['dom','seg','ter','qua','qui','sex','sáb'];
+
+function routineWeekOf(isoDate) {
+  // Returns Mon..Sun of the week containing isoDate
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  const dow = d.getUTCDay() || 7; // 1=Mon..7=Sun
+  const mon = new Date(d);
+  mon.setUTCDate(d.getUTCDate() - dow + 1);
+  const sun = new Date(mon);
+  sun.setUTCDate(mon.getUTCDate() + 6);
+  return {
+    from: mon.toISOString().slice(0, 10),
+    to:   sun.toISOString().slice(0, 10),
+  };
+}
+
+function routineWeekLabel(from, to) {
+  const fmt = (d) => {
+    const [,m,day] = d.split('-');
+    return `${day}/${m}`;
+  };
+  const yr = to.slice(0, 4);
+  return `${fmt(from)}/${yr} — ${fmt(to)}/${yr}`;
+}
+
+function routineIsCurrentWeek(from) {
+  const { from: wf } = routineWeekOf(todayISO());
+  return from === wf;
+}
+
+async function loadRoutinePanel() {
+  const today = todayISO();
+  const currentUser = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
+
+  // Acesso restrito: apenas bia, maria clara, malu e zion
+  const rotinaUsers = ['bia', 'maria clara', 'malu', 'zion'];
+  const userName = (currentUser?.name || '').toLowerCase().trim();
+  const canAccess = currentUser?.role === 'admin' || rotinaUsers.includes(userName);
+  if (!canAccess) {
+    const section = document.querySelector('.routine-panel');
+    if (section) section.innerHTML = '<div style="padding:48px;text-align:center;color:#3a3e5a">Acesso não disponível.</div>';
+    return;
+  }
+
+  if (!_routineWeekFrom) {
+    const w = routineWeekOf(today);
+    _routineWeekFrom = w.from;
+    _routineWeekTo   = w.to;
+  }
+
+  const isAdmin = currentUser?.role === 'admin';
+
+  if (isAdmin) {
+    // bia e maria clara: visão de gestão (grid semanal + adicionar/remover rotinas + motivos)
+    renderRoutineShell();
+    await fetchAndRenderRoutines();
+  } else {
+    // malu e zion: visão diária (marcar feita / não feita)
+    renderMemberRoutineShell();
+    await fetchAndRenderMemberRoutines(today);
+  }
+}
+
+// ── Member daily view (Malu / Zion) ─────────────────────────────────
+
+function renderMemberRoutineShell() {
+  const section = document.querySelector('.routine-panel');
+  if (!section) return;
+
+  const today = todayISO();
+  const dt = new Date(`${today}T00:00:00Z`);
+  const DOW_PT = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+  const MONTH_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const dateLabel = `${DOW_PT[dt.getUTCDay()]}, ${dt.getUTCDate()} de ${MONTH_PT[dt.getUTCMonth()]}`;
+
+  section.innerHTML = `
+    <h2 class="rp-title">Minha Rotina</h2>
+    <p class="rp-date-label">${dateLabel}</p>
+    <div class="rp-member-stats" id="rpMemberStats"></div>
+    <div class="rp-member-list" id="rpMemberList">
+      <p class="rp-loading">Carregando…</p>
+    </div>
+  `;
+
+  initSkipReasonModal(); // garante que o modal está no body
+}
+
+async function fetchAndRenderMemberRoutines(date) {
+  const list = document.getElementById('rpMemberList');
+  if (!list) return;
+  list.innerHTML = '<p class="rp-loading">Carregando…</p>';
+
+  try {
+    const data = await api(`/api/routines?action=today-list&date=${date}`);
+    renderMemberRoutineList(data.routines || [], date);
+  } catch (err) {
+    list.innerHTML = `<p class="rp-loading" style="color:#e05252">Erro: ${err.message}</p>`;
+  }
+}
+
+function renderMemberRoutineList(routines, date) {
+  const list  = document.getElementById('rpMemberList');
+  const stats = document.getElementById('rpMemberStats');
+  if (!list) return;
+
+  const done    = routines.filter(r => r.status === 'done').length;
+  const skipped = routines.filter(r => r.status === 'skip').length;
+  const total   = routines.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  if (stats) {
+    stats.innerHTML = `
+      <div class="rpm-stat"><span class="rpm-val">${done}/${total}</span><span class="rpm-lbl">Feitas</span></div>
+      <div class="rpm-stat"><span class="rpm-val" style="color:#e05252">${skipped}</span><span class="rpm-lbl">Não feitas</span></div>
+      <div class="rpm-stat"><span class="rpm-val" style="color:${pct>=100?'#3dba6f':'#e8b844'}">${pct}%</span><span class="rpm-lbl">Da rotina</span></div>
+    `;
+  }
+
+  if (!routines.length) {
+    list.innerHTML = '<div class="rp-empty">Nenhuma rotina para hoje.</div>';
+    return;
+  }
+
+  list.innerHTML = routines.map(r => {
+    const isDone = r.status === 'done';
+    const isSkip = r.status === 'skip';
+    const CO_COLOR = { 'SeuBoné': '#e8b844', 'Onevo': '#3b82f6', 'Carbone Educação': '#22d3a3' };
+    const coColor = r.company ? (CO_COLOR[r.company] || '#7882a4') : '#7882a4';
+    const coAbbr = r.company ? (r.company === 'SeuBoné' ? 'SB' : r.company === 'Onevo' ? 'ON' : 'CB') : '';
+    const coTag = coAbbr ? `<span class="rp-co-tag" style="background:${coColor}22;color:${coColor}">${coAbbr}</span>` : '';
+    const obs = r.observation ? `<p class="rpm-obs">${escHtml(r.observation)}</p>` : '';
+    const skipNote = r.status === 'skip' && r.reason ? `<p class="rpm-skip-reason">Motivo: ${escHtml(r.reason)}</p>` : '';
+
+    return `<div class="rpm-item${isDone ? ' rpm-done' : isSkip ? ' rpm-skip' : ''}" data-rid="${r.id}">
+      <div class="rpm-left">
+        ${coTag}
+        <div class="rpm-info">
+          <span class="rpm-title">${escHtml(r.title)}</span>
+          ${obs}${skipNote}
+        </div>
+      </div>
+      <div class="rpm-actions">
+        <span class="rpm-pts">${r.points}p</span>
+        <button class="rpm-btn rpm-btn-done${isDone ? ' active' : ''}"
+          data-rid="${r.id}" data-date="${date}" data-act="done"
+          title="Feita">✅</button>
+        <button class="rpm-btn rpm-btn-skip${isSkip ? ' active' : ''}"
+          data-rid="${r.id}" data-date="${date}" data-act="skip"
+          title="Não feita">❌</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Wire buttons
+  list.querySelectorAll('.rpm-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const rid  = btn.dataset.rid;
+      const date = btn.dataset.date;
+      const act  = btn.dataset.act;
+      const routine = routines.find(r => String(r.id) === String(rid));
+
+      if (act === 'done') {
+        // Toggle done
+        const currentlyDone = btn.classList.contains('active');
+        btn.disabled = true;
+        try {
+          await api('/api/routines?action=toggle', {
+            method: 'POST',
+            body: JSON.stringify({ routineId: rid, date, status: currentlyDone ? 'remove' : 'done' }),
+          });
+          if (routine) routine.status = currentlyDone ? null : 'done';
+          renderMemberRoutineList(routines, date);
+        } finally { btn.disabled = false; }
+      } else if (act === 'skip') {
+        openSkipReasonModal(routine?.title || '', async (reason) => {
+          await api('/api/routines?action=toggle', {
+            method: 'POST',
+            body: JSON.stringify({ routineId: rid, date, status: 'skip', reason }),
+          });
+          if (routine) { routine.status = 'skip'; routine.reason = reason; }
+          renderMemberRoutineList(routines, date);
+        });
+      }
+    });
+  });
+}
+
+function renderRoutineShell() {
+  const section = document.querySelector('.routine-panel');
+  if (!section) return;
+  section.innerHTML = `
+    <div class="rp-breadcrumb">
+      <span class="rp-bc-home">⌂</span>
+      <span class="rp-bc-sep">›</span>
+      <span class="rp-bc-item">Rotinas</span>
+      <span class="rp-bc-sep">›</span>
+      <span class="rp-bc-item rp-bc-active">Check Semanal</span>
+    </div>
+    <h2 class="rp-title">Check Semanal de Rotinas</h2>
+    <p class="rp-subtitle">Marque as rotinas realizadas na semana.</p>
+
+    <div class="rp-week-nav">
+      <button class="rp-nav-btn" id="rpPrevWeek">‹</button>
+      <div class="rp-week-info">
+        <span class="rp-week-range" id="rpWeekRange">—</span>
+        <div class="rp-week-badges" id="rpWeekBadges"></div>
+      </div>
+      <button class="rp-nav-btn" id="rpNextWeek">›</button>
+      <div class="rp-progress-wrap">
+        <span class="rp-progress-counts" id="rpProgressCounts">0 / 0</span>
+        <div class="rp-progress-bar"><div class="rp-progress-fill" id="rpProgressFill" style="width:0%"></div></div>
+        <span class="rp-progress-pct" id="rpProgressPct">0%</span>
+      </div>
+    </div>
+
+    <div class="rp-filters" id="rpFilters">
+      <label class="rp-filter-mine">
+        <input type="checkbox" id="rpOnlyMine" ${_routineOnlyMine ? 'checked' : ''}/>
+        <span>Só minhas</span>
+      </label>
+      <label class="rp-filter-label">Empresa</label>
+      <select id="rpFilterCompany" class="rp-filter-sel">
+        <option value="">Todas</option>
+        <option value="SeuBoné">SeuBoné</option>
+        <option value="Onevo">Onevo</option>
+        <option value="Carbone Educação">Carbone Educação</option>
+      </select>
+      <label class="rp-filter-label">Responsável</label>
+      <select id="rpFilterUser" class="rp-filter-sel" id="rpFilterUser">
+        <option value="">Todos</option>
+      </select>
+      <button class="rp-filter-clear" id="rpFilterClear">Limpar filtros</button>
+    </div>
+
+    <div class="rp-grid-wrap" id="rpGridWrap">
+      <p class="rp-loading">Carregando...</p>
+    </div>
+
+    <!-- Admin: add routines (visível apenas para ADMIN_MASTER) -->
+    <div class="rp-admin-section" id="rpAdminSection" style="display:none">
+      <div class="rp-admin-title">Gerenciar Rotinas</div>
+      <div class="rp-admin-user-row">
+        <label class="rp-filter-label">Responsável:</label>
+        <select id="rpAdminUserSel" class="rp-filter-sel"></select>
+      </div>
+      <div id="rpAdminList" class="rp-admin-list"></div>
+      <form id="rpAdminAddForm" class="rp-admin-add-form">
+        <input id="rpAddTitle" class="rp-add-input" type="text" placeholder="Descrição da atividade…" maxlength="120" required />
+        <select id="rpAddCompany" class="rp-filter-sel" required>
+          <option value="" disabled selected>Empresa *</option>
+          <option value="SeuBoné">SeuBoné</option>
+          <option value="Onevo">Onevo</option>
+          <option value="Carbone Educação">Carbone Educação</option>
+        </select>
+        <select id="rpAddFreq" class="rp-filter-sel" required>
+          <option value="" disabled selected>Frequência *</option>
+          <option value="daily">Diária (todos os dias úteis)</option>
+          <option value="weekly">Semanal (1x/semana)</option>
+          <option value="3x_week">3x na semana</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <div id="rpDaySelectorWrap" style="display:none">
+          <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:6px 0 4px">Dias da semana:</p>
+          <div class="rp-day-checkboxes" id="rpDayCheckboxes">
+            <label class="rp-day-cb"><input type="checkbox" value="1" /> Seg</label>
+            <label class="rp-day-cb"><input type="checkbox" value="2" /> Ter</label>
+            <label class="rp-day-cb"><input type="checkbox" value="3" /> Qua</label>
+            <label class="rp-day-cb"><input type="checkbox" value="4" /> Qui</label>
+            <label class="rp-day-cb"><input type="checkbox" value="5" /> Sex</label>
+            <label class="rp-day-cb"><input type="checkbox" value="6" /> Sáb</label>
+          </div>
+        </div>
+        <select id="rpAddPts" class="rp-filter-sel">
+          <option value="1">1 pt</option>
+          <option value="2">2 pts</option>
+          <option value="3" selected>3 pts</option>
+          <option value="5">5 pts</option>
+          <option value="8">8 pts</option>
+        </select>
+        <button type="submit" class="rp-add-btn">Adicionar</button>
+      </form>
+    </div>
+  `;
+
+  // Wire week nav
+  document.getElementById('rpPrevWeek')?.addEventListener('click', () => {
+    const d = new Date(`${_routineWeekFrom}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 7);
+    const w = routineWeekOf(d.toISOString().slice(0, 10));
+    _routineWeekFrom = w.from; _routineWeekTo = w.to;
+    fetchAndRenderRoutines();
+  });
+  document.getElementById('rpNextWeek')?.addEventListener('click', () => {
+    const d = new Date(`${_routineWeekFrom}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 7);
+    const w = routineWeekOf(d.toISOString().slice(0, 10));
+    _routineWeekFrom = w.from; _routineWeekTo = w.to;
+    fetchAndRenderRoutines();
+  });
+  document.getElementById('rpOnlyMine')?.addEventListener('change', (e) => {
+    _routineOnlyMine = e.target.checked;
+    renderRoutineGrid();
+  });
+  document.getElementById('rpFilterCompany')?.addEventListener('change', (e) => {
+    _routineFilterCompany = e.target.value || null;
+    renderRoutineGrid();
+  });
+  document.getElementById('rpFilterUser')?.addEventListener('change', (e) => {
+    _routineFilterUser = e.target.value ? Number(e.target.value) : null;
+    renderRoutineGrid();
+  });
+  document.getElementById('rpFilterClear')?.addEventListener('click', () => {
+    _routineOnlyMine = false; _routineFilterCompany = null; _routineFilterUser = null;
+    document.getElementById('rpOnlyMine').checked = false;
+    document.getElementById('rpFilterCompany').value = '';
+    document.getElementById('rpFilterUser').value = '';
+    renderRoutineGrid();
+  });
+
+  // Admin section — exclusivo para admin
+  const user = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
+  const isAdmin = user?.role === 'admin';
+  const admSec = document.getElementById('rpAdminSection');
+  if (admSec) admSec.style.display = isAdmin ? '' : 'none';
+
+  if (isAdmin) {
+    initRoutineAdminSection();
+
+    // Mostrar/ocultar seletor de dias conforme frequência
+    document.getElementById('rpAddFreq')?.addEventListener('change', (e) => {
+      const val  = e.target.value;
+      const wrap = document.getElementById('rpDaySelectorWrap');
+      if (!wrap) return;
+      const needsDays = val === 'weekly' || val === '3x_week' || val === 'custom';
+      wrap.style.display = needsDays ? '' : 'none';
+    });
+  }
+}
+
+async function fetchAndRenderRoutines() {
+  const wrap = document.getElementById('rpGridWrap');
+  if (wrap) wrap.innerHTML = '<p class="rp-loading">Carregando...</p>';
+
+  // Update week display
+  const rangeEl = document.getElementById('rpWeekRange');
+  if (rangeEl) rangeEl.textContent = routineWeekLabel(_routineWeekFrom, _routineWeekTo);
+
+  const badgesEl = document.getElementById('rpWeekBadges');
+  if (badgesEl) {
+    const isCurrent = routineIsCurrentWeek(_routineWeekFrom);
+    const prevW = (() => {
+      const d = new Date(`${_routineWeekFrom}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - 7);
+      return routineWeekOf(d.toISOString().slice(0, 10)).from;
+    })();
+    const isPrev = _routineWeekFrom === prevW; // won't match, just for future
+    badgesEl.innerHTML = isCurrent
+      ? '<span class="rp-badge rp-badge-current">Semana atual</span>'
+      : `<span class="rp-badge rp-badge-past">Sem. passada</span>`;
+  }
+
+  const userId = null; // admin sees all; member sees self — API handles auth
+  const qs = userId ? `&userId=${userId}` : '';
+  try {
+    const data = await api(`/api/routines?action=week-grid&from=${_routineWeekFrom}&to=${_routineWeekTo}${qs}`);
+    _routineData = data;
+
+    // Populate user filter
+    const userSel = document.getElementById('rpFilterUser');
+    if (userSel && data.routines) {
+      const existingIds = new Set([...userSel.options].map(o => o.value).filter(Boolean));
+      const persons = [...new Map(data.routines.map(r => [String(r.userId), r.personName])).entries()];
+      persons.forEach(([id, name]) => {
+        if (!existingIds.has(id)) {
+          const opt = document.createElement('option');
+          opt.value = id; opt.textContent = name;
+          userSel.appendChild(opt);
+        }
+      });
+    }
+
+    renderRoutineGrid();
+  } catch (err) {
+    if (wrap) wrap.innerHTML = `<p class="rp-loading" style="color:#e05252">Erro: ${err.message}</p>`;
+  }
+}
+
+function renderRoutineGrid() {
+  const wrap = document.getElementById('rpGridWrap');
+  if (!wrap || !_routineData) return;
+
+  const { routines = [], dates = [], summary = {} } = _routineData;
+  const currentUser = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
+
+  // Filter
+  let filtered = routines;
+  if (_routineOnlyMine && currentUser) {
+    filtered = filtered.filter(r => r.userId === currentUser.id || String(r.userId) === String(currentUser.id));
+  }
+  if (_routineFilterCompany) {
+    filtered = filtered.filter(r => r.company === _routineFilterCompany);
+  }
+  if (_routineFilterUser) {
+    filtered = filtered.filter(r => Number(r.userId) === _routineFilterUser);
+  }
+
+  // Recalculate summary for filtered set — entry é { status, reason } ou null
+  let totalSlots = 0, doneSlots = 0;
+  for (const r of filtered) {
+    for (const [, entry] of Object.entries(r.days)) {
+      totalSlots++;
+      if (entry?.status === 'done') doneSlots++;
+    }
+  }
+  const pct = totalSlots > 0 ? Math.round((doneSlots / totalSlots) * 100) : 0;
+
+  // Update progress
+  const cEl = document.getElementById('rpProgressCounts');
+  const fEl = document.getElementById('rpProgressFill');
+  const pEl = document.getElementById('rpProgressPct');
+  if (cEl) cEl.textContent = `${doneSlots} / ${totalSlots}`;
+  if (fEl) fEl.style.width = `${Math.min(pct, 100)}%`;
+  if (pEl) pEl.textContent = `${pct}%`;
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="rp-empty">Nenhuma rotina encontrada.</div>';
+    return;
+  }
+
+  // Build header dates
+  const headerDates = dates.map(d => {
+    const dt = new Date(`${d}T00:00:00Z`);
+    const dow = dt.getUTCDay(); // 0=Sun..6=Sat
+    const label = ROUTINE_DOW_LABELS[dow];
+    const dayNum = d.slice(8, 10) + '/' + d.slice(5, 7);
+    return { d, label, dayNum };
+  });
+
+  const theadCols = headerDates.map(h =>
+    `<th class="rp-th-day"><div class="rp-th-dow">${h.label}</div><div class="rp-th-date">${h.dayNum}</div></th>`
+  ).join('');
+
+  const FREQ_LABELS = { daily: 'Diária', weekly: 'Semanal', monthly: 'Mensal' };
+  const CO_ABBR = { 'SeuBoné': 'SB', 'Onevo': 'ON', 'Carbone Educação': 'CB' };
+  const CO_COLOR = { 'SeuBoné': '#e8b844', 'Onevo': '#3b82f6', 'Carbone Educação': '#22d3a3' };
+
+  const rows = filtered.map(r => {
+    const abbr  = r.company ? (CO_ABBR[r.company] || r.company.slice(0, 2).toUpperCase()) : '';
+    const color = r.company ? (CO_COLOR[r.company] || '#7882a4') : '#7882a4';
+    const coTag = abbr ? `<span class="rp-co-tag" style="background:${color}22;color:${color}">${abbr}</span>` : '';
+    const freqTag = `<span class="rp-freq-tag rp-freq-${r.frequency}">${FREQ_LABELS[r.frequency] || r.frequency}</span>`;
+    const initials = r.personName ? r.personName.split(' ').slice(0,2).map(p=>p[0].toUpperCase()).join('') : '?';
+
+    const cells = headerDates.map(h => {
+      const applicable = r.days.hasOwnProperty(h.d);
+      if (!applicable) return `<td class="rp-td-day"><span class="rp-cell-na">—</span></td>`;
+      const entry  = r.days[h.d]; // null | { status, reason }
+      const status = entry?.status || null;
+      const reason = entry?.reason || null;
+      const reasonHtml = status === 'skip' && reason
+        ? `<div class="rp-cell-reason" title="${escHtml(reason)}">
+             <span class="rp-cell-reason-icon">⚠</span>
+             <span class="rp-cell-reason-text">${escHtml(reason.length > 40 ? reason.slice(0,40)+'…' : reason)}</span>
+           </div>`
+        : '';
+      return `<td class="rp-td-day${status === 'skip' ? ' rp-td-skip' : ''}">
+        <div class="rp-cell-btns">
+          <button class="rp-cell-btn rp-cell-done${status === 'done' ? ' active' : ''}"
+            data-rid="${r.id}" data-date="${h.d}" data-action="done" title="Concluída">✓</button>
+          <button class="rp-cell-btn rp-cell-skip${status === 'skip' ? ' active' : ''}"
+            data-rid="${r.id}" data-date="${h.d}" data-action="skip"
+            title="${status === 'skip' && reason ? escHtml(reason) : 'Não realizada'}">✕</button>
+        </div>
+        ${reasonHtml}
+      </td>`;
+    }).join('');
+
+    return `<tr class="rp-row">
+      <td class="rp-td-routine">
+        <div class="rp-routine-info">
+          ${coTag}
+          <div class="rp-routine-text">
+            <span class="rp-routine-title">${escHtml(r.title)}</span>
+            <div class="rp-routine-meta">
+              <span class="rp-avatar" title="${escHtml(r.personName)}">${initials}</span>
+              <span class="rp-routine-person">${escHtml(r.personName)}</span>
+              ${freqTag}
+            </div>
+          </div>
+        </div>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="rp-table-scroll">
+      <table class="rp-table">
+        <thead>
+          <tr>
+            <th class="rp-th-routine">ROTINA</th>
+            ${theadCols}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  // Wire cell buttons
+  wrap.querySelectorAll('.rp-cell-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const rid    = btn.dataset.rid;
+      const date   = btn.dataset.date;
+      const action = btn.dataset.action; // 'done' or 'skip'
+      const row    = btn.closest('tr');
+      const allBtns = row?.querySelectorAll(`.rp-cell-btn[data-rid="${rid}"][data-date="${date}"]`);
+      const currentlyActive = btn.classList.contains('active');
+
+      // Desmarcar (toggle off): remove direto sem modal
+      if (currentlyActive) {
+        btn.disabled = true;
+        try {
+          await api(`/api/routines?action=toggle`, {
+            method: 'POST',
+            body: JSON.stringify({ routineId: rid, date, status: 'remove' }),
+          });
+          const routine = _routineData?.routines?.find(r => String(r.id) === String(rid));
+          if (routine) routine.days[date] = null;
+          allBtns?.forEach(b => b.classList.remove('active'));
+          renderRoutineGrid();
+        } catch (err) { console.error('[routine toggle]', err.message); }
+        finally { btn.disabled = false; }
+        return;
+      }
+
+      // Marcar como feita: direto
+      if (action === 'done') {
+        btn.disabled = true;
+        try {
+          await api(`/api/routines?action=toggle`, {
+            method: 'POST',
+            body: JSON.stringify({ routineId: rid, date, status: 'done' }),
+          });
+          const routine = _routineData?.routines?.find(r => String(r.id) === String(rid));
+          if (routine) routine.days[date] = { status: 'done', reason: null };
+          allBtns?.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderRoutineGrid();
+        } catch (err) { console.error('[routine toggle]', err.message); }
+        finally { btn.disabled = false; }
+        return;
+      }
+
+      // Marcar como NÃO feita: abre modal de motivo (obrigatório)
+      if (action === 'skip') {
+        const routine = _routineData?.routines?.find(r => String(r.id) === String(rid));
+        const routineTitle = routine?.title || '';
+        openSkipReasonModal(routineTitle, async (reason) => {
+          await api(`/api/routines?action=toggle`, {
+            method: 'POST',
+            body: JSON.stringify({ routineId: rid, date, status: 'skip', reason }),
+          });
+          if (routine) routine.days[date] = { status: 'skip', reason };
+          renderRoutineGrid();
+        });
+        return;
+      }
+
+    });
+  });
+}
+
+async function initRoutineAdminSection() {
+  const userSel = document.getElementById('rpAdminUserSel');
+  if (!userSel || userSel.options.length > 0) return;
+
+  try {
+    const data = await api('/api/users');
+    (data.users || []).forEach(u => {
+      const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.name;
+      userSel.appendChild(opt);
+    });
+    userSel.addEventListener('change', () => loadAdminRoutineList(Number(userSel.value)));
+    if (userSel.value) loadAdminRoutineList(Number(userSel.value));
+  } catch {}
+
+  const form = document.getElementById('rpAdminAddForm');
+  if (form && !form._bound) {
+    form._bound = true;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const uid     = Number(document.getElementById('rpAdminUserSel')?.value);
+      const title   = document.getElementById('rpAddTitle')?.value.trim();
+      const company = document.getElementById('rpAddCompany')?.value;
+      const freqRaw = document.getElementById('rpAddFreq')?.value;
+      const points  = Number(document.getElementById('rpAddPts')?.value);
+      if (!uid || !title || !company || !freqRaw) return;
+
+      // Mapeia freq para valores aceitos pelo DB + extrai applies_days
+      let frequency   = freqRaw;
+      let applies_days = null;
+
+      if (freqRaw === '3x_week') {
+        frequency = 'weekly';
+        const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
+        applies_days = checked.length ? checked : [1, 3, 5]; // default: Seg, Qua, Sex
+      } else if (freqRaw === 'custom') {
+        frequency = 'weekly';
+        const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
+        if (!checked.length) {
+          alert('Selecione ao menos um dia da semana.');
+          return;
+        }
+        applies_days = checked;
+      } else if (freqRaw === 'weekly') {
+        frequency = 'weekly';
+        const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
+        applies_days = checked.length ? checked : null;
+      }
+
+      try {
+        await api('/api/routines?action=create', {
+          method: 'POST',
+          body: JSON.stringify({ userId: uid, title, company, frequency, applies_days, points }),
+        });
+        document.getElementById('rpAddTitle').value = '';
+        document.getElementById('rpAddCompany').value = '';
+        document.getElementById('rpAddFreq').value = '';
+        document.getElementById('rpDaySelectorWrap').style.display = 'none';
+        document.querySelectorAll('#rpDayCheckboxes input').forEach(i => { i.checked = false; });
+        await loadAdminRoutineList(uid);
+        await fetchAndRenderRoutines();
+      } catch (err) {
+        console.error('[rotina create]', err.message);
+      }
+    });
+  }
+}
+
+async function loadAdminRoutineList(userId) {
+  const list = document.getElementById('rpAdminList');
+  if (!list || !userId) return;
+  try {
+    const data = await api(`/api/routines?action=list&date=${todayISO()}&userId=${userId}`);
+    const routines = data.routines || [];
+    if (!routines.length) { list.innerHTML = '<p style="font-size:11px;color:#3a3e5a;padding:6px 0">Nenhuma rotina ainda.</p>'; return; }
+    list.innerHTML = routines.map(r => `
+      <div class="rp-admin-item">
+        <span class="rp-admin-item-name">${escHtml(r.title)}</span>
+        <span class="rp-admin-item-pts">${r.points}p</span>
+        <button class="rp-admin-del" data-del="${r.id}">×</button>
+      </div>`).join('');
+    list.querySelectorAll('.rp-admin-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remover esta rotina?')) return;
+        await api(`/api/routines?action=delete&routineId=${btn.dataset.del}`, { method: 'DELETE' });
+        await loadAdminRoutineList(userId);
+        await fetchAndRenderRoutines();
+      });
+    });
+  } catch {}
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 init();

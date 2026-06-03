@@ -24,13 +24,15 @@ module.exports = async function handler(req, res) {
   if (req.method === 'PATCH') {
     if (!isAdmin) return json(res, 403, { error: 'Forbidden.' });
     const body = req.body || {};
-    const { id, cargo, dailyPointsGoal } = body;
+    const { id, cargo, dailyPointsGoal, clickupEmail, clickupUserId } = body;
     if (!id) return json(res, 400, { error: 'User id required.' });
 
     const sets = [];
     const params = [];
     if (cargo !== undefined)          { params.push(cargo);          sets.push(`cargo = $${params.length}`); }
     if (dailyPointsGoal !== undefined) { params.push(dailyPointsGoal); sets.push(`daily_points_goal = $${params.length}`); }
+    if (clickupEmail !== undefined)   { params.push(clickupEmail || null); sets.push(`clickup_email = $${params.length}`); }
+    if (clickupUserId !== undefined)  { params.push(clickupUserId ? Number(clickupUserId) : null); sets.push(`clickup_user_id = $${params.length}`); }
     if (!sets.length) return json(res, 400, { error: 'Nothing to update.' });
 
     params.push(id);

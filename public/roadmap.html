@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAINEL MKT — ROADMAP DO PROJETO</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; background: #fff; color: #1a1a2e; }
+
+  /* ── Seções de usuário ─────────────────────────────────── */
+  .usuarios-section { padding: 32px 28px 40px; background: #f8f8fc; border-top: 3px solid #3d3ddb; }
+  .usuarios-section h2 {
+    font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; letter-spacing: .5px;
+  }
+  .usuarios-section .subtitulo {
+    font-size: 10px; color: #777; margin-bottom: 24px;
+  }
+
+  .usuarios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+
+  .user-card {
+    background: #fff;
+    border: 1px solid #dde;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    page-break-inside: avoid;
+  }
+
+  .user-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: #1a1a2e;
+    color: #fff;
+  }
+  .user-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; flex-shrink: 0;
+  }
+  .user-info-head h3 { font-size: 13px; font-weight: 700; }
+  .user-info-head .cargo-line { font-size: 10px; color: #aac; margin-top: 2px; }
+  .role-badge {
+    margin-left: auto; font-size: 9px; font-weight: 700;
+    padding: 3px 8px; border-radius: 20px; text-transform: uppercase; flex-shrink: 0;
+  }
+  .role-admin  { background: #e8b844; color: #1a1a2e; }
+  .role-member { background: #3d3ddb; color: #fff; }
+
+  .user-card-body { padding: 14px 16px; }
+
+  .tipo-badge {
+    display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 20px; margin-bottom: 12px;
+  }
+  .tipo-pontos     { background: #d4edda; color: #1a6a2a; }
+  .tipo-rotina     { background: #d0eaff; color: #0a4f8a; }
+  .tipo-ugc        { background: #ede8ff; color: #5a00c8; }
+  .tipo-gestora    { background: #e9ecef; color: #444; }
+
+  .user-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  .user-table td {
+    padding: 5px 8px; font-size: 10px; border: 1px solid #eee;
+    vertical-align: middle;
+  }
+  .user-table tr:nth-child(even) td { background: #f9f9fd; }
+  .user-table .label { font-weight: 600; color: #555; width: 42%; }
+  .user-table .value { color: #1a1a2e; }
+  .value-blue  { color: #3d3ddb; font-weight: 700; }
+  .value-red   { color: #e84040; font-weight: 700; }
+  .value-green { color: #1a6a2a; font-weight: 700; }
+
+  .formula-box {
+    background: #f0f0ff; border: 1px solid #c8c8f0; border-radius: 5px;
+    padding: 8px 10px; margin-bottom: 12px;
+  }
+  .formula-box .formula-title {
+    font-size: 9px; font-weight: 700; color: #555; text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 4px;
+  }
+  .formula-box code {
+    font-family: 'Courier New', monospace; font-size: 9.5px; color: #2a2a9e;
+    line-height: 1.6; display: block;
+  }
+  .formula-box .formula-note {
+    font-size: 9px; color: #888; margin-top: 4px; line-height: 1.4;
+  }
+
+  .impl-list { list-style: none; margin: 0; padding: 0; }
+  .impl-list li {
+    font-size: 10px; padding: 3px 0; border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: flex-start; gap: 6px; line-height: 1.4;
+  }
+  .impl-list li:last-child { border-bottom: none; }
+  .impl-list .check { color: #1a6a2a; font-size: 11px; flex-shrink: 0; }
+  .impl-list .cross  { color: #842029; font-size: 11px; flex-shrink: 0; }
+  .impl-list .clock  { color: #856404; font-size: 11px; flex-shrink: 0; }
+
+  .meta-strip {
+    display: flex; gap: 8px; margin-bottom: 12px;
+  }
+  .meta-item {
+    flex: 1; background: #f5f5fa; border-radius: 5px; padding: 7px 10px; text-align: center;
+    border: 1px solid #dde;
+  }
+  .meta-item .meta-val { font-size: 14px; font-weight: 700; color: #3d3ddb; }
+  .meta-item .meta-lbl { font-size: 9px; color: #888; margin-top: 1px; }
+
+  .estrelas-box {
+    background: #fffbf0; border: 1px solid #f0e0a0; border-radius: 5px;
+    padding: 6px 10px; margin-bottom: 12px; font-size: 9.5px;
+  }
+  .estrelas-box .estrelas-title {
+    font-size: 9px; font-weight: 700; color: #856404; text-transform: uppercase;
+    letter-spacing: .5px; margin-bottom: 4px;
+  }
+  .estrelas-box table { width: 100%; border-collapse: collapse; }
+  .estrelas-box td { padding: 2px 4px; font-size: 9.5px; }
+  .estrelas-box .star-col { font-size: 11px; }
+
+  @media print {
+    .user-card { page-break-inside: avoid; }
+    .usuarios-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .header {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 18px 28px;
+    text-align: right;
+  }
+  .header h1 { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .header p { font-size: 10px; color: #aaa; margin-top: 3px; font-style: italic; }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    background: #3d3ddb;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+    padding: 7px 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid #2a2ab0;
+  }
+
+  td {
+    padding: 6px 8px;
+    border: 1px solid #dde;
+    vertical-align: middle;
+    line-height: 1.4;
+  }
+
+  tr:nth-child(even) td { background: #f5f5fa; }
+  tr:nth-child(odd) td { background: #fff; }
+
+  .fase-header td {
+    background: #2a2a9e !important;
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 8px 10px;
+    letter-spacing: 0.3px;
+  }
+
+  .col-id { width: 42px; text-align: center; font-weight: 600; color: #555; }
+  .col-fase { width: 65px; text-align: center; color: #777; }
+  .col-tarefa { width: 240px; }
+  .col-resp { width: 75px; text-align: center; }
+  .col-tipo { width: 80px; text-align: center; }
+  .col-prio { width: 60px; text-align: center; font-weight: 700; }
+  .col-status { width: 100px; text-align: center; font-weight: 700; font-size: 10px; }
+  .col-pts-est { width: 50px; text-align: center; font-weight: 700; color: #3d3ddb; }
+  .col-pts-real { width: 50px; text-align: center; }
+  .col-obs { width: 200px; font-size: 10px; color: #555; }
+
+  .prio-alta { color: #e84040; }
+  .prio-media { color: #e89040; }
+  .prio-baixa { color: #38b838; }
+
+  .status-concluido {
+    background: #d4edda;
+    color: #1a6a2a;
+    border-radius: 4px;
+    padding: 3px 6px;
+    display: inline-block;
+  }
+  .status-andamento {
+    background: #fff3cd;
+    color: #856404;
+    border-radius: 4px;
+    padding: 3px 6px;
+    display: inline-block;
+  }
+  .status-nao-impl {
+    background: #f8d7da;
+    color: #842029;
+    border-radius: 4px;
+    padding: 3px 6px;
+    display: inline-block;
+  }
+  .status-afazer {
+    background: #e9ecef;
+    color: #333;
+    border-radius: 4px;
+    padding: 3px 6px;
+    display: inline-block;
+  }
+
+  .total-row td {
+    background: #3d3ddb !important;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 9px 10px;
+    text-align: center;
+  }
+
+  .legenda {
+    display: flex;
+    gap: 18px;
+    padding: 12px 28px;
+    background: #f8f8fc;
+    border-top: 2px solid #dde;
+    flex-wrap: wrap;
+  }
+  .legenda-item { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .legenda-box { width: 14px; height: 14px; border-radius: 3px; }
+
+  @media print {
+    body { font-size: 9.5px; }
+    .header h1 { font-size: 15px; }
+    th { font-size: 9px; padding: 5px 4px; }
+    td { padding: 4px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PAINEL MKT — ROADMAP DO PROJETO</h1>
+  <p>Controle de fases, tarefas, prazos e pontuação do desenvolvimento &nbsp;|&nbsp; Atualizado em 02/06/2026</p>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th class="col-id">ID</th>
+      <th class="col-fase">FASE / MARCO</th>
+      <th class="col-tarefa">TAREFA</th>
+      <th class="col-resp">RESPONSÁVEL</th>
+      <th class="col-tipo">TIPO</th>
+      <th class="col-prio">PRIORIDADE</th>
+      <th class="col-status">STATUS</th>
+      <th class="col-pts-est">PTS EST.</th>
+      <th class="col-pts-real">PTS REAL</th>
+      <th class="col-obs">OBSERVAÇÕES</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- FASE 0 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 0 — Planejamento &amp; Configuração Inicial</td>
+    </tr>
+    <tr>
+      <td class="col-id">F0.1</td>
+      <td class="col-fase">Fase 0</td>
+      <td class="col-tarefa">Levantamento de requisitos e regras do sistema</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Documentação</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">SBHub_Regras_Tecnicas.md + MKTHub_Ajustes.md documentados</td>
+    </tr>
+    <tr>
+      <td class="col-id">F0.2</td>
+      <td class="col-fase">Fase 0</td>
+      <td class="col-tarefa">Definir arquitetura técnica (stack, hosting, auth)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">Vercel serverless + PostgreSQL + JWT + vanilla JS</td>
+    </tr>
+    <tr>
+      <td class="col-id">F0.3</td>
+      <td class="col-fase">Fase 0</td>
+      <td class="col-tarefa">Setup do repositório e estrutura de pastas</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">3</td>
+      <td class="col-pts-real">3</td>
+      <td class="col-obs">api/, public/, sql/ com migrations separadas</td>
+    </tr>
+    <tr>
+      <td class="col-id">F0.4</td>
+      <td class="col-fase">Fase 0</td>
+      <td class="col-tarefa">Mapear e testar endpoints da API ClickUp</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Integração</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">List ID 901321051391; EMPRESA_TAGS mapeadas (SeuBoné, Onevo, Carbone)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F0.5</td>
+      <td class="col-fase">Fase 0</td>
+      <td class="col-tarefa">Documentar campos custom do ClickUp necessários</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Documentação</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">3</td>
+      <td class="col-pts-real">3</td>
+      <td class="col-obs">Campo "Ponto de atividade MKT"; COMPLETED_STATUSES definidos</td>
+    </tr>
+
+    <!-- FASE 1 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 1 — Backend &amp; Integrações</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.1</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Configurar autenticação e controle de acesso (admin vs colaborador)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">JWT 12h, bcrypt, must_change_password, role admin/member</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.2</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Integração ClickUp: busca de tarefas por semana e ao vivo</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Integração</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">clickup-live (polling 60s), clickup-sync, clickup-calendar; fallback DB local</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.3</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Cálculo automático de pontos por colaborador</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">Fibonacci 1/2/3/5/8; meta diária (daily_points_goal) por usuário</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.4</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Lógica de coeficiente semanal (grupo Pontos)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">coef = ptsRate×0.50 + taskRate×0.35 + horasRate×0.15 (com horas) ou 0.60/0.40 (sem)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.5</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Lógica de coeficiente baseado em conclusão (Malu/Zion)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">isCompletionBased: coef = done/total tasks; user_routines integradas</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.6</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Sistema de rotinas: CRUD + check semanal + motivos de skip</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">api/routines/index.js — week-grid, today-list, create, toggle, delete; applies_days para frequência personalizada</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.7</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Sistema de SB Coins: tabela, atribuição automática e acúmulo</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-nao-impl">Não implementado</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Sem tabela própria no DB. SB Coins exibidos no histórico via ★ (cálculo client-side), mas sem persistência. Bloqueador para F2.3 e F3.4.</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.8</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Ranking semanal, leaderboard e streak</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">action=leaderboard; streak, 4-week window, sort por score</td>
+    </tr>
+    <tr>
+      <td class="col-id">F1.9</td>
+      <td class="col-fase">Fase 1</td>
+      <td class="col-tarefa">Histórico de performance semanal + painel ADM mensal</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Backend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">/api/reports/history (semanas + estrelas) + /api/reports/adm (meses por pessoa)</td>
+    </tr>
+
+    <!-- FASE 2 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 2 — Frontend: Visão do Colaborador</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.1</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Tela de login e autenticação</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">login.html — troca de senha obrigatória no 1º acesso, bloqueio de tela</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.2</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Dashboard pessoal: Time Cheat + foco + cronômetros</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">app.html — cronômetros por empresa, gauge, donut, gráfico semanal</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.3</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Exibição de SB Coins acumulados</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-nao-impl">Não implementado</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Bloqueado por F1.7. Estrelas ★ exibidas no Histórico como proxy.</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.4</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Painel Daily pessoal: tasks do dia, status, calendário</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">app.html — painel-daily: tasks hoje por empresa, ciclo de status, add tarefa</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.5</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Histórico MKT com tabela semanal e gráfico</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">Painel Histórico MKT — tabela semana a semana + estrelas + % meta + filtros</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.6</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Metas individuais 100% e 120% + Tabela de Pontuação</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">Barras de progresso + aba "Tabela de Pts" com pontuação por cargo/tipo</td>
+    </tr>
+    <tr>
+      <td class="col-id">F2.7</td>
+      <td class="col-fase">Fase 2</td>
+      <td class="col-tarefa">Painel de Rotinas para colaborador (check diário)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">Visão diária — botões ✅/❌, modal de motivo obrigatório para skip, stats % conclusão</td>
+    </tr>
+
+    <!-- FASE 3 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 3 — Frontend: Painel de Gestão (Maria)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.1</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Painel Daily do Time: cards por colaborador</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">app.html aba Painel Daily — cards coef, pts, progresso, lista de tasks por status; visão individual em tabela</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.2</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Filtros de período no Painel Daily e Histórico</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">DFB com inputs de data + presets; histórico com pills Semana/14d/30d/90d/180d + personalizado</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.3</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Painel ADM: histórico mensal por pessoa e gráfico</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">admin.html + aba ADM em app.html — gráfico mensal tasks/horas/pts por pessoa, filtro de meses</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.4</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Painel de Rotinas Administrativo (gestão semanal)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">13</td>
+      <td class="col-pts-real">13</td>
+      <td class="col-obs">Grid semanal por pessoa, filtros (empresa/responsável/só minhas), navegação por semana, motivos skip visíveis, criação/exclusão de rotinas</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.5</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Gestão de SB Coins: atribuição manual e ajuste</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-nao-impl">Não implementado</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Bloqueado por F1.7 (coins sem backend)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F3.6</td>
+      <td class="col-fase">Fase 3</td>
+      <td class="col-tarefa">Exportar relatório semanal (PDF/CSV)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-baixa">Baixa</td>
+      <td class="col-status"><span class="status-afazer">A fazer</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Não iniciado. Roadmap.html como proxy de relatório.</td>
+    </tr>
+
+    <!-- FASE 4 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 4 — Testes, Bugfixes &amp; Deploy</td>
+    </tr>
+    <tr>
+      <td class="col-id">F4.1</td>
+      <td class="col-fase">Fase 4</td>
+      <td class="col-tarefa">Testes com dados reais do ClickUp (validação contínua)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Testes</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-andamento">Em andamento</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">6</td>
+      <td class="col-obs">Produção ativa com dados reais; ajustes contínuos (gráficos, crash init, pontos fantasmas)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F4.2</td>
+      <td class="col-fase">Fase 4</td>
+      <td class="col-tarefa">Revisão com Maria Clara — documento de feedback</td>
+      <td class="col-resp">Bia + Maria</td>
+      <td class="col-tipo">Reunião</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">MKTHub_Ajustes.md gerado em 01/06/2026 — 9 ajustes priorizados aprovados por Maria</td>
+    </tr>
+    <tr>
+      <td class="col-id">F4.3</td>
+      <td class="col-fase">Fase 4</td>
+      <td class="col-tarefa">Bugfixes pós-revisão (pontos fantasmas, crash, gráficos)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">7 commits de fix: crash init, linha fantasma, pontos 0, histCompChart, Sync btn</td>
+    </tr>
+    <tr>
+      <td class="col-id">F4.4</td>
+      <td class="col-fase">Fase 4</td>
+      <td class="col-tarefa">Deploy em produção (Vercel)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Deploy</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">Vercel — produção ativa com CI automático no push</td>
+    </tr>
+    <tr>
+      <td class="col-id">F4.5</td>
+      <td class="col-fase">Fase 4</td>
+      <td class="col-tarefa">Treinamento com o time</td>
+      <td class="col-resp">Bia + Maria</td>
+      <td class="col-tipo">Reunião</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-afazer">A fazer</span></td>
+      <td class="col-pts-est">3</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Agendado para após conclusão dos ajustes da Fase 5</td>
+    </tr>
+
+    <!-- FASE 5 -->
+    <tr class="fase-header">
+      <td colspan="10">▶ FASE 5 — MKT Hub: Melhorias &amp; Ajustes v1 (02/06/2026)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.1</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Renomear plataforma para MKT Hub + favicon placeholder</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">app.html, admin.html, loading overlay — todas as ocorrências de "MKTimer" → "MKT Hub"</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.2</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Contraste — textos brancos em fundos escuros (WCAG AA)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">3</td>
+      <td class="col-pts-real">3</td>
+      <td class="col-obs">CSS: dfb-label, dfb-arrow, dfb-pill, dfb-input com color-scheme:dark; #303d50 removido dos filtros</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.3</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Filtros de data: 5 presets (Esta semana, Última semana, Este mês, Último mês, 90d) + label DD/MM/AAAA</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">dfbPresetToRange atualizado (Seg–Dom, mes=dia1 até hoje, ultima-semana); label de período permanente</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.4</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Meta ajustada ao período selecionado (semanal / mensal / proporcional)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">getDailyAdjustedGoal(): ≤7d = meta semanal; 28–31d = ×4; customizado = (dias/7)×meta. Label "Meta mensal: Xpts" no card.</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.5</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Seção EM ALTERAÇÃO no card + badge de empresa em cada task</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">STATUS_GROUPS reordenados: doing → revision (âmbar) → todo; badge SB/ON/CB com cor; ? vermelho se não classificado</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.6</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Contagem Concluídas X/Y com statuses corretos</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">5</td>
+      <td class="col-pts-real">5</td>
+      <td class="col-obs">doneSemana/totalSemana do servidor (COMPLETED_STATUSES inclui Aprovar, Publicar, Concluído, Done, Closed, etc.)</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.7</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Ranking Semanal no Painel Daily (pódio 🥇🥈🥉 para coef ≥ 100%)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">renderDailyRanking(): ordena por pts, pódio só com coef ≥ 100%, exibe cargo e coeficiente</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.8</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Rotinas admin-only + frequências 3x/semana e personalizado</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-alta">Alta</td>
+      <td class="col-status"><span class="status-concluido">Concluído</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">8</td>
+      <td class="col-obs">Formulário com empresa* + frequência* obrigatórios; seletor de dias (Seg–Sáb); 3x_week e custom mapeiam para weekly+applies_days no DB</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.9</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Ícone definitivo da plataforma (favicon + PWA icons)</td>
+      <td class="col-resp">Maria → Bia</td>
+      <td class="col-tipo">Design</td>
+      <td class="col-prio prio-baixa">Baixa</td>
+      <td class="col-status"><span class="status-afazer">A fazer</span></td>
+      <td class="col-pts-est">2</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Aguardando imagem final de Maria. Placeholder favicon.ico já linkado no HTML.</td>
+    </tr>
+    <tr>
+      <td class="col-id">F5.10</td>
+      <td class="col-fase">Fase 5</td>
+      <td class="col-tarefa">Gráfico histórico de rotinas por semana (% realização)</td>
+      <td class="col-resp">Bia</td>
+      <td class="col-tipo">Frontend</td>
+      <td class="col-prio prio-media">Média</td>
+      <td class="col-status"><span class="status-afazer">A fazer</span></td>
+      <td class="col-pts-est">8</td>
+      <td class="col-pts-real">—</td>
+      <td class="col-obs">Gráfico de linha por colaborador abaixo da tabela de rotinas; filtro de período; toggle visão individual/consolidada</td>
+    </tr>
+
+    <!-- TOTAL -->
+    <tr class="total-row">
+      <td colspan="7">TOTAL DE PONTOS (est. / real concluídos)</td>
+      <td>320</td>
+      <td>274</td>
+      <td style="font-size:10px; font-weight:400;">86% concluído · Pendente: F1.7 coins backend (13pts) + F2.3 coins exib. (5pts) + F3.5 coins adm (8pts) + F3.6 export (5pts) + F4.5 treinamento (3pts) + F5.9 ícone (2pts) + F5.10 gráfico rotinas (8pts) — total pendente: 44pts</td>
+    </tr>
+
+  </tbody>
+</table>
+
+<div class="legenda">
+  <strong style="font-size:10px; margin-right:4px;">Legenda:</strong>
+  <div class="legenda-item"><div class="legenda-box" style="background:#d4edda; border:1px solid #1a6a2a;"></div> Concluído</div>
+  <div class="legenda-item"><div class="legenda-box" style="background:#fff3cd; border:1px solid #856404;"></div> Em andamento</div>
+  <div class="legenda-item"><div class="legenda-box" style="background:#f8d7da; border:1px solid #842029;"></div> Não implementado</div>
+  <div class="legenda-item"><div class="legenda-box" style="background:#e9ecef; border:1px solid #999;"></div> A fazer</div>
+  <div class="legenda-item"><div class="legenda-box" style="background:#e8e8ff; border:1px solid #3d3ddb;"></div> A fazer / Backlog</div>
+  <div class="legenda-item" style="margin-left:auto; color:#555; font-weight:700;">Pontos reais: 274 / 320 est. &nbsp;|&nbsp; <span style="color:#1a6a2a">86% concluído</span> &nbsp;|&nbsp; Atualizado 02/06/2026</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SEÇÕES POR USUÁRIO — PONTUAÇÃO SEMANAL
+═══════════════════════════════════════════════════════════════ -->
+<div class="usuarios-section">
+  <h2>PERFIL DE PONTUAÇÃO SEMANAL — POR USUÁRIO</h2>
+  <p class="subtitulo">Como o sistema calcula pontos, coeficiente e metas para cada membro do time &nbsp;|&nbsp; Atualizado em 01/06/2026</p>
+
+  <div class="usuarios-grid">
+
+    <!-- ── SAMUEL ─────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#3d3ddb;">SA</div>
+        <div class="user-info-head">
+          <h3>Samuel</h3>
+          <div class="cargo-line">Criativo &nbsp;·&nbsp; Grupo Pontos</div>
+        </div>
+        <span class="role-badge role-member">Member</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-pontos">Grupo Pontos</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">26</div>
+            <div class="meta-lbl">pts/dia (meta)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">130</div>
+            <div class="meta-lbl">pts/semana 100%</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">156</div>
+            <div class="meta-lbl">pts/semana 120%</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente</div>
+          <code>COM horas: coef = ptsRate×0.50 + taskRate×0.35 + horasRate×0.15</code>
+          <code>SEM horas: coef = ptsRate×0.60 + taskRate×0.40</code>
+          <div class="formula-note">
+            ptsRate = min(ptsHoje / metaDiária, 1.5) &nbsp;·&nbsp;
+            taskRate = feitas / total do dia &nbsp;·&nbsp;
+            horasRate = min(horas / 8, 1)
+          </div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">ptsSemana</td><td class="value">focus_tasks.points (is_done=TRUE) + routine_completions.points</td></tr>
+          <tr><td class="label">Fonte de tasks</td><td class="value">Banco local (focus_tasks) + ClickUp sync</td></tr>
+          <tr><td class="label">Pontos válidos</td><td class="value value-blue">1 · 2 · 3 · 5 · 8</td></tr>
+          <tr><td class="label">Rotinas somam?</td><td class="value value-green">Sim — pontos de routine_completions incluídos</td></tr>
+        </table>
+
+        <div class="estrelas-box">
+          <div class="estrelas-title">Sistema de Estrelas (histórico)</div>
+          <table>
+            <tr><td class="star-col">☆☆☆</td><td>abaixo de 60% da meta semanal</td></tr>
+            <tr><td class="star-col">★☆☆</td><td>60% – 79%</td></tr>
+            <tr><td class="star-col">★★☆</td><td>80% – 99%</td></tr>
+            <tr><td class="star-col">★★★</td><td>100% ou mais</td></tr>
+          </table>
+        </div>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> Meta diária/semanal configurável via PATCH /api/users</li>
+          <li><span class="check">✓</span> ptsSemana exibido em painel-team.html e app.html</li>
+          <li><span class="check">✓</span> Histórico semanal com estrelas em historico.html</li>
+          <li><span class="check">✓</span> Rotinas somam ao ptsSemana automaticamente</li>
+          <li><span class="cross">✗</span> Coins — não implementado (F1.7 pendente)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── KLENIO ──────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#1a6a2a;">KL</div>
+        <div class="user-info-head">
+          <h3>Klenio</h3>
+          <div class="cargo-line">Criativo &nbsp;·&nbsp; Grupo Pontos</div>
+        </div>
+        <span class="role-badge role-member">Member</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-pontos">Grupo Pontos</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">16</div>
+            <div class="meta-lbl">pts/dia (meta)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">80</div>
+            <div class="meta-lbl">pts/semana 100%</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">96</div>
+            <div class="meta-lbl">pts/semana 120%</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente</div>
+          <code>COM horas: coef = ptsRate×0.50 + taskRate×0.35 + horasRate×0.15</code>
+          <code>SEM horas: coef = ptsRate×0.60 + taskRate×0.40</code>
+          <div class="formula-note">
+            Meta reduzida (16 pts/dia vs 26 de Samuel) — mesmo cálculo de coef, base diferente
+          </div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">ptsSemana</td><td class="value">focus_tasks.points (is_done=TRUE) + routine_completions.points</td></tr>
+          <tr><td class="label">Fonte de tasks</td><td class="value">Banco local (focus_tasks) + ClickUp sync</td></tr>
+          <tr><td class="label">Pontos válidos</td><td class="value value-blue">1 · 2 · 3 · 5 · 8</td></tr>
+          <tr><td class="label">Meta vs Samuel</td><td class="value value-red">38% menor — 80 pts vs 130 pts/semana</td></tr>
+        </table>
+
+        <div class="estrelas-box">
+          <div class="estrelas-title">Sistema de Estrelas (histórico)</div>
+          <table>
+            <tr><td class="star-col">☆☆☆</td><td>abaixo de 60% (48 pts)</td></tr>
+            <tr><td class="star-col">★☆☆</td><td>60% – 79% (48–63 pts)</td></tr>
+            <tr><td class="star-col">★★☆</td><td>80% – 99% (64–79 pts)</td></tr>
+            <tr><td class="star-col">★★★</td><td>100% ou mais (≥ 80 pts)</td></tr>
+          </table>
+        </div>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> daily_points_goal = 16 setado via update_user_goals.sql</li>
+          <li><span class="check">✓</span> Mesmo pipeline de cálculo do Grupo Pontos</li>
+          <li><span class="check">✓</span> Histórico semanal com estrelas</li>
+          <li><span class="cross">✗</span> Coins — não implementado</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── THIAGO ──────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#5a00c8;">TH</div>
+        <div class="user-info-head">
+          <h3>Thiago</h3>
+          <div class="cargo-line">Criativo &nbsp;·&nbsp; Grupo Pontos</div>
+        </div>
+        <span class="role-badge role-member">Member</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-pontos">Grupo Pontos</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">16</div>
+            <div class="meta-lbl">pts/dia (meta)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">80</div>
+            <div class="meta-lbl">pts/semana 100%</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">96</div>
+            <div class="meta-lbl">pts/semana 120%</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente</div>
+          <code>COM horas: coef = ptsRate×0.50 + taskRate×0.35 + horasRate×0.15</code>
+          <code>SEM horas: coef = ptsRate×0.60 + taskRate×0.40</code>
+          <div class="formula-note">Idêntico ao Klenio — mesma meta (16 pts/dia = 80 pts/semana)</div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">ptsSemana</td><td class="value">focus_tasks.points (is_done=TRUE) + routine_completions.points</td></tr>
+          <tr><td class="label">Fonte de tasks</td><td class="value">Banco local (focus_tasks) + ClickUp sync</td></tr>
+          <tr><td class="label">Pontos válidos</td><td class="value value-blue">1 · 2 · 3 · 5 · 8</td></tr>
+          <tr><td class="label">Igual a Klenio?</td><td class="value value-green">Sim — mesma meta e fórmula</td></tr>
+        </table>
+
+        <div class="estrelas-box">
+          <div class="estrelas-title">Sistema de Estrelas (histórico)</div>
+          <table>
+            <tr><td class="star-col">☆☆☆</td><td>abaixo de 60% (48 pts)</td></tr>
+            <tr><td class="star-col">★☆☆</td><td>60% – 79% (48–63 pts)</td></tr>
+            <tr><td class="star-col">★★☆</td><td>80% – 99% (64–79 pts)</td></tr>
+            <tr><td class="star-col">★★★</td><td>100% ou mais (≥ 80 pts)</td></tr>
+          </table>
+        </div>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> daily_points_goal = 16 setado via update_user_goals.sql</li>
+          <li><span class="check">✓</span> Mesmo pipeline de cálculo do Grupo Pontos</li>
+          <li><span class="check">✓</span> Histórico semanal com estrelas</li>
+          <li><span class="cross">✗</span> Coins — não implementado</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── MALU ────────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#0a4f8a;">MA</div>
+        <div class="user-info-head">
+          <h3>Malu</h3>
+          <div class="cargo-line">Rotina &nbsp;·&nbsp; % Conclusão de Rotinas</div>
+        </div>
+        <span class="role-badge role-member">Member</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-rotina">Coef. Rotina</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">0</div>
+            <div class="meta-lbl">pts/dia (sem meta fixa)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">Rotinas</div>
+            <div class="meta-lbl">métrica principal</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">100%</div>
+            <div class="meta-lbl">conclusão semanal</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente (F1.5)</div>
+          <code>weekPct = (rotinas_feitas / rotinas_totais_semana) × 100</code>
+          <code>ptsSemana = SUM(routine_completions.points) da semana</code>
+          <div class="formula-note">
+            daily_points_goal = 0 → sem meta de pts fixa. O desempenho é medido
+            exclusivamente pelo percentual de rotinas concluídas na semana.
+            Motivo de skip registrado na tabela routine_completions (campo reason).
+          </div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">Fonte de dados</td><td class="value">user_routines + routine_completions</td></tr>
+          <tr><td class="label">Frequências</td><td class="value">daily / weekly / monthly (applies_days[])</td></tr>
+          <tr><td class="label">Status possíveis</td><td class="value">done · skip (com motivo registrado)</td></tr>
+          <tr><td class="label">Pontos de rotina</td><td class="value value-blue">1 · 2 · 3 · 5 · 8 por rotina</td></tr>
+          <tr><td class="label">Coins</td><td class="value value-red">Não implementado (F1.7 pendente)</td></tr>
+        </table>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> Tabelas user_routines e routine_completions criadas</li>
+          <li><span class="check">✓</span> API /api/routines com 8+ actions (create, toggle, admin-report…)</li>
+          <li><span class="check">✓</span> routine_pts somados ao ptsSemana no team-daily e clickup-live</li>
+          <li><span class="check">✓</span> Skip com motivo gravado em routine_completions.reason</li>
+          <li><span class="check">✓</span> Relatório admin de rotinas com resumo de skips</li>
+          <li><span class="clock">~</span> Exibição de % rotinas no painel — usa weekPct via dailyGoal=0</li>
+          <li><span class="cross">✗</span> Coins — não implementado</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── ZION ────────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#842029;">ZI</div>
+        <div class="user-info-head">
+          <h3>Zion</h3>
+          <div class="cargo-line">UGC / Storymaker &nbsp;·&nbsp; Conclusão + Extras + Rotina</div>
+        </div>
+        <span class="role-badge role-member">Member</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-ugc">UGC + Extras + Rotina</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">0</div>
+            <div class="meta-lbl">pts/dia (sem meta fixa)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">% Concl.</div>
+            <div class="meta-lbl">tasks concluídas</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">+Rotinas</div>
+            <div class="meta-lbl">pontos extras</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente (F1.6) — isCompletionBased</div>
+          <code>coef (ClickUp-live) = taskRate×0.70 + horasRate×0.30</code>
+          <code>weekPct = (doneSemana / totalSemana) × 100</code>
+          <code>ptsSemana = ptsClickUp(campo custom) + routine_pts</code>
+          <div class="formula-note">
+            cargo contém "storymaker", "ugc" ou "publisher" → isCompletionBased = TRUE.
+            Foco em % de conclusão de tasks (70%) + horas validadas (30%).
+            Pontos do ClickUp via campo custom "Ponto de atividade MKT" (valores 1/2/3/5/8).
+          </div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">Fonte de tasks</td><td class="value">ClickUp (clickup-live) — campo custom de pontos</td></tr>
+          <tr><td class="label">Detecção de cargo</td><td class="value value-blue">cargoLc.includes('storymaker' | 'ugc' | 'publisher')</td></tr>
+          <tr><td class="label">Concluído ClickUp</td><td class="value">status type=closed ou completo/concluído/done/publicado…</td></tr>
+          <tr><td class="label">Rotinas somam?</td><td class="value value-green">Sim — routine_pts adicionado ao ptsSemana</td></tr>
+          <tr><td class="label">Coins</td><td class="value value-red">Não implementado (F1.7 pendente)</td></tr>
+        </table>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> isCompletionBased detectado por cargo no backend</li>
+          <li><span class="check">✓</span> coef = taskRate×0.70 + horasRate×0.30 (clickup-live)</li>
+          <li><span class="check">✓</span> weekPct = % tasks concluídas (não depende de meta fixa)</li>
+          <li><span class="check">✓</span> Extração de pontos do campo custom do ClickUp</li>
+          <li><span class="check">✓</span> routine_pts somados ao ptsSemana</li>
+          <li><span class="check">✓</span> Fallback: ClickUp → banco local → total de tasks</li>
+          <li><span class="cross">✗</span> Coins — não implementado</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── BIA ─────────────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#e8b844; color:#1a1a2e;">BI</div>
+        <div class="user-info-head">
+          <h3>Bia</h3>
+          <div class="cargo-line">Dev / Admin &nbsp;·&nbsp; Grupo Pontos (admin)</div>
+        </div>
+        <span class="role-badge role-admin">Admin</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-pontos">Grupo Pontos</span>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <div class="meta-val">10</div>
+            <div class="meta-lbl">pts/dia (meta)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">50</div>
+            <div class="meta-lbl">pts/semana 100%</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">60</div>
+            <div class="meta-lbl">pts/semana 120%</div>
+          </div>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-title">Fórmula do Coeficiente</div>
+          <code>COM horas: coef = ptsRate×0.50 + taskRate×0.35 + horasRate×0.15</code>
+          <code>SEM horas: coef = ptsRate×0.60 + taskRate×0.40</code>
+          <div class="formula-note">
+            Meta menor (10 pts/dia = 50 pts/semana) —
+            mesmo algoritmo do Grupo Pontos, base reduzida.
+            Senha nunca é redefinida pelo reset automático (schema.sql protege Bia).
+          </div>
+        </div>
+
+        <table class="user-table">
+          <tr><td class="label">ptsSemana</td><td class="value">focus_tasks.points (is_done=TRUE) + routine_completions.points</td></tr>
+          <tr><td class="label">Role especial</td><td class="value value-blue">admin — acesso a /api/reports/adm, PATCH /api/users, admin.html</td></tr>
+          <tr><td class="label">Proteção de senha</td><td class="value value-green">INSERT … WHERE users.name != 'bia' (schema.sql)</td></tr>
+          <tr><td class="label">Painel admin</td><td class="value">admin.html — analytics do time completo</td></tr>
+        </table>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> daily_points_goal = 10 setado via update_user_goals.sql</li>
+          <li><span class="check">✓</span> Acesso admin: relatórios, gestão de metas e cargos</li>
+          <li><span class="check">✓</span> Aparece no ranking e no painel-team como membro normal</li>
+          <li><span class="check">✓</span> Histórico com estrelas igual ao Grupo Pontos</li>
+          <li><span class="cross">✗</span> Coins — não implementado</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ── MARIA CLARA ─────────────────────────────────────────── -->
+    <div class="user-card">
+      <div class="user-card-header">
+        <div class="user-avatar" style="background:#e8b844; color:#1a1a2e;">MC</div>
+        <div class="user-info-head">
+          <h3>Maria Clara</h3>
+          <div class="cargo-line">Gestora &nbsp;·&nbsp; Visão administrativa (sem pontuação)</div>
+        </div>
+        <span class="role-badge role-admin">Admin</span>
+      </div>
+      <div class="user-card-body">
+        <span class="tipo-badge tipo-gestora">Gestora — sem pontuação</span>
+
+        <table class="user-table">
+          <tr><td class="label">Pontuação semanal</td><td class="value value-red">Não se aplica — role admin puro</td></tr>
+          <tr><td class="label">Acesso principal</td><td class="value">admin.html — visão consolidada do time</td></tr>
+          <tr><td class="label">Filtros disponíveis</td><td class="value">Por pessoa, por mês, por período (fromMonth / toMonth)</td></tr>
+          <tr><td class="label">Gestão de users</td><td class="value">PATCH /api/users — cargo e daily_points_goal de cada membro</td></tr>
+          <tr><td class="label">Painel do time</td><td class="value">painel-team.html — cards com coef, pontos e progresso diário</td></tr>
+          <tr><td class="label">Relatório de rotinas</td><td class="value">GET /api/routines?action=admin-report — conclusões + motivos de skip</td></tr>
+        </table>
+
+        <ul class="impl-list">
+          <li><span class="check">✓</span> Visão geral do time em tempo real (painel-team.html)</li>
+          <li><span class="check">✓</span> Relatórios mensais com gráficos de tendência (admin.html)</li>
+          <li><span class="check">✓</span> Tabela detalhada de pontos/tarefas por colaborador</li>
+          <li><span class="check">✓</span> Gestão de metas individuais (cargo + daily_points_goal)</li>
+          <li><span class="check">✓</span> Histórico consolidado do time</li>
+          <li><span class="cross">✗</span> Gestão de coins — não implementado (F3.4 pendente)</li>
+          <li><span class="cross">✗</span> Exportar relatório semanal — não implementado (F3.6 pendente)</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /usuarios-grid -->
+</div><!-- /usuarios-section -->
+
+</body>
+</html>
