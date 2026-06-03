@@ -585,7 +585,7 @@ module.exports = async function handler(req, res) {
     const firstCalPage = await cuRes.json();
     const tasks = [...(firstCalPage.tasks || [])];
     if (!firstCalPage.last_page && tasks.length >= 100) {
-      for (let page = 1; page < 10; page++) {
+      for (let page = 1; page < 5; page++) {
         const r2 = await fetchClickUp(
           `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`, token
         );
@@ -635,7 +635,7 @@ module.exports = async function handler(req, res) {
     const MAX_PAGES = rangeMs > 7 * 86400000 ? 4 : 2;
 
     const cuRes = await fetchClickUp(
-      `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&order_by=updated&reverse=true&page=0`,
+      `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=0`,
       token
     );
 
@@ -650,7 +650,7 @@ module.exports = async function handler(req, res) {
     if (!firstPage.last_page && (firstPage.tasks || []).length >= 100) {
       for (let page = 1; page < MAX_PAGES; page++) {
         const r2 = await fetch(
-          `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&order_by=updated&reverse=true&page=${page}`,
+          `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
           { headers: { Authorization: token } }
         );
         if (!r2.ok) break;
