@@ -2460,8 +2460,7 @@ async function loadTeamDaily() {
   // Try ClickUp live first
   try {
     const { from, to, preset } = _dfb.daily;
-    // showOpen=1 sempre: garante tasks abertas + concluídas no período (conta X/Y corretamente)
-    const qs = (preset !== null && from && to) ? `&from=${from}&to=${to}&showOpen=1` : '';
+    const qs = (preset !== null && from && to) ? `&from=${from}&to=${to}` : '';
     const data = await api(`/api/focus?action=clickup-live${qs}`);
     _setLiveBadge(true);
     _renderTeamGrid(data);

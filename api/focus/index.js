@@ -773,26 +773,33 @@ module.exports = async function handler(req, res) {
     // Filtra tasks conforme contexto (seções 4 e 5)
     let cuTasks = allCuTasks;
     if (isFiltered) {
-      // Visão histórica: usa date_closed como campo de referência (seção 6)
       const fromMs = new Date(`${fromP}T00:00:00-03:00`).getTime();
       const toMs   = new Date(`${toP}T23:59:59-03:00`).getTime();
       cuTasks = allCuTasks.filter((t) => {
         const isDone   = cuTaskDone(t);
         const closedMs = Number(t.date_closed || t.date_done || 0);
-        const inRange  = closedMs > 0 && closedMs >= fromMs && closedMs <= toMs;
-        if (showOpen) return !isDone || inRange;
-        return isDone && inRange;
+        const dueMs    = Number(t.due_date || 0);
+        const cat      = cuTaskStatusCat(t);
+        // 1. Concluída/fechada no período
+        if (isDone && closedMs > 0 && closedMs >= fromMs && closedMs <= toMs) return true;
+        // 2. Due_date dentro do período (qualquer status — é tarefa "desta semana")
+        if (dueMs >= fromMs && dueMs <= toMs) return true;
+        // 3. Aberta e atrasada (due antes do período, não concluída)
+        if (!isDone && dueMs > 0 && dueMs < fromMs) return true;
+        // 4. Em alteração/revisão (sempre mostrar)
+        if (cat === 'revision') return true;
+        return false;
       });
     } else {
-      // Daily view: filtro por due_date com 3 condições (seção 4)
+      // Daily view: filtro por due_date com 3 condições
       const todayMs    = new Date(`${todayStr}T00:00:00-03:00`).getTime();
       const tomorrowMs = todayMs + 86400000;
       cuTasks = allCuTasks.filter((t) => {
         const dueMs = Number(t.due_date || 0);
         const cat   = cuTaskStatusCat(t);
-        if (dueMs >= todayMs && dueMs < tomorrowMs) return true;           // due_date == hoje
-        if (dueMs > 0 && dueMs < todayMs && cat !== 'done') return true;   // atrasada
-        if (cat === 'revision') return true;                               // voltou para fila
+        if (dueMs >= todayMs && dueMs < tomorrowMs) return true;          // vence hoje
+        if (dueMs > 0 && dueMs < todayMs && cat !== 'done') return true;  // atrasada
+        if (cat === 'revision') return true;                              // em alteração
         return false;
       });
     }
