@@ -4056,8 +4056,8 @@ menu {
   font-family: 'Inter', sans-serif;
   white-space: nowrap;
 }
-.adm-metric-tab:hover { background: #1e2135; color: #c8d0e7; }
-.adm-metric-tab.active { background: #e8b844; color: #111; border-color: #e8b844; }
+.adm-metric-tab:hover { background: #1e2135 !important; color: #c8d0e7; }
+.adm-metric-tab.active { background: #e8b844 !important; color: #111 !important; border-color: #e8b844 !important; }
 
 /* Month chips */
 .adm-month-chips { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -4084,25 +4084,26 @@ menu {
   border-bottom: 1px solid #1e2530;
 }
 .adm-kpi-item {
-  padding: 16px 20px;
+  padding: 10px 20px;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
 }
 .adm-kpi-item + .adm-kpi-item { border-left: 1px solid #1e2530; }
 .adm-kpi-val {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 800;
   font-family: 'Inter', sans-serif;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: #fff;
 }
 .adm-kpi-lbl {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: #5a6478;
 }
 .adm-kpi-accent .adm-kpi-val { color: #f6c200; }
@@ -4755,7 +4756,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* Buttons */
-button:not(.nav-tab):not(.nav-avatar):not(.nav-logout):not(.tm-chip):not(.tm-btn-primary):not(.tm-btn-ghost):not(.daily-add-btn):not(.tc-toggle):not(.tc-add):not(.tc-edit):not(.tc-btn-save):not(.tc-btn-cancel):not(.wpd-confirm):not(.wpd-nav):not(.wpd-reset-btn):not(.cal-day):not(.tm-cal-nav):not(.tm-cal-cell):not(.rank-cal-btn):not(.rank-period-pill):not(.hist-filter-btn):not(.adm-filter-btn):not(.adm-month-btn):not(.custom-range-footer button) {
+button:not(.nav-tab):not(.nav-avatar):not(.nav-logout):not(.tm-chip):not(.tm-btn-primary):not(.tm-btn-ghost):not(.daily-add-btn):not(.tc-toggle):not(.tc-add):not(.tc-edit):not(.tc-btn-save):not(.tc-btn-cancel):not(.wpd-confirm):not(.wpd-nav):not(.wpd-reset-btn):not(.cal-day):not(.tm-cal-nav):not(.tm-cal-cell):not(.rank-cal-btn):not(.rank-period-pill):not(.hist-filter-btn):not(.adm-filter-btn):not(.adm-month-btn):not(.adm-metric-tab):not(.adm-preset-btn):not(.adm-btn-export):not(.custom-range-footer button) {
   background: var(--btn-bg);
   box-shadow: none;
 }

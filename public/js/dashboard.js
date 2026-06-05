@@ -3334,7 +3334,8 @@ async function loadAdmData() {
 
   const personName = document.getElementById('admUserSelect')?.selectedOptions[0]?.text || 'Toda a equipe';
   const subtitle   = document.getElementById('admChartSubtitle');
-  if (subtitle) subtitle.textContent = `${personName} · Tasks Concluídas por mês`;
+  const presetLbl  = { '30d': 'Últimos 30 dias', '3m': 'Últimos 3 meses', '6m': 'Últimos 6 meses', '1a': 'Este ano', 'custom': 'Período personalizado' };
+  if (subtitle) subtitle.textContent = `${personName} · ${presetLbl[admCurrentPreset] || ''}`;
 
   const chartWrap = document.querySelector('.adm-chart-wrap');
   if (chartWrap) chartWrap.style.opacity = '0.4';
@@ -3355,12 +3356,13 @@ async function loadAdmData() {
     admLastData = data;
     renderAdmStats(data.stats || {});
     const rawMonths  = data.months || [];
-    const withData   = rawMonths.filter(m => m.tasksDone > 0 || m.pts > 0 || m.horas > 0);
-    admMonthlyData   = withData.length > 0 ? withData : rawMonths;
+    admMonthlyData   = rawMonths; // sempre mostra todos os meses do range
     admActiveMonths  = null;
     admUserFilter    = '';
     admCompanyFilter = '';
-    renderAdmMonthChips(admMonthlyData);
+    // chips só quando há 2+ meses com dados (para filtrar)
+    const monthsWithData = rawMonths.filter(m => m.tasksDone > 0 || m.pts > 0 || m.horas > 0);
+    renderAdmMonthChips(monthsWithData.length > 1 ? monthsWithData : []);
     renderAdmChart(admMonthlyData, null, admActiveMetric);
     renderAdmUserBreakdown(data.userBreakdown || []);
     renderAdmCompanyBreakdown(data.companyBreakdown || []);
@@ -3413,7 +3415,8 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
     ? months.filter(m => selectedYMs.includes(m.ym))
     : months;
 
-  if (!visible.length || visible.every(m => !m.pts && !m.horas && !m.tasksDone)) {
+  const hasAnyData = visible.some(m => m.pts > 0 || m.horas > 0 || m.tasksDone > 0);
+  if (!visible.length || !hasAnyData) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#5a6478';
@@ -3437,52 +3440,52 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
 
   let datasets, scales;
 
-  const MBT = 70; // maxBarThickness — evita barras largas demais em poucos meses
+  const MBT = 54; // maxBarThickness
+  const xScale = { grid: { color: '#1a1e2e', drawBorder: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } };
+
+  // cores dinâmicas: meses com dados = destaque, meses zerados = fundo
+  const ptsBg    = pts.map(v  => v  > 0 ? '#2d3554' : '#191d2b');
+  const ptsBrd   = pts.map(v  => v  > 0 ? '#4a5580' : '#1e2235');
+  const horasBg  = horas.map(v => v  > 0 ? '#e8b84428' : 'transparent');
+  const horasBrd = horas.map(v => v  > 0 ? '#e8b844'   : 'transparent');
+  const tasksBg  = tasks.map(v => v  > 0 ? '#2d3554' : '#191d2b');
+  const tasksBrd = tasks.map(v => v  > 0 ? '#4a5580' : '#1e2235');
 
   if (metric === 'pts') {
     datasets = [
       { label: 'Pontos', data: pts, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1, borderRadius: 6,
+        backgroundColor: ptsBg, borderColor: ptsBrd, borderWidth: 1, borderRadius: 4,
         datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
       { label: 'Pontos (linha)', data: pts.map(v => v > 0 ? v : null), type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
         pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7,
         tension: 0.35, spanGaps: false, datalabels: { display: false } },
     ];
-    scales = {
-      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
-      y: { display: false, min: 0 },
-    };
+    scales = { x: xScale, y: { display: false, min: 0 } };
   } else if (metric === 'tasks') {
     datasets = [
       { label: 'Tasks', data: tasks, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1, borderRadius: 6,
+        backgroundColor: tasksBg, borderColor: tasksBrd, borderWidth: 1, borderRadius: 4,
         datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
     ];
-    scales = {
-      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
-      y: { display: false, min: 0 },
-    };
+    scales = { x: xScale, y: { display: false, min: 0 } };
   } else if (metric === 'horas') {
     datasets = [
       { label: 'Horas', data: horas, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: '#e8b84422', borderColor: '#e8b844', borderWidth: 2, borderRadius: 6,
+        backgroundColor: horasBg, borderColor: horasBrd, borderWidth: 2, borderRadius: 4,
         datalabels: { ...DL, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
     ];
-    scales = {
-      x: { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
-      y: { display: false, min: 0 },
-    };
+    scales = { x: xScale, y: { display: false, min: 0 } };
   } else {
-    // Todos — barras escuras (Pontos) + barras douradas (Horas) + linha verde (Tasks)
+    // Todos — barras (Pontos) + barras (Horas) + linha verde (Tasks)
     datasets = [
       { label: 'Pontos', data: pts, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: '#1e2235', borderColor: '#3a4060', borderWidth: 1,
-        borderRadius: 6, yAxisID: 'y1', order: 2,
+        backgroundColor: ptsBg, borderColor: ptsBrd, borderWidth: 1,
+        borderRadius: 4, yAxisID: 'y1', order: 2,
         datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
       { label: 'Horas', data: horas, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: '#e8b84426', borderColor: '#e8b844', borderWidth: 1.5,
-        borderRadius: 6, yAxisID: 'y1', order: 3,
+        backgroundColor: horasBg, borderColor: horasBrd, borderWidth: 1.5,
+        borderRadius: 4, yAxisID: 'y1', order: 3,
         datalabels: { ...DL, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } },
       { label: 'Tasks', data: tasks.map(v => v > 0 ? v : null), type: 'line',
         borderColor: '#3dba6f', backgroundColor: 'transparent',
@@ -3491,7 +3494,7 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
         datalabels: { ...DL, display: true, color: '#3dba6f', formatter: v => (v && v > 0) ? v : '' } },
     ];
     scales = {
-      x:  { grid: { display: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } },
+      x:  xScale,
       y1: { display: false, min: 0, position: 'left' },
       y2: { display: false, min: 0, position: 'right' },
     };
