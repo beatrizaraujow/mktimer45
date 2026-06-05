@@ -513,47 +513,18 @@
             </div>
           </div>
 
-          <!-- Stats: 3 compact cards with icon -->
-          <div class="adm-stats-row">
-            <div class="adm-stat-card">
-              <div class="adm-stat-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <div class="adm-stat-body">
-                <span class="adm-stat-value" id="admStatDone">—</span>
-                <span class="adm-stat-label">Tasks Concluídas</span>
-              </div>
-            </div>
-            <div class="adm-stat-card">
-              <div class="adm-stat-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              </div>
-              <div class="adm-stat-body">
-                <span class="adm-stat-value" id="admStatHours">—</span>
-                <span class="adm-stat-label">Horas Registradas</span>
-              </div>
-            </div>
-            <div class="adm-stat-card accent">
-              <div class="adm-stat-icon accent-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              </div>
-              <div class="adm-stat-body">
-                <span class="adm-stat-value" id="admStatPoints">—</span>
-                <span class="adm-stat-label">Pontuação Total</span>
-              </div>
-            </div>
-          </div>
+          <!-- Card principal: KPIs + gráfico integrados -->
+          <div class="adm-main-card">
 
-          <!-- Chart: header em linha única, chips integrados -->
-          <div class="adm-comparison">
-            <div class="adm-comparison-header">
-              <div class="adm-comparison-left">
-                <h3 class="adm-comparison-title">Comparativo Mês a Mês</h3>
-                <p class="adm-comparison-subtitle" id="admChartSubtitle"></p>
+            <!-- Toolbar: título (esq) + controles (dir) -->
+            <div class="adm-toolbar">
+              <div class="adm-toolbar-left">
+                <span class="adm-card-title">Comparativo Mês a Mês</span>
+                <span class="adm-card-sub" id="admChartSubtitle"></span>
               </div>
-              <div class="adm-comparison-right">
+              <div class="adm-toolbar-right">
                 <div id="admMonthFilter" class="adm-month-chips"></div>
-                <div class="adm-vdivider" id="admChipDivider"></div>
+                <div class="adm-vdivider" id="admChipDivider" style="display:none"></div>
                 <div class="adm-metric-tabs" id="admMetricTabs">
                   <button type="button" class="adm-metric-tab active" data-metric="all">Todos</button>
                   <button type="button" class="adm-metric-tab" data-metric="pts">Pontos</button>
@@ -562,20 +533,39 @@
                 </div>
                 <div class="adm-vdivider"></div>
                 <div class="adm-export-btns">
-                  <button type="button" class="adm-btn-export" id="admExportExcel" title="Exportar Excel">
+                  <button type="button" class="adm-btn-export" id="admExportExcel">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     Excel
                   </button>
-                  <button type="button" class="adm-btn-export adm-btn-pdf" id="admExportPDF" title="PDF">
+                  <button type="button" class="adm-btn-export adm-btn-pdf" id="admExportPDF">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                     PDF
                   </button>
                 </div>
               </div>
             </div>
+
+            <!-- KPI strip: 3 métricas inline -->
+            <div class="adm-kpi-strip">
+              <div class="adm-kpi-item">
+                <span class="adm-kpi-val" id="admStatDone">—</span>
+                <span class="adm-kpi-lbl">Tasks Concluídas</span>
+              </div>
+              <div class="adm-kpi-item">
+                <span class="adm-kpi-val" id="admStatHours">—</span>
+                <span class="adm-kpi-lbl">Horas Registradas</span>
+              </div>
+              <div class="adm-kpi-item adm-kpi-accent">
+                <span class="adm-kpi-val" id="admStatPoints">—</span>
+                <span class="adm-kpi-lbl">Pontuação Total</span>
+              </div>
+            </div>
+
+            <!-- Gráfico -->
             <div class="adm-chart-wrap">
               <canvas id="admBarChart"></canvas>
             </div>
+
           </div>
 
           <!-- Breakdown tables -->
