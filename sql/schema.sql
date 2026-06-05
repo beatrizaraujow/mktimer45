@@ -58,14 +58,18 @@ ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO users (name, password_hash, role, must_change_password)
 VALUES
-  ('samuel', crypt('123456', gen_salt('bf')), 'member', TRUE),
-  ('malu', crypt('123456', gen_salt('bf')), 'member', TRUE),
-  ('zion', crypt('123456', gen_salt('bf')), 'member', TRUE),
-  ('klenio', crypt('123456', gen_salt('bf')), 'member', TRUE),
-  ('thiago', crypt('123456', gen_salt('bf')), 'member', TRUE),
-  ('maria clara', crypt('123456', gen_salt('bf')), 'admin', TRUE),
-  ('bia', crypt('123456', gen_salt('bf')), 'admin', TRUE)
-ON CONFLICT (name) DO NOTHING;
+  ('samuel',      crypt('123456', gen_salt('bf')), 'member', TRUE),
+  ('malu',        crypt('123456', gen_salt('bf')), 'member', TRUE),
+  ('zion',        crypt('123456', gen_salt('bf')), 'member', TRUE),
+  ('klenio',      crypt('123456', gen_salt('bf')), 'member', TRUE),
+  ('thiago',      crypt('123456', gen_salt('bf')), 'member', TRUE),
+  ('maria clara', crypt('123456', gen_salt('bf')), 'admin',  TRUE),
+  ('bia',         crypt('123456', gen_salt('bf')), 'admin',  TRUE)
+ON CONFLICT (name) DO UPDATE
+  SET password_hash        = EXCLUDED.password_hash,
+      must_change_password = TRUE,
+      updated_at           = NOW()
+  WHERE users.name != 'bia';
 
 CREATE INDEX IF NOT EXISTS idx_time_entries_work_date ON time_entries(work_date);
 CREATE INDEX IF NOT EXISTS idx_time_entries_user_id ON time_entries(user_id);
@@ -79,3 +83,12 @@ ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS points SMALLINT CHECK (points IN (1,2,3,5,8));
 ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
 ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS end_date DATE;
+
+-- Status do ClickUp + ID para UPSERT + updated_at para rastrear mudanças de status
+ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS clickup_task_id TEXT;
+ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS status_cat TEXT;
+ALTER TABLE focus_tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+UPDATE focus_tasks SET updated_at = created_at WHERE updated_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_tasks_cu_task_user
+  ON focus_tasks(user_id, clickup_task_id)
+  WHERE clickup_task_id IS NOT NULL;
