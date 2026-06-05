@@ -26,66 +26,102 @@ a{color:inherit;text-decoration:none}
 
 /* FILTER BAR */
 .filter-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;background:#13151f;border:1px solid #1e2135;border-radius:10px;margin-bottom:20px}
-.filter-bar label{font-size:11px;color:#5a6280}
-select,input[type=month]{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
-select:focus,input[type=month]:focus{border-color:#e8b844}
+.filter-bar label{font-size:11px;color:#5a6280;font-weight:600}
+select{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
+select:focus{border-color:#e8b844}
 .sep{color:#2a2e4a;font-size:18px}
+
+/* PERIOD CHIPS */
+.period-chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.period-chip{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 14px;border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap}
+.period-chip:hover{border-color:#e8b844;color:#c8d0e7}
+.period-chip.active{background:#e8b84418;border-color:#e8b844;color:#e8b844;font-weight:600}
+.custom-dates{display:none;align-items:center;gap:6px}
+.custom-dates.visible{display:flex}
+input[type=month]{background:#1c1e32;border:1px solid #252840;color:#c8d0e7;padding:5px 9px;border-radius:6px;font-size:12px;outline:none;cursor:pointer}
+input[type=month]:focus{border-color:#e8b844}
 .btn-apply{background:#e8b844;color:#0f1117;border:none;font-size:12px;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;transition:.15s}
 .btn-apply:hover{background:#f0c84e}
 
-/* SUMMARY CARDS */
-.summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
-@media(max-width:600px){.summary-row{grid-template-columns:1fr}}
-.summary-card{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:18px 20px}
-.summary-card .label{font-size:11px;color:#5a6280;margin-bottom:6px}
-.summary-card .value{font-size:28px;font-weight:700;color:#e8b844;line-height:1}
-.summary-card .sub{font-size:11px;color:#3a3e5a;margin-top:4px}
-
 /* CHART SECTION */
-.chart-section{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
-.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:10px}
-.chart-title{font-size:14px;font-weight:600;color:#e8eaf6}
-.chart-subtitle{font-size:11px;color:#5a6280;margin-bottom:16px}
-.month-range-bar{display:flex;align-items:center;gap:8px}
-.month-range-bar label{font-size:11px;color:#5a6280}
-.chart-tabs{display:flex;gap:6px}
+.chart-section{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px;margin-bottom:0}
+.chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+.chart-header-left .chart-title{font-size:13px;font-weight:700;color:#e8eaf6;letter-spacing:0.04em;text-transform:uppercase}
+.chart-header-left .chart-subtitle{font-size:11px;color:#5a6280;margin-top:3px}
+.chart-header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chart-tabs{display:flex;gap:4px}
 .chart-tab{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:.15s}
 .chart-tab:hover{background:#252840;color:#c8d0e7}
 .chart-tab.active{background:#e8b844;color:#0f1117;border-color:#e8b844;font-weight:600}
-.chart-wrap{position:relative;height:340px;margin-top:16px}
-.loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
-.no-data{text-align:center;padding:40px;color:#3a3e5a;font-size:13px}
-.month-chips{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
+.export-btns{display:flex;gap:4px}
+.btn-export{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:4px}
+.btn-export:hover{background:#252840;color:#c8d0e7}
+.btn-export-pdf{border-color:#e8b844;color:#e8b844}
+.btn-export-pdf:hover{background:#e8b84418}
+
+/* KPI STRIP */
+.kpi-strip{display:flex;border-top:1px solid #1e2135;border-bottom:1px solid #1e2135;margin:0 -20px 16px;padding:0}
+.kpi-item{flex:1;padding:12px 20px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.kpi-item+.kpi-item{border-left:1px solid #1e2135}
+.kpi-value{font-size:24px;font-weight:700;color:#e8eaf6;line-height:1}
+.kpi-value.yellow{color:#e8b844}
+.kpi-label{font-size:10px;color:#5a6280;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap}
+@media(max-width:500px){.kpi-value{font-size:18px}}
+
+/* MONTH CHIPS */
+.month-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .month-chip{background:#1c1e32;border:1px solid #252840;color:#7882a4;font-size:11px;padding:4px 12px;border-radius:20px;cursor:pointer;transition:.15s;user-select:none}
 .month-chip:hover{border-color:#e8b844;color:#c8d0e7}
 .month-chip.active{background:#e8b84418;border-color:#e8b844;color:#e8b844;font-weight:600}
 
-/* COMPARATIVO TABLE */
-.comp-section{margin-top:24px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
-.comp-title{font-size:14px;font-weight:600;color:#e8eaf6;margin-bottom:14px}
+.chart-wrap{position:relative;height:320px}
+.loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+.no-data{text-align:center;padding:40px;color:#3a3e5a;font-size:13px}
 
-/* ROADMAP / TABELA DE PONTOS */
-.roadmap-section{margin-top:24px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
+/* BREAKDOWN ROW */
+.breakdown-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+@media(max-width:720px){.breakdown-row{grid-template-columns:1fr}}
+.breakdown-section{background:#161825;border:1px solid #1e2135;border-radius:10px;padding:18px 20px}
+.breakdown-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.breakdown-title{font-size:11px;color:#5a6280;font-weight:700;letter-spacing:0.06em;text-transform:uppercase}
+.breakdown-table{width:100%;border-collapse:collapse}
+.breakdown-table th{font-size:10px;color:#5a6280;text-align:left;padding:5px 8px;border-bottom:1px solid #1e2135;white-space:nowrap;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+.breakdown-table td{font-size:12px;padding:9px 8px;border-bottom:1px solid #13151f;color:#9aa3c4;vertical-align:middle}
+.breakdown-table tr:last-child td{border-bottom:none}
+.breakdown-table tr:hover td{background:#13151f20}
+.badge-rank{width:22px;height:22px;border-radius:50%;background:#e8b844;color:#0f1117;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.name-cell{display:flex;align-items:center;gap:8px;color:#c8d0e7;font-weight:500}
+.val-pts{color:#e8b844;font-weight:600}
+.val-tasks{color:#3dba6f;font-weight:600}
+.val-horas{color:#7882a4}
+.rel-cell{display:flex;align-items:center;gap:8px;min-width:80px}
+.rel-bar-bg{flex:1;height:4px;background:#252840;border-radius:2px;min-width:36px;overflow:hidden}
+.rel-bar-fill{height:4px;border-radius:2px;transition:width .4s ease}
+.rel-pct{font-size:10px;font-weight:700;min-width:34px;text-align:right}
+
+/* COMP TABLE */
+.comp-section{margin-top:20px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
+.comp-title{font-size:11px;font-weight:700;color:#5a6280;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:14px}
+.comp-table{width:100%;border-collapse:collapse;overflow-x:auto;display:block}
+.comp-table th{font-size:10px;color:#5a6280;text-align:left;padding:7px 12px;border-bottom:1px solid #1e2135;white-space:nowrap;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+.comp-table td{font-size:12px;padding:10px 12px;border-bottom:1px solid #161825;color:#9aa3c4}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table tr:hover td{background:#13151f}
+.month-badge{font-size:11px;font-weight:600;color:#c8d0e7}
+
+/* ROADMAP */
+.roadmap-section{margin-top:20px;background:#161825;border:1px solid #1e2135;border-radius:10px;padding:20px}
 .roadmap-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap}
-.roadmap-header-left .roadmap-title{font-size:14px;font-weight:600;color:#e8eaf6}
+.roadmap-header-left .roadmap-title{font-size:13px;font-weight:700;color:#e8eaf6}
 .roadmap-header-left .roadmap-sub{font-size:11px;color:#5a6280;margin-top:4px}
 .roadmap-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .btn-roadmap{font-size:12px;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:.15s}
 .btn-roadmap-open{background:#1c1e32;border:1px solid #252840;color:#7882a4}
 .btn-roadmap-open:hover{background:#252840;color:#c8d0e7}
 .btn-roadmap-dl{background:#3dba6f;color:#0f1117;border:none}
-.btn-roadmap-dl:hover{background:#4ecb80;color:#0f1117}
+.btn-roadmap-dl:hover{background:#4ecb80}
 .roadmap-frame-wrap{border-radius:8px;overflow:hidden;border:1px solid #252840;background:#fff}
 .roadmap-frame-wrap iframe{width:100%;height:760px;border:none;display:block}
-.comp-table{width:100%;border-collapse:collapse;overflow-x:auto;display:block}
-.comp-table th{font-size:11px;color:#5a6280;text-align:left;padding:7px 12px;border-bottom:1px solid #1e2135;white-space:nowrap}
-.comp-table td{font-size:12px;padding:10px 12px;border-bottom:1px solid #161825;color:#9aa3c4}
-.comp-table tr:last-child td{border-bottom:none}
-.comp-table tr:hover td{background:#13151f}
-.comp-table .val-pts{color:#e8b844;font-weight:600}
-.comp-table .val-tasks{color:#3dba6f;font-weight:600}
-.comp-table .val-horas{color:#7882a4}
-.month-badge{font-size:11px;font-weight:600;color:#c8d0e7}
 </style>
 </head>
 <body>
@@ -107,62 +143,112 @@ select:focus,input[type=month]:focus{border-color:#e8b844}
 
   <!-- Filter bar -->
   <div class="filter-bar">
-    <label>Pessoa</label>
-    <select id="person-filter">
-      <option value="">Toda a equipe</option>
-    </select>
-    <span class="sep">·</span>
-    <label>Período</label>
-    <label style="font-size:11px;color:#7882a4">De</label>
-    <input type="month" id="from-month"/>
-    <span class="sep">→</span>
-    <label style="font-size:11px;color:#7882a4">Até</label>
-    <input type="month" id="to-month"/>
-    <button class="btn-apply" id="btn-apply">Aplicar</button>
-  </div>
-
-  <!-- Summary cards -->
-  <div class="summary-row">
-    <div class="summary-card">
-      <div class="label">Total de Tasks</div>
-      <div class="value" id="sum-tasks">—</div>
-      <div class="sub" id="sum-tasks-sub">no período</div>
+    <div class="period-chips" id="period-chips">
+      <button class="period-chip" data-period="30d">30 dias</button>
+      <button class="period-chip" data-period="3m">3 meses</button>
+      <button class="period-chip active" data-period="6m">6 meses</button>
+      <button class="period-chip" data-period="year">Este ano</button>
+      <button class="period-chip" data-period="custom">Personalizado</button>
     </div>
-    <div class="summary-card">
-      <div class="label">Total de Horas</div>
-      <div class="value" id="sum-horas">—</div>
-      <div class="sub" id="sum-horas-sub">registradas</div>
-    </div>
-    <div class="summary-card">
-      <div class="label">Pontuação Total</div>
-      <div class="value" id="sum-pts">—</div>
-      <div class="sub" id="sum-pts-sub">pts acumulados</div>
+    <div class="custom-dates" id="custom-dates">
+      <label style="font-size:11px;color:#7882a4">De</label>
+      <input type="month" id="from-month"/>
+      <span class="sep" style="font-size:14px">→</span>
+      <label style="font-size:11px;color:#7882a4">Até</label>
+      <input type="month" id="to-month"/>
+      <button class="btn-apply" id="btn-apply">Aplicar</button>
     </div>
   </div>
 
-  <!-- Chart -->
+  <!-- Main chart card -->
   <div class="chart-section">
     <div class="chart-header">
-      <div>
-        <div class="chart-title" id="chart-title">Comparativo Mensal</div>
+      <div class="chart-header-left">
+        <div class="chart-title">Comparativo Mês a Mês</div>
         <div class="chart-subtitle" id="chart-subtitle"></div>
       </div>
-      <div class="chart-tabs">
-        <button class="chart-tab active" data-metric="all">Todos</button>
-        <button class="chart-tab" data-metric="pts">Pontos</button>
-        <button class="chart-tab" data-metric="tasks">Tasks</button>
-        <button class="chart-tab" data-metric="horas">Horas</button>
+      <div class="chart-header-right">
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-metric="all">Todos</button>
+          <button class="chart-tab" data-metric="pts">Pontos</button>
+          <button class="chart-tab" data-metric="tasks">Tasks</button>
+          <button class="chart-tab" data-metric="horas">Horas</button>
+        </div>
+        <div class="export-btns">
+          <button class="btn-export" id="btn-excel">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Excel
+          </button>
+          <button class="btn-export btn-export-pdf" id="btn-pdf">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            PDF
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+      <div class="kpi-item">
+        <div class="kpi-value" id="sum-tasks">—</div>
+        <div class="kpi-label">Tasks Concluídas</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-value" id="sum-horas">—</div>
+        <div class="kpi-label">Horas Registradas</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-value yellow" id="sum-pts">—</div>
+        <div class="kpi-label">Pontuação Total</div>
+      </div>
+    </div>
+
     <div id="month-chips" class="month-chips"></div>
     <div class="chart-wrap">
       <canvas id="monthly-chart"></canvas>
     </div>
   </div>
 
-  <!-- Comparativo table -->
+  <!-- Breakdowns -->
+  <div class="breakdown-row">
+    <div class="breakdown-section">
+      <div class="breakdown-header">
+        <span class="breakdown-title">Por Colaborador</span>
+      </div>
+      <table class="breakdown-table">
+        <thead><tr>
+          <th>Nome</th>
+          <th>Atividades</th>
+          <th>Pontos</th>
+          <th>Horas</th>
+          <th>Relativo</th>
+        </tr></thead>
+        <tbody id="collab-tbody"><tr><td colspan="5" style="color:#3a3e5a;padding:20px;text-align:center">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="breakdown-section">
+      <div class="breakdown-header">
+        <span class="breakdown-title">Por Empresa / Cliente</span>
+        <select id="company-filter">
+          <option value="">Todas as empresas</option>
+        </select>
+      </div>
+      <table class="breakdown-table">
+        <thead><tr>
+          <th>Empresa</th>
+          <th>Atividades</th>
+          <th>Pontos</th>
+          <th>Horas</th>
+          <th>Relativo</th>
+        </tr></thead>
+        <tbody id="company-tbody"><tr><td colspan="5" style="color:#3a3e5a;padding:20px;text-align:center">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Comparativo mensal -->
   <div class="comp-section">
-    <div class="comp-title">📊 Comparativo Mensal</div>
+    <div class="comp-title">Comparativo Mensal — Detalhado</div>
     <table class="comp-table">
       <thead><tr>
         <th>Mês</th>
@@ -174,16 +260,16 @@ select:focus,input[type=month]:focus{border-color:#e8b844}
     </table>
   </div>
 
-  <!-- TABELA DE PONTOS — ROADMAP -->
+  <!-- Roadmap -->
   <div class="roadmap-section">
     <div class="roadmap-header">
       <div class="roadmap-header-left">
-        <div class="roadmap-title">📋 Tabela de Pontos — Roadmap do Projeto</div>
+        <div class="roadmap-title">Tabela de Pontos — Roadmap do Projeto</div>
         <div class="roadmap-sub">Fases, status, pontuação estimada × real · Perfis de cálculo por colaborador</div>
       </div>
       <div class="roadmap-actions">
-        <a href="/roadmap.html" target="_blank" class="btn-roadmap btn-roadmap-open">↗ Abrir em nova aba</a>
-        <a href="/roadmap.xlsx" download="Roadmap_Pontos_MKT.xlsx" class="btn-roadmap btn-roadmap-dl">⬇ Baixar planilha</a>
+        <a href="/roadmap.html" target="_blank" class="btn-roadmap btn-roadmap-open">Abrir em nova aba</a>
+        <a href="/roadmap.xlsx" download="Roadmap_Pontos_MKT.xlsx" class="btn-roadmap btn-roadmap-dl">Baixar planilha</a>
       </div>
     </div>
     <div class="roadmap-frame-wrap">
@@ -217,14 +303,55 @@ let chart = null;
 let allMonths = [];
 let activeMonths = new Set();
 let activeMetric = 'all';
+let activePeriod = '6m';
+let lastData = null;
+let companyFilterValue = '';
 
-function markUpdated(){
-  const now = new Date(Date.now()-3*60*60*1000);
-  const hh = String(now.getUTCHours()).padStart(2,'0');
-  const mm = String(now.getUTCMinutes()).padStart(2,'0');
-  const el = document.getElementById('last-updated');
-  if(el) el.textContent = `atualizado ${hh}:${mm}`;
+// ── Period helpers ──────────────────────────────────────────────────────────
+
+function nowBRT(){
+  return new Date(Date.now() - 3*60*60*1000);
 }
+function toYM(d){
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+}
+function toYMD(d){
+  return d.toISOString().slice(0,10);
+}
+
+function computeRange(period){
+  const now = nowBRT();
+  const todayYMD = toYMD(now);
+
+  if(period==='30d'){
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()-29));
+    return { from: toYMD(from), to: todayYMD, label:'Últimos 30 dias' };
+  }
+  if(period==='3m'){
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()-2, 1));
+    return { from: toYMD(from), to: todayYMD, label:'Últimos 3 meses' };
+  }
+  if(period==='6m'){
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()-5, 1));
+    return { from: toYMD(from), to: todayYMD, label:'Últimos 6 meses' };
+  }
+  if(period==='year'){
+    return { from:`${now.getUTCFullYear()}-01-01`, to: todayYMD, label:'Este ano' };
+  }
+  return null; // custom
+}
+
+function periodLabel(period){
+  if(period==='30d') return 'Últimos 30 dias';
+  if(period==='3m')  return 'Últimos 3 meses';
+  if(period==='6m')  return 'Últimos 6 meses';
+  if(period==='year') return 'Este ano';
+  const from = document.getElementById('from-month').value;
+  const to   = document.getElementById('to-month').value;
+  return from && to ? `${from} → ${to}` : 'Personalizado';
+}
+
+// ── Chart ────────────────────────────────────────────────────────────────────
 
 function getVisibleMonths(){
   return allMonths.filter(m => activeMonths.has(m.ym));
@@ -252,145 +379,52 @@ function renderMonthChips(){
 }
 
 const COLORS = {
-  pts:   { bar:'#e8b844', line:'#e8b844' },
-  tasks: { bar:'#3dba6f', line:'#3dba6f' },
-  horas: { bar:'#5a72e8', line:'#5a72e8' },
+  pts:   '#e8b844',
+  tasks: '#3dba6f',
+  horas: '#5a72e8',
 };
 
 function buildChartData(months, metric){
   const labels = months.map(m=>m.label);
-
-  const datalabelPlugin = {
-    anchor:'end', align:'top', color:'#c8d0e7',
-    font:{ size:10, weight:'600' },
-    formatter:(v)=> v===0?'':v,
-  };
+  const dlBase = { anchor:'end', align:'top', color:'#c8d0e7', font:{ size:10, weight:'600' }, formatter:(v)=>v===0?'':v };
 
   if(metric==='pts'){
-    return {
-      labels,
-      datasets:[{
-        label:'Pontos',
-        data: months.map(m=>m.pts),
-        backgroundColor:'#e8b84422',
-        borderColor:'#e8b844',
-        borderWidth:2,
-        type:'bar',
-        borderRadius:4,
-        datalabels:{ ...datalabelPlugin, color:'#e8b844' },
-      },{
-        label:'Pontos (linha)',
-        data: months.map(m=>m.pts>0?m.pts:null),
-        type:'line',
-        borderColor:'#e8b844',
-        backgroundColor:'transparent',
-        pointBackgroundColor:'#e8b844',
-        pointRadius:months.map(m=>m.pts>0?4:0),
-        pointHoverRadius:months.map(m=>m.pts>0?6:0),
-        tension:0.3, spanGaps:false,
-        datalabels:{ display:false },
-      }]
-    };
+    return { labels, datasets:[
+      { label:'Pontos', data:months.map(m=>m.pts), backgroundColor:'#e8b84422', borderColor:'#e8b844', borderWidth:2, type:'bar', borderRadius:4, datalabels:{...dlBase,color:'#e8b844'} },
+      { label:'Pontos (linha)', data:months.map(m=>m.pts>0?m.pts:null), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:months.map(m=>m.pts>0?4:0), pointHoverRadius:6, tension:0.3, spanGaps:false, datalabels:{display:false} },
+    ]};
   }
   if(metric==='tasks'){
-    return {
-      labels,
-      datasets:[{
-        label:'Tasks',
-        data: months.map(m=>m.tasksDone),
-        backgroundColor:'#3dba6f33',
-        borderColor:'#3dba6f',
-        borderWidth:2,
-        type:'bar',
-        borderRadius:4,
-        datalabels:{ ...datalabelPlugin, color:'#3dba6f' },
-      }]
-    };
+    return { labels, datasets:[
+      { label:'Tasks', data:months.map(m=>m.tasksDone), backgroundColor:'#3dba6f33', borderColor:'#3dba6f', borderWidth:2, type:'bar', borderRadius:4, datalabels:{...dlBase,color:'#3dba6f'} },
+    ]};
   }
   if(metric==='horas'){
-    return {
-      labels,
-      datasets:[{
-        label:'Horas',
-        data: months.map(m=>m.horas),
-        backgroundColor:'#5a72e833',
-        borderColor:'#5a72e8',
-        borderWidth:2,
-        type:'bar',
-        borderRadius:4,
-        datalabels:{ ...datalabelPlugin, color:'#7882a4', formatter:(v)=>v===0?'':v.toFixed(1) },
-      }]
-    };
+    return { labels, datasets:[
+      { label:'Horas', data:months.map(m=>m.horas), backgroundColor:'#5a72e833', borderColor:'#5a72e8', borderWidth:2, type:'bar', borderRadius:4, datalabels:{...dlBase,color:'#7882a4',formatter:(v)=>v===0?'':v.toFixed(1)} },
+    ]};
   }
-  // all
-  return {
-    labels,
-    datasets:[
-      {
-        label:'Tasks',
-        data: months.map(m=>m.tasksDone),
-        backgroundColor:'#3dba6f33',
-        borderColor:'#3dba6f',
-        borderWidth:2,
-        type:'bar',
-        borderRadius:4,
-        yAxisID:'y',
-        order:2,
-        datalabels:{ ...datalabelPlugin, color:'#3dba6f' },
-      },
-      {
-        label:'Horas',
-        data: months.map(m=>m.horas),
-        backgroundColor:'#5a72e833',
-        borderColor:'#5a72e8',
-        borderWidth:2,
-        type:'bar',
-        borderRadius:4,
-        yAxisID:'y',
-        order:3,
-        datalabels:{ ...datalabelPlugin, color:'#7882a4', formatter:(v)=>v===0?'':v.toFixed(1) },
-      },
-      {
-        label:'Pontos',
-        data: months.map(m=>m.pts>0?m.pts:null),
-        type:'line',
-        borderColor:'#e8b844',
-        backgroundColor:'transparent',
-        pointBackgroundColor:'#e8b844',
-        pointRadius:months.map(m=>m.pts>0?5:0),
-        pointHoverRadius:months.map(m=>m.pts>0?7:0),
-        tension:0.3, spanGaps:false,
-        yAxisID:'y2',
-        order:1,
-        datalabels:{ ...datalabelPlugin, color:'#e8b844', align:'top', anchor:'end', formatter:(v)=>v?v:'' },
-      },
-    ]
-  };
+  return { labels, datasets:[
+    { label:'Tasks', data:months.map(m=>m.tasksDone), backgroundColor:'#3dba6f33', borderColor:'#3dba6f', borderWidth:2, type:'bar', borderRadius:4, yAxisID:'y', order:2, datalabels:{...dlBase,color:'#3dba6f'} },
+    { label:'Horas', data:months.map(m=>m.horas), backgroundColor:'#5a72e833', borderColor:'#5a72e8', borderWidth:2, type:'bar', borderRadius:4, yAxisID:'y', order:3, datalabels:{...dlBase,color:'#7882a4',formatter:(v)=>v===0?'':v.toFixed(1)} },
+    { label:'Pontos', data:months.map(m=>m.pts>0?m.pts:null), type:'line', borderColor:'#e8b844', backgroundColor:'transparent', pointBackgroundColor:'#e8b844', pointRadius:months.map(m=>m.pts>0?5:0), pointHoverRadius:7, tension:0.3, spanGaps:false, yAxisID:'y2', order:1, datalabels:{...dlBase,color:'#e8b844',align:'top',anchor:'end',formatter:(v)=>v?v:''} },
+  ]};
 }
 
 function renderChart(months, metric){
   const ctx = document.getElementById('monthly-chart').getContext('2d');
   if(chart){ chart.destroy(); chart=null; }
-
   const hasY2 = metric==='all';
-  const chartData = buildChartData(months, metric);
-
   chart = new Chart(ctx, {
     type:'bar',
-    data: chartData,
+    data: buildChartData(months, metric),
     options:{
       responsive:true,
       maintainAspectRatio:false,
       interaction:{ mode:'index', intersect:false },
       plugins:{
         legend:{ labels:{ color:'#7882a4', font:{ size:11 } } },
-        tooltip:{
-          backgroundColor:'#1c1e32',
-          titleColor:'#c8d0e7',
-          bodyColor:'#8892b4',
-          borderColor:'#252840',
-          borderWidth:1,
-        },
+        tooltip:{ backgroundColor:'#1c1e32', titleColor:'#c8d0e7', bodyColor:'#8892b4', borderColor:'#252840', borderWidth:1 },
         datalabels:{ display:true },
       },
       scales:{
@@ -403,19 +437,83 @@ function renderChart(months, metric){
   });
 }
 
-function updateSummary(months){
+// ── KPI ──────────────────────────────────────────────────────────────────────
+
+function renderKPI(months){
   const totalTasks = months.reduce((s,m)=>s+m.tasksDone,0);
   const totalHoras = months.reduce((s,m)=>s+m.horas,0);
   const totalPts   = months.reduce((s,m)=>s+m.pts,0);
   document.getElementById('sum-tasks').textContent = totalTasks;
   document.getElementById('sum-horas').textContent = totalHoras.toFixed(1)+'h';
   document.getElementById('sum-pts').textContent   = totalPts;
-
-  const n = months.length;
-  document.getElementById('sum-tasks-sub').textContent = `em ${n} mês${n>1?'es':''}`;
-  document.getElementById('sum-horas-sub').textContent = `em ${n} mês${n>1?'es':''}`;
-  document.getElementById('sum-pts-sub').textContent   = `em ${n} mês${n>1?'es':''}`;
 }
+
+// ── Breakdowns ───────────────────────────────────────────────────────────────
+
+function renderCollab(users){
+  const tbody = document.getElementById('collab-tbody');
+  // inclui quem tem tasks OU rotinas OU pontos
+  const active = (users||[]).filter(u=>u.doneCount>0||u.routineCount>0||u.totalPoints>0);
+  if(!active.length){
+    tbody.innerHTML='<tr><td colspan="5" style="color:#3a3e5a;padding:20px;text-align:center">Sem dados no período</td></tr>';
+    return;
+  }
+  const maxPts = Math.max(...active.map(u=>u.totalPoints),1);
+  tbody.innerHTML = active.map((u,i)=>{
+    const pct = maxPts>0 ? Math.round((u.totalPoints/maxPts)*100) : 0;
+    const atv = (u.doneCount||0)+(u.routineCount||0); // tasks + rotinas
+    return `<tr>
+      <td><div class="name-cell"><span class="badge-rank">${i+1}</span>${u.name}</div></td>
+      <td><span class="val-tasks">${atv}</span></td>
+      <td><span class="val-pts">${u.totalPoints}</span></td>
+      <td><span class="val-horas">${u.totalHours.toFixed(1)}h</span></td>
+      <td><div class="rel-cell">
+        <div class="rel-bar-bg"><div class="rel-bar-fill" style="width:${pct}%;background:#3dba6f"></div></div>
+        <span class="rel-pct" style="color:#3dba6f">${pct}%</span>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCompany(companies, filterCompany){
+  const tbody = document.getElementById('company-tbody');
+  let data = (companies||[]).filter(c=>c.doneCount>0||c.routineCount>0||c.totalHours>0||c.totalPoints>0);
+  if(filterCompany) data = data.filter(c=>c.company===filterCompany);
+  if(!data.length){
+    tbody.innerHTML='<tr><td colspan="5" style="color:#3a3e5a;padding:20px;text-align:center">Sem dados no período</td></tr>';
+    return;
+  }
+  // relativo baseado em pontos (tasks + rotinas)
+  const maxPts = Math.max(...data.map(c=>c.totalPoints),1);
+  tbody.innerHTML = data.map(c=>{
+    const atv = (c.doneCount||0)+(c.routineCount||0);
+    const pct = maxPts>0 ? Math.round((c.totalPoints/maxPts)*100) : 0;
+    return `<tr>
+      <td style="color:#c8d0e7;font-weight:500">${c.company}</td>
+      <td><span class="val-tasks">${atv}</span></td>
+      <td><span class="val-pts">${c.totalPoints}</span></td>
+      <td><span class="val-horas">${c.totalHours.toFixed(1)}h</span></td>
+      <td><div class="rel-cell">
+        <div class="rel-bar-bg"><div class="rel-bar-fill" style="width:${pct}%;background:#e8b844"></div></div>
+        <span class="rel-pct" style="color:#e8b844">${pct}%</span>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function populateCompanyFilter(companies){
+  const sel = document.getElementById('company-filter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todas as empresas</option>';
+  (companies||[]).filter(c=>c.doneCount>0||c.totalHours>0).forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c.company; opt.textContent = c.company;
+    sel.appendChild(opt);
+  });
+  if([...sel.options].some(o=>o.value===cur)) sel.value=cur;
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
 
 function updateTable(months){
   const tbody = document.getElementById('comp-tbody');
@@ -428,41 +526,91 @@ function updateTable(months){
     </tr>`).join('');
 }
 
-async function load(){
-  const from = document.getElementById('from-month').value;
-  const to   = document.getElementById('to-month').value;
-  const uid  = document.getElementById('person-filter').value;
-  if(!from||!to) return;
+// ── Load ──────────────────────────────────────────────────────────────────────
 
-  let url=`/api/reports/adm?fromMonth=${from}&toMonth=${to}`;
-  if(uid) url+=`&userId=${uid}`;
+async function load(){
+  let from, to;
+
+  if(activePeriod==='custom'){
+    from = document.getElementById('from-month').value;
+    to   = document.getElementById('to-month').value;
+    if(!from||!to) return;
+    // convert YYYY-MM to full date range
+    from = `${from}-01`;
+    const toEnd = new Date(`${to}-01T00:00:00Z`);
+    toEnd.setUTCMonth(toEnd.getUTCMonth()+1);
+    toEnd.setUTCDate(0);
+    to = toEnd.toISOString().slice(0,10);
+  } else {
+    const range = computeRange(activePeriod);
+    if(!range) return;
+    from = range.from;
+    to   = range.to;
+  }
+
+  const url = `/api/reports/adm?from=${from}&to=${to}`;
 
   const data = await api(url);
   if(!data||!data.months) return;
 
+  lastData = data;
   allMonths = data.months;
-  activeMonths = new Set(allMonths.map(m => m.ym));
+  activeMonths = new Set(allMonths.map(m=>m.ym));
 
-  updateSummary(allMonths);
+  // KPI (usa stats do servidor, mais preciso que somar meses filtrados)
+  const s = data.stats || {};
+  document.getElementById('sum-tasks').textContent = s.totalDone ?? allMonths.reduce((a,m)=>a+m.tasksDone,0);
+  document.getElementById('sum-horas').textContent = (s.totalHours!=null ? s.totalHours.toFixed(1) : allMonths.reduce((a,m)=>a+m.horas,0).toFixed(1))+'h';
+  document.getElementById('sum-pts').textContent   = s.totalPoints ?? allMonths.reduce((a,m)=>a+m.pts,0);
+
   updateTable(allMonths);
   renderMonthChips();
 
-  const personName = document.getElementById('person-filter').selectedOptions[0]?.text || 'Toda a equipe';
-  document.getElementById('chart-title').textContent = `Comparativo Mensal — ${personName}`;
-  document.getElementById('chart-subtitle').textContent = `${from} → ${to} · Tasks, horas e pontos por mês`;
+  document.getElementById('chart-subtitle').textContent = `Toda a equipe · ${periodLabel(activePeriod)}`;
 
   renderChart(getVisibleMonths(), activeMetric);
+
+  renderCollab(data.userBreakdown);
+  populateCompanyFilter(data.companyBreakdown);
+  renderCompany(data.companyBreakdown, companyFilterValue);
+
   markUpdated();
 }
 
-// Default months (last 6 months)
-function defaultMonths(){
-  const now = new Date(Date.now()-3*60*60*1000);
-  const to = `${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}`;
-  const d  = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth()-5, 1));
-  const from = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
-  return { from, to };
+function markUpdated(){
+  const now = nowBRT();
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  const el = document.getElementById('last-updated');
+  if(el) el.textContent=`atualizado ${hh}:${mm}`;
 }
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+function exportExcel(){
+  if(!lastData) return;
+  const rows = [['Mês','Tasks','Horas','Pontos']];
+  (lastData.months||[]).forEach(m=>rows.push([m.label, m.tasksDone, m.horas.toFixed(1), m.pts]));
+  rows.push([]);
+  rows.push(['Colaborador','Concluídas','Pontos','Horas']);
+  (lastData.userBreakdown||[]).filter(u=>u.doneCount>0).forEach(u=>rows.push([u.name, u.doneCount, u.totalPoints, u.totalHours.toFixed(1)]));
+  rows.push([]);
+  rows.push(['Empresa','Concluídas','Pontos','Horas']);
+  (lastData.companyBreakdown||[]).filter(c=>c.doneCount>0).forEach(c=>rows.push([c.company, c.doneCount, c.totalPoints, c.totalHours.toFixed(1)]));
+
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mkt_adm_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+function exportPDF(){
+  window.print();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 (async function(){
   const token=getToken();
@@ -476,21 +624,24 @@ function defaultMonths(){
   document.getElementById('nav-username').textContent=user.name;
   document.getElementById('btn-logout').onclick=logout;
 
-  // Load users
-  const usersData = await api('/api/users');
-  if(usersData?.users){
-    const sel=document.getElementById('person-filter');
-    usersData.users.forEach(u=>{
-      const opt=document.createElement('option');
-      opt.value=u.id; opt.textContent=u.name;
-      sel.appendChild(opt);
-    });
-  }
+  // Period chips
+  document.querySelectorAll('.period-chip').forEach(chip=>{
+    chip.onclick=()=>{
+      document.querySelectorAll('.period-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      activePeriod=chip.dataset.period;
+      const customDates=document.getElementById('custom-dates');
+      if(activePeriod==='custom'){
+        customDates.classList.add('visible');
+      } else {
+        customDates.classList.remove('visible');
+        load();
+      }
+    };
+  });
 
-  // Set default month range
-  const {from,to}=defaultMonths();
-  document.getElementById('from-month').value=from;
-  document.getElementById('to-month').value=to;
+  // Custom date apply
+  document.getElementById('btn-apply').onclick=load;
 
   // Chart tabs
   document.querySelectorAll('.chart-tab').forEach(tab=>{
@@ -502,20 +653,23 @@ function defaultMonths(){
     };
   });
 
-  document.getElementById('btn-apply').onclick=load;
-  document.getElementById('person-filter').onchange=load;
+  // Company filter
+  document.getElementById('company-filter').onchange=function(){
+    companyFilterValue=this.value;
+    if(lastData) renderCompany(lastData.companyBreakdown, companyFilterValue);
+  };
+
+  // Export buttons
+  document.getElementById('btn-excel').onclick=exportExcel;
+  document.getElementById('btn-pdf').onclick=exportPDF;
 
   document.getElementById('loading-init').style.display='none';
   document.getElementById('main-content').style.display='';
 
   await load();
 
-  // Auto-refresh a cada 5 minutos
   setInterval(load, 5*60*1000);
-
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState==='visible') load();
-  });
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') load(); });
 })();
 </script>
 </body>
