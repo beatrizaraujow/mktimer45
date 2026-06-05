@@ -3263,9 +3263,13 @@ function initHistoricoFilters() {
 // VERSÃO ADM PANEL
 // ═══════════════════════════════════════════════════════════════════════
 
-let admActiveMetric   = 'all';
-let admActiveMonths   = null; // null = all
-let admCurrentPreset  = '6m';
+let admActiveMetric        = 'all';
+let admActiveMonths        = null; // null = all
+let admCurrentPreset       = '6m';
+let admUserBreakdownData   = [];
+let admCompanyBreakdownData = [];
+let admUserFilter          = '';
+let admCompanyFilter       = '';
 
 const ADM_MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -3350,8 +3354,12 @@ async function loadAdmData() {
 
     admLastData = data;
     renderAdmStats(data.stats || {});
-    admMonthlyData  = data.months || [];
-    admActiveMonths = null;
+    const rawMonths  = data.months || [];
+    const withData   = rawMonths.filter(m => m.tasksDone > 0 || m.pts > 0 || m.horas > 0);
+    admMonthlyData   = withData.length > 0 ? withData : rawMonths;
+    admActiveMonths  = null;
+    admUserFilter    = '';
+    admCompanyFilter = '';
     renderAdmMonthChips(admMonthlyData);
     renderAdmChart(admMonthlyData, null, admActiveMetric);
     renderAdmUserBreakdown(data.userBreakdown || []);
@@ -3402,7 +3410,16 @@ function renderAdmChart(months, selectedYMs, metric = 'all') {
   const visible = selectedYMs
     ? months.filter(m => selectedYMs.includes(m.ym))
     : months;
-  if (!visible.length) return;
+
+  if (!visible.length || visible.every(m => !m.pts && !m.horas && !m.tasksDone)) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#5a6478';
+    ctx.font = '600 13px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Sem dados no período selecionado', canvas.width / 2, canvas.height / 2);
+    return;
+  }
 
   const labels = visible.map(m => m.label);
   const pts    = visible.map(m => m.pts    || 0);
@@ -3535,16 +3552,24 @@ function initAdmFilters() {
 // ── ADM Breakdown tables ─────────────────────────────────────────────
 
 function renderAdmUserBreakdown(rows) {
+  if (rows.length) admUserBreakdownData = rows;
   const el = document.getElementById('admUserBreakdown');
   if (!el) return;
-  const active = rows.filter(r => r.doneCount > 0 || r.totalHours > 0);
-  if (!active.length) { el.innerHTML = `<div class="adm-bd-header">Por Colaborador</div><p style="color:#5a6478;padding:16px;font-size:12px">Sem dados no período</p>`; return; }
-  const maxPts = Math.max(...active.map(r => r.totalPoints), 1);
-  const tbody = active.map((r, i) => {
-    const barPct = Math.round(r.totalPoints / maxPts * 100);
-    const barColor = i === 0 ? '#3dba6f' : '#e8b844';
-    const pos = i === 0 ? IC.medal(1) : i === 1 ? IC.medal(2) : i === 2 ? IC.medal(3)
-      : `<span class="adm-bd-pos">${i + 1}</span>`;
+
+  const all      = admUserBreakdownData.filter(r => r.doneCount > 0 || r.totalHours > 0);
+  const filtered = admUserFilter ? all.filter(r => r.name === admUserFilter) : all;
+  const maxPts   = Math.max(...all.map(r => r.totalPoints), 1);
+
+  const filterOpts = all.map(r =>
+    `<option value="${escHtml(r.name)}" ${admUserFilter === r.name ? 'selected' : ''}>${escHtml(r.name)}</option>`
+  ).join('');
+
+  const tbody = filtered.map(r => {
+    const gi       = all.indexOf(r);
+    const barPct   = Math.round(r.totalPoints / maxPts * 100);
+    const barColor = gi === 0 ? '#3dba6f' : '#e8b844';
+    const pos      = gi === 0 ? IC.medal(1) : gi === 1 ? IC.medal(2) : gi === 2 ? IC.medal(3)
+      : `<span class="adm-bd-pos">${gi + 1}</span>`;
     return `<tr>
       <td class="adm-bd-name-cell">${pos} <span>${escHtml(r.name)}</span></td>
       <td class="adm-bd-num">${r.doneCount}</td>
@@ -3553,47 +3578,73 @@ function renderAdmUserBreakdown(rows) {
       <td class="adm-bd-bar-cell">
         <div class="adm-bd-bar-track"><div class="adm-bd-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
         <span class="adm-bd-pct-label" style="color:${barColor}">${barPct}%</span>
-      </td>
-    </tr>`;
+      </td></tr>`;
   }).join('');
+
+  const body = !all.length
+    ? `<p style="color:#5a6478;padding:12px 0;font-size:12px">Sem dados no período</p>`
+    : `<table class="adm-bd-table">
+        <thead><tr><th>Nome</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th></tr></thead>
+        <tbody>${tbody || '<tr><td colspan="5" style="color:#5a6478;padding:10px 0;font-size:12px">Nenhum resultado</td></tr>'}</tbody>
+       </table>`;
+
   el.innerHTML = `
-    <div class="adm-bd-header">Por Colaborador</div>
-    <table class="adm-bd-table">
-      <thead><tr>
-        <th>Nome</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th>
-      </tr></thead>
-      <tbody>${tbody}</tbody>
-    </table>`;
+    <div class="adm-bd-header">
+      <span>Por Colaborador</span>
+      ${all.length > 1 ? `<select class="adm-bd-select" id="admCollabFilter">
+        <option value="">Todos os membros</option>${filterOpts}</select>` : ''}
+    </div>${body}`;
+
+  document.getElementById('admCollabFilter')?.addEventListener('change', e => {
+    admUserFilter = e.target.value;
+    renderAdmUserBreakdown([]);
+  });
 }
 
 function renderAdmCompanyBreakdown(rows) {
+  if (rows.length) admCompanyBreakdownData = rows;
   const el = document.getElementById('admCompanyBreakdown');
   if (!el) return;
-  const active = rows.filter(r => r.doneCount > 0 || r.totalHours > 0);
-  if (!active.length) { el.innerHTML = `<div class="adm-bd-header">Por Empresa / Cliente</div><p style="color:#5a6478;padding:16px;font-size:12px">Sem dados no período</p>`; return; }
-  const maxPts = Math.max(...active.map(r => r.totalPoints || r.doneCount), 1);
-  const tbody = active.map(r => {
-    const pct = Math.round((r.totalPoints || r.doneCount) / maxPts * 100);
-    const barColor = '#e8b844';
+
+  const all      = admCompanyBreakdownData.filter(r => r.doneCount > 0 || r.totalHours > 0);
+  const filtered = admCompanyFilter ? all.filter(r => r.company === admCompanyFilter) : all;
+  const maxVal   = Math.max(...all.map(r => r.totalPoints || r.doneCount), 1);
+
+  const filterOpts = all.map(r =>
+    `<option value="${escHtml(r.company)}" ${admCompanyFilter === r.company ? 'selected' : ''}>${escHtml(r.company)}</option>`
+  ).join('');
+
+  const tbody = filtered.map(r => {
+    const pct      = Math.round((r.totalPoints || r.doneCount) / maxVal * 100);
     return `<tr>
       <td class="adm-bd-name-cell"><span>${escHtml(r.company)}</span></td>
       <td class="adm-bd-num">${r.doneCount}</td>
       <td class="adm-bd-num adm-bd-pts">${r.totalPoints}</td>
       <td class="adm-bd-num">${r.totalHours.toFixed(1)}h</td>
       <td class="adm-bd-bar-cell">
-        <div class="adm-bd-bar-track"><div class="adm-bd-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
-        <span class="adm-bd-pct-label" style="color:${barColor}">${pct}%</span>
-      </td>
-    </tr>`;
+        <div class="adm-bd-bar-track"><div class="adm-bd-bar-fill" style="width:${Math.min(pct,100)}%;background:#e8b844"></div></div>
+        <span class="adm-bd-pct-label" style="color:#e8b844">${pct}%</span>
+      </td></tr>`;
   }).join('');
+
+  const body = !all.length
+    ? `<p style="color:#5a6478;padding:12px 0;font-size:12px">Sem dados no período</p>`
+    : `<table class="adm-bd-table">
+        <thead><tr><th>Empresa</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th></tr></thead>
+        <tbody>${tbody || '<tr><td colspan="5" style="color:#5a6478;padding:10px 0;font-size:12px">Nenhum resultado</td></tr>'}</tbody>
+       </table>`;
+
   el.innerHTML = `
-    <div class="adm-bd-header">Por Empresa / Cliente</div>
-    <table class="adm-bd-table">
-      <thead><tr>
-        <th>Empresa</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th>
-      </tr></thead>
-      <tbody>${tbody}</tbody>
-    </table>`;
+    <div class="adm-bd-header">
+      <span>Por Empresa / Cliente</span>
+      ${all.length > 1 ? `<select class="adm-bd-select" id="admCompanyFilterSel">
+        <option value="">Todas as empresas</option>${filterOpts}</select>` : ''}
+    </div>${body}`;
+
+  document.getElementById('admCompanyFilterSel')?.addEventListener('change', e => {
+    admCompanyFilter = e.target.value;
+    renderAdmCompanyBreakdown([]);
+  });
 }
 
 // ── ADM Export ────────────────────────────────────────────────────────

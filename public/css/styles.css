@@ -4179,13 +4179,34 @@ menu {
 .adm-breakdown-card:empty { display: none; }
 
 .adm-bd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #4a5568;
   margin-bottom: 14px;
+  gap: 10px;
 }
+
+.adm-bd-select {
+  background: #161825;
+  border: 1px solid #252840;
+  color: #c8d0e7;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+.adm-bd-select:focus { border-color: #e8b844; }
 
 .adm-bd-table {
   width: 100%;
