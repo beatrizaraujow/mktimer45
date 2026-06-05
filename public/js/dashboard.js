@@ -1,3 +1,17 @@
+// ── SVG icon set (Lucide style) ──────────────────────────────────────
+const IC = {
+  trophy: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`,
+  gem:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>`,
+  bell:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
+  lock:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  clock:  `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  warn:   `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  starOn: `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  check:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`,
+  xMark:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  medal:  (n) => `<span class="ic-medal ic-medal-${n}">${n}</span>`,
+};
+
 let weekLineChart;
 let dailyWeekChart;
 let donutChart;
@@ -19,6 +33,7 @@ let admCustomTo = null;
 let admBarChart = null;
 let admSelectedUser = '';
 let admMonthlyData = [];
+let admLastData = null;
 let activeSession = null;
 let userProfile = null;
 let currentMonth = new Date().toISOString().slice(0, 7);
@@ -718,7 +733,7 @@ function renderLeaderboard(data) {
     li.innerHTML = `
       <div class="rank-av${avClass}">
         ${item.avatar}
-        ${isTop ? '<span class="rank-trophy">🏆</span>' : ''}
+        ${isTop ? '<span class="rank-trophy">' + IC.trophy + '</span>' : ''}
       </div>
       <div class="rank-mid">
         <span class="rank-name">${item.name}</span>
@@ -1988,7 +2003,7 @@ let _tdCountInterval  = null;
 let _tdIsLive         = false;
 let _tdLastMembers    = [];
 let _tdSelectedPerson = null; // null = all members (grid view)
-const _tdDoneExpanded = {}; // { [memberId]: boolean } — estado de colapso das completas
+const _tdGroupExpanded = {}; // { [`${memberId}_${cat}`]: boolean } — collapsed by default
 
 function getCategoryColor(cat) {
   if (!cat) return '#8b5cf6';
@@ -2069,7 +2084,9 @@ function renderPersonTable(member) {
     ? member.tasks.map((task) => {
         const cat     = task.statusCat || 'todo';
         const title   = task.title.length > 56 ? `${task.title.slice(0, 56)}…` : task.title;
-        const pts     = task.points ? `<span class="pt-pts">${task.points}p</span>` : '';
+        const pts     = task.points
+          ? `<span class="pt-pts">${task.points}p</span>`
+          : (cat !== 'done' ? `<span class="pt-no-pts" title="Sem pontuação">${IC.bell}</span>` : '');
         const coBadge = taskEmpresaBadge(task.empresa);
         return `<tr class="pt-row${cat === 'done' ? ' pt-row-done' : ''}">
           <td class="pt-task-name">${title}${pts}${coBadge}</td>
@@ -2134,15 +2151,18 @@ function taskEmpresaBadge(empresa) {
 }
 
 // Renderiza uma linha de task (pai)
-function _mcTaskLi(task, color, isDone) {
+function _mcTaskLi(task, color, isDone, isOverdue = false) {
   const pts     = task.points ? `${task.points}p` : '';
+  const noPtsIcon = !task.points && !isDone ? `<span class="mc-no-pts" title="Sem pontuação">${IC.bell}</span>` : '';
   const title   = task.title.length > 40 ? `${task.title.slice(0, 40)}…` : task.title;
   const doneClass = isDone ? ' done' : '';
+  const overdueClass = isOverdue ? ' mc-task-overdue' : '';
+  const dotColor  = isOverdue ? '#f04444' : (task.statusColor || color);
   const coBadge   = taskEmpresaBadge(task.empresa || '');
-  return `<li class="mc-task">
-    <span class="mc-task-dot" style="background:${task.statusColor || color}"></span>
+  return `<li class="mc-task${overdueClass}">
+    <span class="mc-task-dot" style="background:${dotColor}"></span>
     <span class="mc-task-name${doneClass}">${title}</span>
-    ${pts ? `<span class="mc-task-pts">${pts}</span>` : ''}
+    ${pts ? `<span class="mc-task-pts">${pts}</span>` : noPtsIcon}
     ${coBadge}
   </li>`;
 }
@@ -2182,14 +2202,15 @@ function renderMemberCard(member) {
   // Grupos visíveis: pendente, alteração, aprovar, publicar, completas (colapsável)
   // 'doing' é mapeado para 'todo'; 'leader' é mapeado para 'approval'
   const STATUS_GROUPS = [
-    { cat: 'todo',     label: 'PENDENTE',   color: '#6b7585', extra: ['doing'] },
     { cat: 'revision', label: 'ALTERAÇÃO',  color: '#f59e0b', extra: [] },
-    { cat: 'approval', label: 'APROVAR',    color: '#f6a623', extra: ['leader'] },
-    { cat: 'publish',  label: 'PUBLICAR',   color: '#7c3aed', extra: [] },
-    { cat: 'done',     label: 'COMPLETAS',  color: '#22d3a3', extra: [], collapsible: true },
+    { cat: 'todo',     label: 'PENDENTE',   color: '#6b7585', extra: ['doing'] },
+    { cat: 'approval', label: 'APROVAR',    color: '#f6a623', extra: ['leader'], collapsible: true },
+    { cat: 'publish',  label: 'PUBLICAR',   color: '#7c3aed', extra: [],         collapsible: true },
+    { cat: 'done',     label: 'COMPLETAS',  color: '#22d3a3', extra: [],         collapsible: true },
   ];
 
   const isFiltered = _dfb.daily.preset === 'mes';
+  const todayStr   = todayISO();
 
   let taskRows = '';
   if (isFiltered) {
@@ -2210,23 +2231,38 @@ function renderMemberCard(member) {
       }).join('');
     }
   } else {
+    // Tarefas atrasadas: due_date < hoje, não concluídas
+    const overdueIds = new Set();
+    const overdueTasks = member.tasks.filter((t) =>
+      !t.is_done && t.statusCat !== 'done' && t.due_date && t.due_date < todayStr
+    );
+    if (overdueTasks.length) {
+      overdueTasks.forEach((t) => overdueIds.add(t.id));
+      taskRows += `<li class="mc-status-header mc-overdue-header">${IC.warn} ATRASADAS (${overdueTasks.length})</li>`;
+      overdueTasks.forEach((task) => {
+        taskRows += _mcTaskLi(task, '#f04444', false, true /* overdue */);
+        (task.subtasks || []).forEach((sub) => { taskRows += _mcSubtaskLi(sub); });
+      });
+    }
+
     STATUS_GROUPS.forEach(({ cat, label, color, extra, collapsible }) => {
       const allCats = [cat, ...(extra || [])];
-      const group   = member.tasks.filter((t) => allCats.includes(t.statusCat));
+      // Exclui tarefas já listadas em ATRASADAS para não duplicar
+      const group   = member.tasks.filter((t) => allCats.includes(t.statusCat) && !overdueIds.has(t.id));
       if (!group.length) return;
 
       if (collapsible) {
-        // Completas: header com toggle de colapso
-        const expanded = _tdDoneExpanded[member.id] === true;
-        taskRows += `<li class="mc-status-header mc-done-header" style="color:${color}">
-          <span>COMPLETAS (${group.length})</span>
-          <button class="mc-done-toggle" data-uid="${member.id}" aria-label="Expandir completas" aria-expanded="${expanded}">
-            <span class="mc-done-arrow${expanded ? ' mc-done-arrow-open' : ''}">›</span>
+        const key = `${member.id}_${cat}`;
+        const expanded = _tdGroupExpanded[key] === true;
+        taskRows += `<li class="mc-status-header mc-group-header" style="color:${color}">
+          <span>${label} (${group.length})</span>
+          <button class="mc-group-toggle" data-uid="${member.id}" data-cat="${cat}" aria-label="Expandir ${label}" aria-expanded="${expanded}">
+            <span class="mc-group-arrow${expanded ? ' mc-group-arrow-open' : ''}">›</span>
           </button>
         </li>`;
         if (expanded) {
           group.forEach((task) => {
-            taskRows += _mcTaskLi(task, color, true);
+            taskRows += _mcTaskLi(task, color, cat === 'done');
             (task.subtasks || []).forEach((sub) => { taskRows += _mcSubtaskLi(sub); });
           });
         }
@@ -2242,10 +2278,17 @@ function renderMemberCard(member) {
     if (!taskRows) taskRows = '<li class="mc-no-tasks">Sem tasks no período</li>';
   }
 
+  const metaStatus  = member.metaStatus || '';
+  const metaBadgeHtml = metaStatus === 'above_120'
+    ? `<span class="mc-meta-badge mc-badge-120">120% ${IC.starOn}</span>`
+    : metaStatus === 'above_100'
+    ? `<span class="mc-meta-badge mc-badge-100">Meta ✓</span>`
+    : '';
+
   return `<div class="member-card">
     <div class="mc-head">
       <div class="mc-info">
-        <span class="mc-name">${member.name}</span>
+        <span class="mc-name">${member.name} ${metaBadgeHtml}</span>
         <span class="mc-role">${member.cargo || '—'}</span>
       </div>
       <span class="mc-status-dot${doneCount > 0 ? ' active' : ''}"></span>
@@ -2299,12 +2342,13 @@ function renderDailyRanking(members) {
   }
 
   const sorted = [...members].sort((a, b) => {
-    const ptsA = a.ptsSemana || a.ptsToday || 0;
-    const ptsB = b.ptsSemana || b.ptsToday || 0;
-    return ptsB - ptsA;
+    const ca = a.coef != null ? a.coef : (a.weekPct || 0);
+    const cb = b.coef != null ? b.coef : (b.weekPct || 0);
+    if (cb !== ca) return cb - ca;
+    return (b.ptsSemana || b.ptsToday || 0) - (a.ptsSemana || a.ptsToday || 0);
   });
 
-  const MEDALS = ['🥇', '🥈', '🥉'];
+  const MEDALS = [IC.medal(1), IC.medal(2), IC.medal(3)];
 
   listEl.innerHTML = sorted.map((m, i) => {
     const pts     = m.ptsSemana || m.ptsToday || 0;
@@ -2368,58 +2412,52 @@ function renderRankingFromMembers(members) {
     return;
   }
 
-  // Ordena por pts semana (desc)
+  // Ordena por coeficiente/% meta desc; desempate por pts
   const sorted = [...members].sort((a, b) => {
-    const pa = a.ptsSemana || a.ptsToday || 0;
-    const pb = b.ptsSemana || b.ptsToday || 0;
-    return pb - pa;
+    const ca = a.coef != null ? a.coef : (a.weekPct || 0);
+    const cb = b.coef != null ? b.coef : (b.weekPct || 0);
+    if (cb !== ca) return cb - ca;
+    return (b.ptsSemana || b.ptsToday || 0) - (a.ptsSemana || a.ptsToday || 0);
   });
 
-  const MEDALS    = ['🥇', '🥈', '🥉'];
+  const MEDALS    = [IC.medal(1), IC.medal(2), IC.medal(3)];
   const coefColor = (pct) =>
     pct >= 100 ? '#f6c200' : pct >= 70 ? '#22d3a3' : pct >= 40 ? '#f6a623' : '#f04444';
 
   const rows = sorted.map((m, i) => {
-    const pts        = m.ptsSemana || m.ptsToday || 0;
-    const coef       = m.coef != null ? m.coef : (m.weekPct || 0);
-    const done       = m.doneSemana != null ? m.doneSemana : (m.doneToday || 0);
-    const total      = m.totalSemana != null ? m.totalSemana : (m.totalToday || 0);
-    const goal100    = m.weeklyGoal || 0;
-    const goal120    = m.weeklyGoal120 > 0 ? m.weeklyGoal120 : Math.round(goal100 * 1.2);
-    const isPodium   = i < 3 && coef >= 100;
-    const posLabel   = isPodium
+    const pts         = m.ptsSemana || m.ptsToday || 0;
+    const coef        = m.coef != null ? m.coef : (m.weekPct || 0);
+    const done        = m.doneSemana != null ? m.doneSemana : (m.doneToday || 0);
+    const total       = m.totalSemana != null ? m.totalSemana : (m.totalToday || 0);
+    const weeklyGoal  = m.weeklyGoal || 0;
+    const goal120     = m.weeklyGoal120 || Math.round(weeklyGoal * 1.2);
+    const metaStatus  = m.metaStatus || (pts >= goal120 ? 'above_120' : pts >= weeklyGoal ? 'above_100' : 'below_100');
+    const isPodium    = i < 3 && coef >= 100;
+    const posLabel    = isPodium
       ? `<span class="rk-medal">${MEDALS[i]}</span>`
       : `<span class="rk-pos">#${i + 1}</span>`;
-    const bColor     = coefColor(coef);
-    const barW       = Math.min(coef, 100);
-
-    // Badge de meta: 120% > 100% > sem badge
-    const metaBadge = !m.isCompletionBased && goal100 > 0
-      ? pts >= goal120 ? `<span class="rk-meta-badge rk-meta-120">120%</span>`
-      : pts >= goal100 ? `<span class="rk-meta-badge rk-meta-100">100%</span>`
-      : ''
+    const bColor      = coefColor(coef);
+    const barW        = Math.min(coef, 100);
+    const metaBadge   = metaStatus === 'above_120'
+      ? `<span class="rk-meta-badge rk-badge-120">120% ${IC.starOn}</span>`
+      : metaStatus === 'above_100'
+      ? `<span class="rk-meta-badge rk-badge-100">Meta ✓</span>`
       : '';
-
-    // Barra de progresso de pts (% da meta 100%, marcador na meta 120%)
-    const ptsBarW   = goal100 > 0 ? Math.min(Math.round((pts / goal100) * 100), 100) : 0;
-    const marker120 = goal100 > 0 && goal120 > goal100
-      ? `<span class="rk-bar-marker120" style="left:${Math.min(Math.round((goal100/goal120)*100),95)}%"></span>`
-      : '';
-    const ptsLabel  = goal100 > 0 ? `${pts} / ${goal100} pts` : `${pts} pts`;
+    const metaGoalTxt = !m.isCompletionBased && weeklyGoal > 0
+      ? ` · meta ${weeklyGoal} pts` : '';
 
     return `<div class="rk-row${isPodium ? ` rk-podium-${i + 1}` : ''}">
       <div class="rk-left">
         ${posLabel}
         <div class="rk-info">
-          <span class="rk-name">${m.name || '—'}${metaBadge}</span>
-          <span class="rk-meta">${m.cargo || '—'} · ${done}/${total} tasks · ${ptsLabel} · ${m.horasStr || '0h'}</span>
+          <span class="rk-name">${m.name || '—'} ${metaBadge}</span>
+          <span class="rk-meta">${m.cargo || '—'} · ${done}/${total} tasks · ${pts} pts${metaGoalTxt} · ${m.horasStr || '0h'}</span>
         </div>
       </div>
       <div class="rk-right">
         <div class="rk-bar-wrap">
           <div class="rk-bar-track">
-            <div class="rk-bar-fill" style="width:${ptsBarW}%;background:${bColor}"></div>
-            ${marker120}
+            <div class="rk-bar-fill" style="width:${barW}%;background:${bColor}"></div>
           </div>
           <span class="rk-pct" style="color:${bColor}">${coef}%</span>
         </div>
@@ -2434,8 +2472,8 @@ function renderRankingFromMembers(members) {
     <div class="rk-panel">
       <div class="rk-header">
         <div>
-          <div class="rk-title">🏆 Ranking Semanal</div>
-          <div class="rk-subtitle">${periodLabel} · Ordenado por pontos · Pódio para coef ≥ 100%</div>
+          <div class="rk-title">${IC.trophy} Ranking Semanal</div>
+          <div class="rk-subtitle">${periodLabel} · Ordenado por % meta · Pódio para coef ≥ 100%</div>
         </div>
         <button class="rk-refresh-btn" id="rkRefreshBtn">↺ Atualizar</button>
       </div>
@@ -2843,14 +2881,16 @@ function initTeamDaily() {
     });
   }
 
-  // Delegação: toggle de "Completas" por card de membro
+  // Delegação: toggle de grupos colapsáveis por card de membro
   const grid = document.getElementById('teamDailyGrid');
   if (grid) {
     grid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.mc-done-toggle');
+      const btn = e.target.closest('.mc-group-toggle');
       if (!btn) return;
       const uid = Number(btn.dataset.uid);
-      _tdDoneExpanded[uid] = !_tdDoneExpanded[uid];
+      const cat = btn.dataset.cat;
+      const key = `${uid}_${cat}`;
+      _tdGroupExpanded[key] = !_tdGroupExpanded[key];
       if (_tdLastMembers && _tdLastMembers.length) renderTdView(_tdLastMembers);
     });
   }
@@ -2941,7 +2981,17 @@ async function loadHistoricoPanel() {
       return;
     }
 
-    renderHistoricoWeeklyTable(histData.weeks || [], histData.users || []);
+    // Busca snapshots para marcar semanas FECHADO / PENDENTE
+    let snapshotMap = {};
+    try {
+      const sResp = await fetch('/api/focus?action=snapshot-list', { headers: { Authorization: `Bearer ${getToken()}` } });
+      if (sResp.ok) {
+        const sData = await sResp.json();
+        (sData.snapshots || []).forEach(s => { snapshotMap[s.week_start] = s; });
+      }
+    } catch (_) { /* snapshot API pode não existir ainda — ignora */ }
+
+    renderHistoricoWeeklyTable(histData.weeks || [], histData.users || [], snapshotMap);
   } catch (err) {
     console.error('[historico] erro:', err.message);
     if (wrap) wrap.innerHTML = `<p style="padding:24px;color:#e05252;font-size:13px">Erro: ${err.message}</p>`;
@@ -2960,7 +3010,7 @@ function renderHistoricoStats({ totalDone, totalPoints, totalHours }) {
   set('histStatPoints', totalPoints);
 }
 
-function renderHistoricoWeeklyTable(weekLabels, users) {
+function renderHistoricoWeeklyTable(weekLabels, users, snapshotMap = {}) {
   const wrap = document.getElementById('histWeeklyWrap');
   if (!wrap) return;
 
@@ -2969,84 +3019,120 @@ function renderHistoricoWeeklyTable(weekLabels, users) {
     return;
   }
 
-  function starsHtml(n) {
-    return Array.from({ length: 3 }, (_, i) =>
-      `<span class="${i < n ? 'hwt-star-on' : 'hwt-star-off'}">★</span>`
-    ).join('');
-  }
+  // Coins: 0=nenhum 1=bronze 2=prata 3=ouro 4=diamante(120%)
+  const COIN_CFG = [
+    null,
+    { label: '1 Coin',  cls: 'hwt-coin-1', icon: IC.medal(1) },
+    { label: '2 Coins', cls: 'hwt-coin-2', icon: IC.medal(2) },
+    { label: '3 Coins', cls: 'hwt-coin-3', icon: IC.medal(3) },
+    { label: '4 Coins', cls: 'hwt-coin-4', icon: IC.gem },
+  ];
 
   const firstWeek = weekLabels[0];
   const monthIdx  = firstWeek ? Number(firstWeek.weekStart.slice(5, 7)) - 1 : -1;
   const monthName = monthIdx >= 0 ? CAL_MONTH_NAMES[monthIdx] : '';
 
   const theadCells = weekLabels.map(w => {
-    const liveTag = w.isLive
-      ? ' <span style="color:#e8b844;font-size:9px">(ao vivo)</span>'
-      : '';
-    return `<th class="hwt-week-th">Semana ${w.index}${liveTag}</th>`;
+    const [, mo, d] = w.weekStart.split('-');
+    const liveTag   = w.isLive ? ' <span class="hwt-live-tag">ao vivo</span>' : '';
+    const snap      = snapshotMap[w.weekStart];
+    const lockTag   = snap?.status === 'FECHADO'            ? `<br><span class="hwt-lock-badge">${IC.lock} encerrada</span>` : '';
+    const pendTag   = snap?.status === 'PENDENTE_VALIDACAO' && _isAdminUser ? `<br><span class="hwt-pending-badge">${IC.clock} pendente</span>` : '';
+    return `<th class="hwt-week-th">Sem ${w.index}<br><span class="hwt-week-date">${d}/${mo}</span>${liveTag}${lockTag}${pendTag}</th>`;
   }).join('');
 
-  // Nome sempre visível (coluna fixa)
   const thead = `<thead><tr>
-    <th style="min-width:130px">Pessoa</th>
+    <th class="hwt-person-th">Pessoa</th>
     ${theadCells}
   </tr></thead>`;
 
   const tbody = users.map(u => {
+    const meta100 = u.meta100 || u.weeklyGoal || 0;
+    const meta120 = u.meta120 || Math.round(meta100 * 1.2);
+
     const cells = u.weeks.map(w => {
       if (w.pts === 0 && !w.isLive) {
-        return `<td class="hwt-week-cell"><span class="hwt-empty">—</span></td>`;
+        return `<td class="hwt-week-cell hwt-empty-cell"><span class="hwt-empty">—</span></td>`;
       }
 
-      const pctClass = w.isLive && w.pct < 100
-        ? 'live'
-        : w.pct >= 100 ? 'green' : w.pct >= 60 ? 'yellow' : 'gray';
+      const coins    = w.coins != null ? w.coins : 0;
+      const coinCfg  = COIN_CFG[coins];
+      const above120 = w.metaStatus === 'above_120' || w.pts >= meta120;
+      const above100 = w.metaStatus === 'above_100' || w.pts >= meta100;
 
-      // Pts restantes para atingir a meta (sempre mostrar)
-      const remainingPts = Math.max(0, (u.weeklyGoal || 0) - w.pts);
+      const pctClass = w.isLive && !above100 ? 'live'
+                     : above120              ? 'diamond'
+                     : above100              ? 'green'
+                     : w.pct >= 60           ? 'yellow'
+                     : 'gray';
+
+      // Barra de progresso visual (até 120%)
+      const barPct   = Math.min(Math.round((w.pts / meta120) * 100), 100);
+      const barColor = above120 ? '#818cf8' : above100 ? '#f6c200' : w.pct >= 60 ? '#22d3a3' : '#f59e0b';
+
+      // Linha de progresso em relação à meta
       let progressRow = '';
-      if (w.pct >= 100) {
-        const extra = w.pct - 100;
-        progressRow = extra > 0
-          ? `<div class="hwt-overshoot">+${extra}% acima da meta</div>`
-          : '';
+      if (above120) {
+        const extra = w.pts - meta120;
+        progressRow = `<div class="hwt-overshoot diamond">+${extra} pts acima de 120%</div>`;
+      } else if (above100) {
+        const falta120 = w.faltouPara120 != null ? w.faltouPara120 : Math.max(0, meta120 - w.pts);
+        progressRow = `<div class="hwt-overshoot">Meta ✓ · faltou ${falta120} pts p/ 120%</div>`;
       } else {
-        const verb = w.isLive ? 'falta' : 'faltou';
-        progressRow = `<div class="hwt-missing${w.isLive ? ' live' : ''}">${verb} ${remainingPts} pts · ${100 - w.pct}%</div>`;
+        const falta   = w.faltouPara100 != null ? w.faltouPara100 : Math.max(0, meta100 - w.pts);
+        const verb    = w.isLive ? 'falta' : 'faltou';
+        progressRow = `<div class="hwt-missing${w.isLive ? ' live' : ''}">${verb} <strong>${falta} pts</strong> p/ meta · ${100 - w.pct}%</div>`;
       }
 
-      // SB Coins quando meta atingida (≥60% = 1 coin, ≥80% = 2, 100% = 3)
-      const coinsRow = w.stars > 0
-        ? `<div class="hwt-coins">
-            <div class="hwt-stars">${starsHtml(w.stars)}</div>
-            <span class="hwt-coins-label">${w.stars} SB Coin${w.stars !== 1 ? 's' : ''}</span>
+      const coinsRow = coinCfg
+        ? `<div class="hwt-coins ${coinCfg.cls}">
+             <span class="hwt-coin-icon">${coinCfg.icon}</span>
+             <span class="hwt-coins-label">${coinCfg.label}</span>
            </div>`
-        : '';
+        : `<div class="hwt-coins hwt-no-coin">sem coins</div>`;
 
-      const liveBadge = w.isLive
-        ? `<div class="hwt-live-badge">em andamento</div>`
-        : '';
+      const liveBadge    = w.isLive ? `<div class="hwt-live-badge">em andamento</div>` : '';
+      const snapWeek     = snapshotMap[w.weekStart];
+      const validadoNote = snapWeek?.status === 'FECHADO'
+        ? `<div class="hwt-coins-validated">${IC.lock} coins validadas</div>`
+        : (snapWeek?.status === 'PENDENTE_VALIDACAO' && _isAdminUser
+            ? `<div class="hwt-coins-validated" style="color:#f59e0b">${IC.clock} aguarda validação</div>`
+            : '');
 
       return `<td class="hwt-week-cell">
         <div class="hwt-pct ${pctClass}">${w.pct}%</div>
-        <div class="hwt-pts">${w.pts} pts · meta ${u.weeklyGoal || '?'}</div>
-        ${progressRow}${coinsRow}${liveBadge}
+        <div class="hwt-pts">${w.pts} pts</div>
+        <div class="hwt-meta-line">meta ${meta100} · 120% ${meta120}</div>
+        <div class="hwt-bar-wrap"><div class="hwt-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+        ${progressRow}${coinsRow}${validadoNote}${liveBadge}
       </td>`;
     }).join('');
 
-    // Nome sempre visível para todos
-    const personCell = `<td><div class="hwt-person">${u.name}</div><div class="hwt-cargo">${u.cargo || ''}</div></td>`;
+    const metaInfo = u.isCompletionBased
+      ? `<div class="hwt-cargo">${u.cargo || ''} · conclusão</div>`
+      : `<div class="hwt-cargo">${u.cargo || ''}</div><div class="hwt-meta-goals">100%: ${meta100}p · 120%: ${meta120}p</div>`;
+
+    const personCell = `<td class="hwt-person-cell">
+      <div class="hwt-person">${u.name}</div>
+      ${metaInfo}
+    </td>`;
 
     return `<tr>${personCell}${cells}</tr>`;
   }).join('');
 
   const titleText = monthName
-    ? `▪ Histórico ${monthName} — Semana a Semana`
-    : '▪ Histórico — Semana a Semana';
+    ? `Histórico ${monthName} — Metas Semanais`
+    : 'Histórico — Metas Semanais';
 
   wrap.innerHTML = `
     <div class="hist-weekly-wrap">
       <div class="hist-weekly-title">${titleText}</div>
+      <div class="hwt-legend">
+        <span class="hwt-leg-item">${IC.medal(1)} 1 Coin = ≥60%</span>
+        <span class="hwt-leg-item">${IC.medal(2)} 2 Coins = ≥80%</span>
+        <span class="hwt-leg-item">${IC.medal(3)} 3 Coins = meta 100%</span>
+        <span class="hwt-leg-item">${IC.gem} 4 Coins = 120%</span>
+      </div>
       <table class="hwt-table">
         ${thead}
         <tbody>${tbody}</tbody>
@@ -3177,53 +3263,50 @@ function initHistoricoFilters() {
 // VERSÃO ADM PANEL
 // ═══════════════════════════════════════════════════════════════════════
 
-let admActiveMetric  = 'all';
-let admActiveMonths  = null; // null = all
+let admActiveMetric   = 'all';
+let admActiveMonths   = null; // null = all
+let admCurrentPreset  = '6m';
 
 const ADM_MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-function populateAdmMonthSelects() {
-  const fromSel = document.getElementById('admFromMonth');
-  const toSel   = document.getElementById('admToMonth');
-  if (!fromSel || !toSel || fromSel.options.length) return;
-
+function admPresetToRange(preset) {
   const now = new Date();
-  for (let i = 17; i >= 0; i--) {
-    const d  = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const lb = `${ADM_MONTHS_PT[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`;
-    [fromSel, toSel].forEach(sel => {
-      const o = document.createElement('option');
-      o.value = ym; o.textContent = lb;
-      sel.appendChild(o);
-    });
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = fmt(now);
+  if (preset === '30d') {
+    const from = new Date(now); from.setDate(from.getDate() - 29);
+    return { from: fmt(from), to: today };
   }
-
-  const curYM  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const d6     = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-  const sixYM  = `${d6.getFullYear()}-${String(d6.getMonth() + 1).padStart(2, '0')}`;
-  fromSel.value = sixYM;
-  toSel.value   = curYM;
+  if (preset === '3m') {
+    const from = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    return { from: fmt(from), to: today };
+  }
+  if (preset === '6m') {
+    const from = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    return { from: fmt(from), to: today };
+  }
+  if (preset === '1a') {
+    return { from: `${now.getFullYear()}-01-01`, to: today };
+  }
+  return null;
 }
 
-function updateAdmMonthCount() {
-  const fromSel = document.getElementById('admFromMonth');
-  const toSel   = document.getElementById('admToMonth');
-  const el      = document.getElementById('admMonthCount');
-  if (!fromSel || !toSel || !el) return;
-  const [fy, fm] = fromSel.value.split('-').map(Number);
-  const [ty, tm] = toSel.value.split('-').map(Number);
-  const n = Math.max(1, (ty - fy) * 12 + (tm - fm) + 1);
-  el.textContent = `${n} mês${n > 1 ? 'es' : ''}`;
+function getAdmDateRange() {
+  if (admCurrentPreset === 'custom') {
+    const from = document.getElementById('admDateFrom')?.value;
+    const to   = document.getElementById('admDateTo')?.value;
+    return (from && to) ? { from, to } : null;
+  }
+  return admPresetToRange(admCurrentPreset);
 }
 
 async function loadAdmPanel() {
-  populateAdmMonthSelects();
   const subtitle = document.getElementById('admChartSubtitle');
   if (subtitle) { subtitle.textContent = 'Carregando...'; subtitle.style.color = ''; }
   await Promise.all([loadAdmUsersIfNeeded(), loadAdmData()]);
-  // Força re-render do chart se dimensões estavam zero (painel estava hidden)
   if (admBarChart) admBarChart.resize();
+  if (_isAdminUser) loadSnapshotValidation().catch(() => {});
 }
 
 async function loadAdmUsersIfNeeded() {
@@ -3242,17 +3325,12 @@ async function loadAdmUsersIfNeeded() {
 }
 
 async function loadAdmData() {
-  const fromSel   = document.getElementById('admFromMonth');
-  const toSel     = document.getElementById('admToMonth');
-  const fromMonth = fromSel?.value;
-  const toMonth   = toSel?.value;
-  if (!fromMonth || !toMonth) return;
-
-  updateAdmMonthCount();
+  const range = getAdmDateRange();
+  if (!range) return;
 
   const personName = document.getElementById('admUserSelect')?.selectedOptions[0]?.text || 'Toda a equipe';
   const subtitle   = document.getElementById('admChartSubtitle');
-  if (subtitle) subtitle.textContent = `${personName} · Tasks, Horas e Pontos por mês`;
+  if (subtitle) subtitle.textContent = `${personName} · Tasks Concluídas por mês`;
 
   const chartWrap = document.querySelector('.adm-chart-wrap');
   if (chartWrap) chartWrap.style.opacity = '0.4';
@@ -3260,7 +3338,7 @@ async function loadAdmData() {
   const qs = admSelectedUser ? `&userId=${admSelectedUser}` : '';
 
   try {
-    const resp = await fetch(`/api/reports/adm?fromMonth=${fromMonth}&toMonth=${toMonth}${qs}`, {
+    const resp = await fetch(`/api/reports/adm?from=${range.from}&to=${range.to}${qs}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
     const text = await resp.text();
@@ -3270,11 +3348,14 @@ async function loadAdmData() {
     }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${data.error || text.slice(0, 150)}`);
 
+    admLastData = data;
     renderAdmStats(data.stats || {});
     admMonthlyData  = data.months || [];
     admActiveMonths = null;
     renderAdmMonthChips(admMonthlyData);
     renderAdmChart(admMonthlyData, null, admActiveMetric);
+    renderAdmUserBreakdown(data.userBreakdown || []);
+    renderAdmCompanyBreakdown(data.companyBreakdown || []);
   } catch (err) {
     console.error('[adm] erro:', err.message);
     const chartEl = document.getElementById('admBarChart');
@@ -3291,7 +3372,7 @@ async function loadAdmData() {
 
 function renderAdmStats(stats) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  set('admStatTasks',  stats.totalTasks  ?? '—');
+  set('admStatDone',   stats.totalDone   ?? '—');
   set('admStatHours',  stats.totalHours  != null ? `${Number(stats.totalHours).toFixed(1)}h` : '—');
   set('admStatPoints', stats.totalPoints ?? '—');
 }
@@ -3420,14 +3501,22 @@ function initAdmFilters() {
     await loadAdmData();
   });
 
-  document.getElementById('admFromMonth')?.addEventListener('change', async () => {
-    admActiveMonths = null;
-    await loadAdmData();
+  document.getElementById('admDatePresets')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-preset]');
+    if (!btn) return;
+    admCurrentPreset = btn.dataset.preset;
+    document.querySelectorAll('.adm-preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const customRange = document.getElementById('admCustomRange');
+    if (customRange) customRange.style.display = admCurrentPreset === 'custom' ? 'flex' : 'none';
+    if (admCurrentPreset !== 'custom') { admActiveMonths = null; await loadAdmData(); }
   });
 
-  document.getElementById('admToMonth')?.addEventListener('change', async () => {
-    admActiveMonths = null;
-    await loadAdmData();
+  document.getElementById('admDateFrom')?.addEventListener('change', async () => {
+    if (admCurrentPreset === 'custom') { admActiveMonths = null; await loadAdmData(); }
+  });
+  document.getElementById('admDateTo')?.addEventListener('change', async () => {
+    if (admCurrentPreset === 'custom') { admActiveMonths = null; await loadAdmData(); }
   });
 
   document.getElementById('admMetricTabs')?.addEventListener('click', (e) => {
@@ -3438,6 +3527,149 @@ function initAdmFilters() {
     admActiveMetric = tab.dataset.metric;
     renderAdmChart(admMonthlyData, admActiveMonths, admActiveMetric);
   });
+
+  document.getElementById('admExportExcel')?.addEventListener('click', exportAdmExcel);
+  document.getElementById('admExportPDF')?.addEventListener('click', exportAdmPrint);
+}
+
+// ── ADM Breakdown tables ─────────────────────────────────────────────
+
+function renderAdmUserBreakdown(rows) {
+  const el = document.getElementById('admUserBreakdown');
+  if (!el) return;
+  const active = rows.filter(r => r.doneCount > 0 || r.totalHours > 0);
+  if (!active.length) { el.innerHTML = `<div class="adm-bd-header">Por Colaborador</div><p style="color:#5a6478;padding:16px;font-size:12px">Sem dados no período</p>`; return; }
+  const maxPts = Math.max(...active.map(r => r.totalPoints), 1);
+  const tbody = active.map((r, i) => {
+    const barPct = Math.round(r.totalPoints / maxPts * 100);
+    const barColor = i === 0 ? '#3dba6f' : '#e8b844';
+    const pos = i === 0 ? IC.medal(1) : i === 1 ? IC.medal(2) : i === 2 ? IC.medal(3)
+      : `<span class="adm-bd-pos">${i + 1}</span>`;
+    return `<tr>
+      <td class="adm-bd-name-cell">${pos} <span>${escHtml(r.name)}</span></td>
+      <td class="adm-bd-num">${r.doneCount}</td>
+      <td class="adm-bd-num adm-bd-pts">${r.totalPoints}</td>
+      <td class="adm-bd-num">${r.totalHours.toFixed(1)}h</td>
+      <td class="adm-bd-bar-cell">
+        <div class="adm-bd-bar-track"><div class="adm-bd-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+        <span class="adm-bd-pct-label" style="color:${barColor}">${barPct}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="adm-bd-header">Por Colaborador</div>
+    <table class="adm-bd-table">
+      <thead><tr>
+        <th>Nome</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+function renderAdmCompanyBreakdown(rows) {
+  const el = document.getElementById('admCompanyBreakdown');
+  if (!el) return;
+  const active = rows.filter(r => r.doneCount > 0 || r.totalHours > 0);
+  if (!active.length) { el.innerHTML = `<div class="adm-bd-header">Por Empresa / Cliente</div><p style="color:#5a6478;padding:16px;font-size:12px">Sem dados no período</p>`; return; }
+  const maxPts = Math.max(...active.map(r => r.totalPoints || r.doneCount), 1);
+  const tbody = active.map(r => {
+    const pct = Math.round((r.totalPoints || r.doneCount) / maxPts * 100);
+    const barColor = '#e8b844';
+    return `<tr>
+      <td class="adm-bd-name-cell"><span>${escHtml(r.company)}</span></td>
+      <td class="adm-bd-num">${r.doneCount}</td>
+      <td class="adm-bd-num adm-bd-pts">${r.totalPoints}</td>
+      <td class="adm-bd-num">${r.totalHours.toFixed(1)}h</td>
+      <td class="adm-bd-bar-cell">
+        <div class="adm-bd-bar-track"><div class="adm-bd-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
+        <span class="adm-bd-pct-label" style="color:${barColor}">${pct}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="adm-bd-header">Por Empresa / Cliente</div>
+    <table class="adm-bd-table">
+      <thead><tr>
+        <th>Empresa</th><th>Concluídas</th><th>Pontos</th><th>Horas</th><th>Relativo</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+}
+
+// ── ADM Export ────────────────────────────────────────────────────────
+
+function exportAdmExcel() {
+  if (typeof XLSX === 'undefined') { alert('Biblioteca de exportação não carregada. Verifique sua conexão.'); return; }
+  if (!admLastData) { alert('Carregue os dados do painel primeiro.'); return; }
+  const d = admLastData;
+  const range      = getAdmDateRange();
+  const fromLabel  = range?.from || '';
+  const toLabel    = range?.to   || '';
+  const personName = document.getElementById('admUserSelect')?.selectedOptions[0]?.text || 'Toda a equipe';
+
+  const WB = XLSX.utils.book_new();
+
+  // ── Resumo ──
+  const resumo = [
+    ['Relatório ADM — MKT Hub'],
+    [],
+    ['Período',      `${fromLabel} → ${toLabel}`],
+    ['Colaborador',  personName],
+    [],
+    ['Métrica',              'Valor'],
+    ['Tasks Concluídas',     d.stats.totalDone],
+    ['Pontuação Total',      d.stats.totalPoints],
+    ['Horas Registradas',    d.stats.totalHours],
+  ];
+  XLSX.utils.book_append_sheet(WB, XLSX.utils.aoa_to_sheet(resumo), 'Resumo');
+
+  // ── Por Mês ──
+  const mesData = [
+    ['Mês', 'Tasks Concluídas', 'Pontos', 'Horas'],
+    ...d.months.map(m => [m.label, m.tasksDone, m.pts, m.horas]),
+  ];
+  XLSX.utils.book_append_sheet(WB, XLSX.utils.aoa_to_sheet(mesData), 'Por Mês');
+
+  // ── Por Colaborador ──
+  if (d.userBreakdown && d.userBreakdown.length) {
+    const colData = [
+      ['Colaborador', 'Tasks Total', 'Concluídas', '% Conclusão', 'Pontos', 'Horas'],
+      ...d.userBreakdown.map(r => [
+        r.name,
+        r.taskCount,
+        r.doneCount,
+        r.taskCount > 0 ? Math.round(r.doneCount / r.taskCount * 100) + '%' : '0%',
+        r.totalPoints,
+        r.totalHours,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(WB, XLSX.utils.aoa_to_sheet(colData), 'Por Colaborador');
+  }
+
+  // ── Por Empresa ──
+  if (d.companyBreakdown && d.companyBreakdown.length) {
+    const empData = [
+      ['Empresa / Cliente', 'Tasks Total', 'Concluídas', '% Conclusão', 'Pontos', 'Horas'],
+      ...d.companyBreakdown.map(r => [
+        r.company,
+        r.taskCount,
+        r.doneCount,
+        r.taskCount > 0 ? Math.round(r.doneCount / r.taskCount * 100) + '%' : '0%',
+        r.totalPoints,
+        r.totalHours,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(WB, XLSX.utils.aoa_to_sheet(empData), 'Por Empresa');
+  }
+
+  const fileName = `mktimer-adm-${(fromSel?.value || 'relatorio').replace(/-/g, '')}.xlsx`;
+  XLSX.writeFile(WB, fileName);
+}
+
+function exportAdmPrint() {
+  document.body.classList.add('print-adm');
+  window.print();
+  setTimeout(() => document.body.classList.remove('print-adm'), 500);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3511,7 +3743,7 @@ async function loadRoutinePanel() {
   if (isAdmin) {
     // bia e maria clara: visão de gestão (grid semanal + adicionar/remover rotinas + motivos)
     renderRoutineShell();
-    await fetchAndRenderRoutines();
+    await Promise.all([fetchAndRenderRoutines(), fetchAndRenderRoutineHistory()]);
   } else {
     // malu e zion: visão diária (marcar feita / não feita)
     renderMemberRoutineShell();
@@ -3598,13 +3830,12 @@ function renderMemberRoutineList(routines, date) {
         </div>
       </div>
       <div class="rpm-actions">
-        <span class="rpm-pts">${r.points}p</span>
         <button class="rpm-btn rpm-btn-done${isDone ? ' active' : ''}"
           data-rid="${r.id}" data-date="${date}" data-act="done"
-          title="Feita">✅</button>
+          title="Feita">${IC.check}</button>
         <button class="rpm-btn rpm-btn-skip${isSkip ? ' active' : ''}"
           data-rid="${r.id}" data-date="${date}" data-act="skip"
-          title="Não feita">❌</button>
+          title="Não feita">${IC.xMark}</button>
       </div>
     </div>`;
   }).join('');
@@ -3694,6 +3925,14 @@ function renderRoutineShell() {
       <p class="rp-loading">Carregando...</p>
     </div>
 
+    <!-- Gráfico histórico de % realização por semana -->
+    <div class="rp-history-section" id="rpHistorySection">
+      <div class="rp-history-title">Histórico semanal de realização</div>
+      <div class="rp-history-chart-wrap">
+        <canvas id="rpHistoryChart"></canvas>
+      </div>
+    </div>
+
     <!-- Admin: add routines (visível apenas para ADMIN_MASTER) -->
     <div class="rp-admin-section" id="rpAdminSection" style="display:none">
       <div class="rp-admin-title">Gerenciar Rotinas</div>
@@ -3728,15 +3967,20 @@ function renderRoutineShell() {
             <label class="rp-day-cb"><input type="checkbox" value="6" /> Sáb</label>
           </div>
         </div>
-        <select id="rpAddPts" class="rp-filter-sel">
-          <option value="1">1 pt</option>
-          <option value="2">2 pts</option>
-          <option value="3" selected>3 pts</option>
-          <option value="5">5 pts</option>
-          <option value="8">8 pts</option>
-        </select>
         <button type="submit" class="rp-add-btn">Adicionar</button>
       </form>
+
+      <!-- Importar via CSV -->
+      <div class="rp-csv-section">
+        <div class="rp-csv-title">Importar rotinas via CSV</div>
+        <p class="rp-csv-hint">Colunas: <code>responsavel, titulo, empresa, frequencia, dias, observacao</code></p>
+        <label class="rp-csv-label">
+          <input type="file" id="rpCsvInput" accept=".csv,.txt" style="display:none" />
+          <span class="rp-csv-btn">Escolher arquivo CSV</span>
+        </label>
+        <div id="rpCsvPreview" class="rp-csv-preview" style="display:none"></div>
+        <button id="rpCsvImportBtn" class="rp-add-btn" style="display:none">Importar rotinas</button>
+      </div>
     </div>
   `;
 
@@ -3917,7 +4161,7 @@ function renderRoutineGrid() {
       const reason = entry?.reason || null;
       const reasonHtml = status === 'skip' && reason
         ? `<div class="rp-cell-reason" title="${escHtml(reason)}">
-             <span class="rp-cell-reason-icon">⚠</span>
+             <span class="rp-cell-reason-icon">${IC.warn}</span>
              <span class="rp-cell-reason-text">${escHtml(reason.length > 40 ? reason.slice(0,40)+'…' : reason)}</span>
            </div>`
         : '';
@@ -4028,6 +4272,82 @@ function renderRoutineGrid() {
   });
 }
 
+let _rpHistoryChart = null;
+
+async function fetchAndRenderRoutineHistory() {
+  const section = document.getElementById('rpHistorySection');
+  if (!section) return;
+
+  try {
+    const data = await api('/api/routines?action=weekly-history&weeks=8');
+    const weeks = data.weeks || [];
+    if (!weeks.length || weeks.every(w => w.total === 0)) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+
+    const canvas = document.getElementById('rpHistoryChart');
+    if (!canvas) return;
+
+    if (_rpHistoryChart) { _rpHistoryChart.destroy(); _rpHistoryChart = null; }
+
+    const labels = weeks.map(w => w.label);
+    const pcts   = weeks.map(w => w.pct ?? 0);
+    const colors = pcts.map(p =>
+      p === null ? 'rgba(58,62,90,0.4)' :
+      p >= 80    ? '#22d3a3' :
+      p >= 50    ? '#f59e0b' : '#f04444'
+    );
+
+    _rpHistoryChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data: pcts,
+          backgroundColor: colors,
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => `${c.raw ?? 0}% de realização` } },
+          datalabels: {
+            display: true,
+            color: '#c8d0dc',
+            font: { size: 10, weight: '700' },
+            formatter: v => v != null ? `${v}%` : '—',
+            anchor: 'end',
+            align: 'end',
+            offset: 2,
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#7882a4', font: { size: 10 } },
+            grid: { display: false },
+            border: { display: false },
+          },
+          y: {
+            display: false,
+            min: 0,
+            max: 110,
+          },
+        },
+      },
+      plugins: [typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : {}],
+    });
+  } catch (err) {
+    console.warn('[routine-history]', err.message);
+    if (section) section.style.display = 'none';
+  }
+}
+
 async function initRoutineAdminSection() {
   const userSel = document.getElementById('rpAdminUserSel');
   if (!userSel || userSel.options.length > 0) return;
@@ -4051,7 +4371,7 @@ async function initRoutineAdminSection() {
       const title   = document.getElementById('rpAddTitle')?.value.trim();
       const company = document.getElementById('rpAddCompany')?.value;
       const freqRaw = document.getElementById('rpAddFreq')?.value;
-      const points  = Number(document.getElementById('rpAddPts')?.value);
+      const points  = 0;
       if (!uid || !title || !company || !freqRaw) return;
 
       // Mapeia freq para valores aceitos pelo DB + extrai applies_days
@@ -4093,6 +4413,138 @@ async function initRoutineAdminSection() {
       }
     });
   }
+
+  initRoutineCsvImport();
+}
+
+function initRoutineCsvImport() {
+  const fileInput   = document.getElementById('rpCsvInput');
+  const csvLabel    = fileInput?.closest('label');
+  const previewEl   = document.getElementById('rpCsvPreview');
+  const importBtn   = document.getElementById('rpCsvImportBtn');
+  if (!fileInput || !previewEl || !importBtn) return;
+
+  let _parsedRows = [];
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      _parsedRows = parseCsvRoutines(e.target.result);
+      if (!_parsedRows.length) {
+        previewEl.style.display = '';
+        previewEl.innerHTML = '<p class="rp-csv-err">Nenhuma linha válida encontrada no CSV.</p>';
+        importBtn.style.display = 'none';
+        return;
+      }
+      previewEl.style.display = '';
+      previewEl.innerHTML = `
+        <p class="rp-csv-count">${_parsedRows.length} rotina(s) para importar:</p>
+        <ul class="rp-csv-list">${_parsedRows.map(r =>
+          `<li><strong>${escHtml(r.titulo)}</strong> — ${escHtml(r.responsavel)} / ${escHtml(r.empresa)} / ${escHtml(r.frequencia)}</li>`
+        ).join('')}</ul>`;
+      importBtn.style.display = '';
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+
+  importBtn.addEventListener('click', async () => {
+    if (!_parsedRows.length) return;
+    importBtn.disabled = true;
+    importBtn.textContent = 'Importando…';
+
+    try {
+      const usersData = await api('/api/users');
+      const users = usersData.users || [];
+      const findUser = (name) => {
+        const n = (name || '').toLowerCase().trim();
+        return users.find(u => u.name.toLowerCase().trim().startsWith(n) || n.startsWith(u.name.toLowerCase().trim().split(' ')[0]));
+      };
+
+      let ok = 0, fail = 0;
+      for (const row of _parsedRows) {
+        const user = findUser(row.responsavel);
+        if (!user) { fail++; continue; }
+        try {
+          await api('/api/routines?action=create', {
+            method: 'POST',
+            body: JSON.stringify({
+              userId:       user.id,
+              title:        row.titulo,
+              observation:  row.observacao || null,
+              company:      row.empresa || null,
+              frequency:    row.frequency,
+              applies_days: row.applies_days,
+              points:       0,
+            }),
+          });
+          ok++;
+        } catch { fail++; }
+      }
+
+      previewEl.innerHTML = `<p class="rp-csv-count" style="color:#22d3a3">${ok} importada(s)${fail ? ` · ${fail} erro(s)` : ''}</p>`;
+      importBtn.style.display = 'none';
+      _parsedRows = [];
+      fileInput.value = '';
+      await fetchAndRenderRoutines();
+    } catch (err) {
+      previewEl.innerHTML = `<p class="rp-csv-err">Erro: ${escHtml(err.message)}</p>`;
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = 'Importar rotinas';
+    }
+  });
+}
+
+function parseCsvRoutines(text) {
+  const FREQ_MAP = {
+    'diaria': 'daily', 'diária': 'daily', 'daily': 'daily',
+    'semanal': 'weekly', 'weekly': 'weekly',
+    'mensal': 'monthly', 'monthly': 'monthly',
+    '3x': 'weekly', '3x_week': 'weekly',
+  };
+  const DOW_MAP = { 'seg':1,'ter':2,'qua':3,'qui':4,'sex':5,'sab':6,'sáb':6,'dom':7 };
+
+  const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+
+  // Detect separator
+  const sep = lines[0].includes(';') ? ';' : ',';
+  const header = lines[0].split(sep).map(h => h.trim().toLowerCase()
+    .replace(/[^a-z]/g, ''));
+
+  const idxOf = (k) => header.findIndex(h => h.includes(k));
+  const iResp  = idxOf('responsav');
+  const iTit   = idxOf('titul');
+  const iEmp   = idxOf('empres');
+  const iFreq  = idxOf('freq');
+  const iDias  = idxOf('dias');
+  const iObs   = idxOf('observ');
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    const titulo = iTit >= 0 ? cols[iTit] : '';
+    if (!titulo) continue;
+    const freqRaw = iFreq >= 0 ? (cols[iFreq] || 'daily').toLowerCase().trim() : 'daily';
+    const frequency = FREQ_MAP[freqRaw] || 'daily';
+    let applies_days = null;
+    if (iDias >= 0 && cols[iDias]) {
+      applies_days = cols[iDias].split(/[,/|]/).map(d => DOW_MAP[d.trim().toLowerCase()]).filter(Boolean);
+      if (!applies_days.length) applies_days = null;
+    }
+    rows.push({
+      responsavel: iResp >= 0 ? cols[iResp] : '',
+      titulo,
+      empresa:     iEmp  >= 0 ? cols[iEmp]  : '',
+      observacao:  iObs  >= 0 ? cols[iObs]  : '',
+      frequencia:  freqRaw,
+      frequency,
+      applies_days,
+    });
+  }
+  return rows;
 }
 
 async function loadAdminRoutineList(userId) {
@@ -4121,6 +4573,260 @@ async function loadAdminRoutineList(userId) {
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SNAPSHOT VALIDATION — painel de fechamento semanal (admin only)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function loadSnapshotValidation() {
+  // Encontra ou cria o container dentro do painel ADM
+  let wrap = document.getElementById('snapValidationWrap');
+  if (!wrap) {
+    const admPanel = document.querySelector('[data-panel-view="adm"]');
+    if (!admPanel) return;
+    wrap = document.createElement('div');
+    wrap.id = 'snapValidationWrap';
+    admPanel.insertBefore(wrap, admPanel.firstChild);
+  }
+
+  wrap.innerHTML = '<div class="snap-validation-section"><p class="snap-val-empty">Carregando fechamentos...</p></div>';
+
+  try {
+    const resp = await fetch('/api/focus?action=snapshot-list', {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!resp.ok) { wrap.innerHTML = ''; return; }
+    const data = await resp.json();
+    const pending = (data.snapshots || []).filter(s => s.status === 'PENDENTE_VALIDACAO');
+    renderSnapshotValidation(wrap, pending);
+  } catch (_) {
+    wrap.innerHTML = '';
+  }
+}
+
+function renderSnapshotValidation(wrap, pendingSnaps) {
+  // ── Helpers ───────────────────────────────────────────────────────────
+  const fmtDate = (d) => {
+    const s = (d || '').slice(0, 10);
+    if (s.length < 10) return '—';
+    const [, m, day] = s.split('-');
+    return `${day}/${m}`;
+  };
+  const fmtWeek = (id) => {
+    const match = (id || '').match(/(\d{4})-W(\d+)/);
+    return match ? { week: `Semana ${Number(match[2])}`, year: match[1] } : { week: id, year: '' };
+  };
+  const tierInfo = (pct) => {
+    const p = Number(pct) || 0;
+    if (p >= 120) return { color: '#818cf8', bar: '#818cf8', label: '120%+' };
+    if (p >= 100) return { color: '#f6c200', bar: '#f6c200', label: '100%+' };
+    if (p >= 80)  return { color: '#22d3a3', bar: '#22d3a3', label: '≥ 80%' };
+    if (p >= 60)  return { color: '#f59e0b', bar: '#f59e0b', label: '≥ 60%' };
+    return { color: '#f04444', bar: '#f04444', label: '< 60%' };
+  };
+  const initials  = (n) => (n || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const avColor   = (n) => {
+    const pal = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22d3a3','#6366f1','#f04444'];
+    let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return pal[h % pal.length];
+  };
+
+  const calcBtn = `
+    <button class="snap-calc-btn" id="snapCalcBtn">
+      ${IC.clock} Calcular semana anterior
+    </button>`;
+
+  const cards = pendingSnaps.length
+    ? pendingSnaps.map(s => {
+        const { week, year } = fmtWeek(s.semana_id);
+        return `
+        <div class="snap-val-card" data-semana="${escHtml(s.semana_id)}">
+          <div class="snap-val-card-top">
+            <div class="snap-val-week-block">
+              <span class="snap-val-week-label">${escHtml(week)}</span>
+              <span class="snap-val-week-year">${escHtml(year)}</span>
+            </div>
+            <div class="snap-val-week-meta">
+              <span class="snap-val-date-range">${fmtDate(s.week_start)} — ${fmtDate(s.week_end)}</span>
+              <span class="snap-val-status-pending">${IC.clock} Aguardando validação</span>
+            </div>
+          </div>
+          <div class="snap-val-entries-wrap">
+            <div class="snap-val-loading"><span></span><span></span><span></span></div>
+          </div>
+          <div class="snap-val-footer">
+            <div class="snap-val-summary"></div>
+            <div class="snap-val-actions">
+              <button class="snap-val-confirm-btn" disabled>Confirmar e Fechar Semana</button>
+              <span class="snap-val-msg"></span>
+            </div>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div class="snap-val-empty-state">${IC.check} Nenhuma semana pendente de validação.</div>`;
+
+  wrap.innerHTML = `
+    <div class="snap-validation-section">
+      <div class="snap-val-header">
+        <span class="snap-val-title">${IC.lock} Fechamento Semanal</span>
+        ${calcBtn}
+      </div>
+      ${cards}
+    </div>`;
+
+  // ── Calcular ──────────────────────────────────────────────────────────
+  wrap.querySelector('#snapCalcBtn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = `${IC.clock} Calculando...`;
+    try {
+      const r = await fetch('/api/focus?action=snapshot-calculate', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao calcular');
+      btn.innerHTML = `${IC.check} Calculado — ${fmtWeek(d.semana_id).week}`;
+      setTimeout(() => loadSnapshotValidation(), 900);
+    } catch (err) {
+      btn.textContent = `Erro: ${err.message.slice(0, 36)}`;
+      btn.disabled = false;
+    }
+  });
+
+  // ── Carrega entradas por card ─────────────────────────────────────────
+  wrap.querySelectorAll('.snap-val-card').forEach(card => {
+    const semanaId = card.dataset.semana;
+    fetch(`/api/focus?action=snapshot-get&semana_id=${encodeURIComponent(semanaId)}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        const entries = (d.entries || []).sort((a, b) => Number(b.percentual_meta) - Number(a.percentual_meta));
+        const entriesWrap = card.querySelector('.snap-val-entries-wrap');
+
+        if (!entries.length) {
+          entriesWrap.innerHTML = '<p class="snap-val-empty">Nenhum colaborador no snapshot.</p>';
+          return;
+        }
+
+        const rows = entries.map(e => {
+          const pct    = Number(e.percentual_meta) || 0;
+          const tier   = tierInfo(pct);
+          const barPct = Math.round((Math.min(pct, 120) / 120) * 100);
+          const metaC  = e.coins_sugeridas_meta    || 0;
+          const rankC  = e.coins_sugeridas_ranking  || 0;
+          const sug    = e.coins_sugeridas_total    || 0;
+          const av     = initials(e.nome);
+          const avC    = avColor(e.nome);
+
+          return `
+            <div class="snap-entry-row" data-uid="${e.user_id}">
+              <div class="snap-entry-person">
+                <div class="snap-entry-av" style="background:${avC}">${av}</div>
+                <div>
+                  <div class="snap-entry-name">${escHtml(e.nome)}</div>
+                  <div class="snap-entry-cargo">${escHtml(e.cargo || '')}</div>
+                </div>
+              </div>
+              <div class="snap-entry-perf">
+                <div class="snap-entry-pct-row">
+                  <span class="snap-entry-pct" style="color:${tier.color}">${pct}%</span>
+                  <span class="snap-entry-tier" style="color:${tier.color};border-color:${tier.color}40">${tier.label}</span>
+                </div>
+                <div class="snap-entry-bar-track">
+                  <div class="snap-entry-bar-fill" style="width:${barPct}%;background:${tier.bar}"></div>
+                </div>
+                <div class="snap-entry-sub">${e.pontos} pts &nbsp;·&nbsp; ${Number(e.horas_validadas_total).toFixed(1)}h</div>
+              </div>
+              <div class="snap-entry-coins">
+                <div class="snap-coin-chips">
+                  ${metaC > 0 ? `<span class="snap-chip-meta">${metaC} meta</span>` : ''}
+                  ${rankC > 0 ? `<span class="snap-chip-rank">${rankC} rank</span>` : ''}
+                  ${metaC === 0 && rankC === 0 ? `<span class="snap-chip-zero">sem coins</span>` : ''}
+                </div>
+                <div class="snap-stepper">
+                  <button class="snap-step snap-step-dec" data-uid="${e.user_id}">−</button>
+                  <input class="snap-coins-input" type="number" min="0" max="10"
+                    value="${sug}" data-uid="${e.user_id}">
+                  <button class="snap-step snap-step-inc" data-uid="${e.user_id}">+</button>
+                </div>
+              </div>
+              <div class="snap-entry-obs">
+                <input class="snap-obs-input" type="text" placeholder="observação..." data-uid="${e.user_id}">
+              </div>
+            </div>`;
+        }).join('');
+
+        const totalSug = entries.reduce((s, e) => s + (e.coins_sugeridas_total || 0), 0);
+        card.querySelector('.snap-val-summary').innerHTML =
+          `<span class="snap-summary-text">${entries.length} colaboradores &nbsp;·&nbsp; ${totalSug} coins sugeridas no total</span>`;
+
+        entriesWrap.innerHTML = `
+          <div class="snap-entries-head">
+            <span>Colaborador</span>
+            <span>Performance</span>
+            <span>Coins</span>
+            <span>Observação</span>
+          </div>
+          <div class="snap-entries-body">${rows}</div>`;
+
+        // Steppers
+        entriesWrap.querySelectorAll('.snap-step-dec').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const inp = entriesWrap.querySelector(`.snap-coins-input[data-uid="${btn.dataset.uid}"]`);
+            if (inp) inp.value = Math.max(0, Number(inp.value) - 1);
+          });
+        });
+        entriesWrap.querySelectorAll('.snap-step-inc').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const inp = entriesWrap.querySelector(`.snap-coins-input[data-uid="${btn.dataset.uid}"]`);
+            if (inp) inp.value = Math.min(10, Number(inp.value) + 1);
+          });
+        });
+
+        // Confirmar
+        const confirmBtn = card.querySelector('.snap-val-confirm-btn');
+        confirmBtn.disabled = false;
+        confirmBtn.addEventListener('click', async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Salvando...';
+          const msg = card.querySelector('.snap-val-msg');
+
+          const updates = Array.from(card.querySelectorAll('.snap-coins-input')).map(inp => ({
+            user_id:          Number(inp.dataset.uid),
+            coins_validadas:  Number(inp.value),
+            observacao_admin: card.querySelector(`.snap-obs-input[data-uid="${inp.dataset.uid}"]`)?.value || '',
+          }));
+
+          try {
+            const r = await fetch('/api/focus?action=snapshot-validate', {
+              method: 'PATCH',
+              headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ semana_id: semanaId, entries: updates }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Erro ao validar');
+            msg.style.color = '#22c55e';
+            msg.textContent = `Semana encerrada com sucesso!`;
+            confirmBtn.innerHTML = `${IC.lock} Fechado`;
+            card.classList.add('snap-val-card--closed');
+            setTimeout(() => loadSnapshotValidation(), 1400);
+          } catch (err) {
+            msg.style.color = '#f04444';
+            msg.textContent = err.message;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirmar e Fechar Semana';
+          }
+        });
+      })
+      .catch(() => {
+        const entriesWrap = card.querySelector('.snap-val-entries-wrap');
+        if (entriesWrap) entriesWrap.innerHTML = `<p class="snap-val-empty" style="color:#f04444">Erro ao carregar entradas.</p>`;
+      });
+  });
 }
 
 init();

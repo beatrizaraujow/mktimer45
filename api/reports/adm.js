@@ -62,14 +62,15 @@ module.exports = async function handler(req, res) {
     let userFilterTime = '';
     if (uid) { timeParams.push(uid); userFilterTime = ` AND te.user_id = $${timeParams.length}`; }
 
-    const [totalTasksRes, totalHoursRes, monthlyTasksRes, monthlyHoursRes, usersRes] =
+    const [totalTasksRes, totalHoursRes, monthlyTasksRes, monthlyHoursRes, usersRes, companyTasksRes, companyHoursRes, userBreakdownRes] =
       await Promise.all([
         db.query(
-          `SELECT COUNT(*)::int AS total_tasks,
-                  SUM(CASE WHEN is_done THEN 1 ELSE 0 END)::int AS total_done,
+          `SELECT COUNT(*)::int AS total_done,
                   ${ptsSumSql} AS total_points
            FROM focus_tasks
-           WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2 ${userFilterTasks}`,
+           WHERE is_done = TRUE
+             AND completed_at IS NOT NULL
+             AND DATE(completed_at) >= $1 AND DATE(completed_at) <= $2 ${userFilterTasks}`,
           totalParams
         ),
         db.query(
@@ -79,12 +80,14 @@ module.exports = async function handler(req, res) {
           timeParams
         ),
         db.query(
-          `SELECT TO_CHAR(DATE(created_at), 'YYYY-MM') AS month,
+          `SELECT TO_CHAR(DATE(completed_at), 'YYYY-MM') AS month,
                   COUNT(*)::int AS task_count,
-                  SUM(CASE WHEN is_done THEN 1 ELSE 0 END)::int AS done_count,
+                  COUNT(*)::int AS done_count,
                   ${ptsSumSql} AS total_points
            FROM focus_tasks
-           WHERE DATE(created_at) >= $1 AND DATE(created_at) <= $2 ${userFilterTasks}
+           WHERE is_done = TRUE
+             AND completed_at IS NOT NULL
+             AND DATE(completed_at) >= $1 AND DATE(completed_at) <= $2 ${userFilterTasks}
            GROUP BY 1 ORDER BY 1`,
           totalParams
         ),
@@ -97,6 +100,58 @@ module.exports = async function handler(req, res) {
           timeParams
         ),
         db.query(`SELECT id, name FROM users WHERE active = TRUE ORDER BY name`),
+        // Tasks por empresa (categoria)
+        db.query(
+          `SELECT COALESCE(NULLIF(TRIM(category),''), 'Sem categoria') AS company,
+                  COUNT(*)::int AS task_count,
+                  COUNT(*)::int AS done_count,
+                  ${ptsSumSql} AS total_points
+           FROM focus_tasks
+           WHERE is_done = TRUE
+             AND completed_at IS NOT NULL
+             AND DATE(completed_at) >= $1 AND DATE(completed_at) <= $2 ${userFilterTasks}
+           GROUP BY 1 ORDER BY done_count DESC, task_count DESC`,
+          totalParams
+        ),
+        // Horas por empresa (time_entries)
+        db.query(
+          `SELECT c.name AS company,
+                  COALESCE(SUM(te.hours), 0)::float AS total_hours
+           FROM time_entries te
+           JOIN companies c ON c.id = te.company_id
+           WHERE te.work_date >= $1 AND te.work_date <= $2 ${userFilterTime}
+           GROUP BY 1 ORDER BY total_hours DESC`,
+          timeParams
+        ),
+        // Breakdown por colaborador (sem filtro de usuário — visão completa da equipe)
+        db.query(
+          `SELECT u.id, u.name,
+                  COALESCE(t.task_count, 0)::int   AS task_count,
+                  COALESCE(t.done_count, 0)::int   AS done_count,
+                  COALESCE(t.total_points, 0)::int AS total_points,
+                  ROUND(COALESCE(h.total_hours, 0)::numeric, 1)::float AS total_hours
+           FROM users u
+           LEFT JOIN (
+             SELECT user_id,
+                    COUNT(*)::int AS task_count,
+                    COUNT(*)::int AS done_count,
+                    ${ptsSumSql} AS total_points
+             FROM focus_tasks
+             WHERE is_done = TRUE
+               AND completed_at IS NOT NULL
+               AND DATE(completed_at) >= $1 AND DATE(completed_at) <= $2
+             GROUP BY user_id
+           ) t ON t.user_id = u.id
+           LEFT JOIN (
+             SELECT user_id, COALESCE(SUM(hours), 0)::float AS total_hours
+             FROM time_entries
+             WHERE work_date >= $1 AND work_date <= $2
+             GROUP BY user_id
+           ) h ON h.user_id = u.id
+           WHERE u.active = TRUE
+           ORDER BY COALESCE(t.total_points, 0) DESC, COALESCE(t.done_count, 0) DESC`,
+          [from, to]
+        ),
       ]);
 
     const tasksMap = {};
@@ -133,9 +188,35 @@ module.exports = async function handler(req, res) {
     const s = totalTasksRes.rows[0] || {};
     const totalHours = Number(totalHoursRes.rows[0]?.total_hours || 0);
 
+    // Merge tasks + hours por empresa
+    const compHoursMap = {};
+    companyHoursRes.rows.forEach(r => { compHoursMap[r.company] = Number(r.total_hours); });
+    const allCompanies = new Set([
+      ...companyTasksRes.rows.map(r => r.company),
+      ...Object.keys(compHoursMap),
+    ]);
+    const companyBreakdown = [...allCompanies].map(company => {
+      const t = companyTasksRes.rows.find(r => r.company === company) || {};
+      return {
+        company,
+        taskCount:   t.task_count   || 0,
+        doneCount:   t.done_count   || 0,
+        totalPoints: t.total_points || 0,
+        totalHours:  Math.round((compHoursMap[company] || 0) * 10) / 10,
+      };
+    }).sort((a, b) => b.doneCount - a.doneCount || b.totalHours - a.totalHours);
+
+    const userBreakdown = userBreakdownRes.rows.map(r => ({
+      id:          r.id,
+      name:        r.name,
+      taskCount:   r.task_count,
+      doneCount:   r.done_count,
+      totalPoints: r.total_points,
+      totalHours:  Number(r.total_hours),
+    }));
+
     return json(res, 200, {
       stats: {
-        totalTasks:  s.total_tasks  || 0,
         totalDone:   s.total_done   || 0,
         totalPoints: s.total_points || 0,
         totalHours:  Math.round(totalHours * 100) / 100,
@@ -143,6 +224,9 @@ module.exports = async function handler(req, res) {
       monthlyBreakdown,
       months,
       users: usersRes.rows,
+      companyBreakdown,
+      userBreakdown,
+      clickupListId: (process.env.CLICKUP_LIST_ID || '').trim() || null,
     });
   } catch (err) {
     console.error('[adm] unhandled error:', err);

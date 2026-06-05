@@ -175,11 +175,11 @@
                       <span class="tc-name">ONEVO</span>
                       <span class="tc-display" id="tcDisp-onevo">00:00:00</span>
                       <button type="button" class="tc-toggle" id="tcToggle-onevo" data-tc-company="onevo" aria-label="Timer Onevo">
-                        <span class="tc-icon-play">▶</span>
-                        <span class="tc-icon-stop" style="display:none">■</span>
+                        <span class="tc-icon-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                        <span class="tc-icon-stop" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
                       </button>
                       <button type="button" class="tc-add" data-tc-add="onevo" aria-label="Registrar horas Onevo">+</button>
-                      <button type="button" class="tc-edit" data-tc-edit="onevo" aria-label="Ver entradas Onevo">✎</button>
+                      <button type="button" class="tc-edit" data-tc-edit="onevo" aria-label="Ver entradas Onevo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     </div>
 
                     <div class="tc-row" id="tcRow-seubone">
@@ -187,11 +187,11 @@
                       <span class="tc-name">SEUBONÉ</span>
                       <span class="tc-display" id="tcDisp-seubone">00:00:00</span>
                       <button type="button" class="tc-toggle" id="tcToggle-seubone" data-tc-company="seubone" aria-label="Timer SeuBoné">
-                        <span class="tc-icon-play">▶</span>
-                        <span class="tc-icon-stop" style="display:none">■</span>
+                        <span class="tc-icon-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                        <span class="tc-icon-stop" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
                       </button>
                       <button type="button" class="tc-add" data-tc-add="seubone" aria-label="Registrar horas SeuBoné">+</button>
-                      <button type="button" class="tc-edit" data-tc-edit="seubone" aria-label="Ver entradas SeuBoné">✎</button>
+                      <button type="button" class="tc-edit" data-tc-edit="seubone" aria-label="Ver entradas SeuBoné"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     </div>
 
                     <div class="tc-row" id="tcRow-carbone">
@@ -199,11 +199,11 @@
                       <span class="tc-name">CARBONE</span>
                       <span class="tc-display" id="tcDisp-carbone">00:00:00</span>
                       <button type="button" class="tc-toggle" id="tcToggle-carbone" data-tc-company="carbone" aria-label="Timer Carbone">
-                        <span class="tc-icon-play">▶</span>
-                        <span class="tc-icon-stop" style="display:none">■</span>
+                        <span class="tc-icon-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                        <span class="tc-icon-stop" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></span>
                       </button>
                       <button type="button" class="tc-add" data-tc-add="carbone" aria-label="Registrar horas Carbone">+</button>
-                      <button type="button" class="tc-edit" data-tc-edit="carbone" aria-label="Ver entradas Carbone">✎</button>
+                      <button type="button" class="tc-edit" data-tc-edit="carbone" aria-label="Ver entradas Carbone"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
                     </div>
 
                   </div>
@@ -499,19 +499,25 @@
               <option value="">Toda a equipe</option>
             </select>
             <span class="adm-filter-sep">·</span>
-            <span class="adm-filter-label">Visão Histórica por Mês</span>
-            <span class="adm-filter-label" style="color:#7882a4">De:</span>
-            <select id="admFromMonth" class="adm-select"></select>
-            <span class="adm-filter-label" style="color:#7882a4">Até:</span>
-            <select id="admToMonth" class="adm-select"></select>
-            <span class="adm-month-count" id="admMonthCount"></span>
+            <div class="adm-date-presets" id="admDatePresets">
+              <button class="adm-preset-btn" data-preset="30d">30 dias</button>
+              <button class="adm-preset-btn" data-preset="3m">3 meses</button>
+              <button class="adm-preset-btn active" data-preset="6m">6 meses</button>
+              <button class="adm-preset-btn" data-preset="1a">Este ano</button>
+              <button class="adm-preset-btn" data-preset="custom">Personalizado</button>
+            </div>
+            <div class="adm-custom-range" id="admCustomRange" style="display:none">
+              <input type="date" id="admDateFrom" class="adm-date-input">
+              <span class="adm-filter-label">→</span>
+              <input type="date" id="admDateTo" class="adm-date-input">
+            </div>
           </div>
 
           <!-- Stats -->
           <div class="adm-stats-row">
             <div class="adm-stat-card">
-              <span class="adm-stat-value" id="admStatTasks">—</span>
-              <span class="adm-stat-label">Total de Tasks</span>
+              <span class="adm-stat-value" id="admStatDone">—</span>
+              <span class="adm-stat-label">Tasks Concluídas</span>
             </div>
             <div class="adm-stat-card">
               <span class="adm-stat-value" id="admStatHours">—</span>
@@ -530,17 +536,35 @@
                 <h3 class="adm-comparison-title">Comparativo Mês a Mês</h3>
                 <p class="adm-comparison-subtitle" id="admChartSubtitle"></p>
               </div>
-              <div class="adm-metric-tabs" id="admMetricTabs">
-                <button type="button" class="adm-metric-tab active" data-metric="all">Todos</button>
-                <button type="button" class="adm-metric-tab" data-metric="pts">Pontos</button>
-                <button type="button" class="adm-metric-tab" data-metric="tasks">Tasks</button>
-                <button type="button" class="adm-metric-tab" data-metric="horas">Horas</button>
+              <div class="adm-comparison-header-right">
+                <div class="adm-metric-tabs" id="admMetricTabs">
+                  <button type="button" class="adm-metric-tab active" data-metric="all">Todos</button>
+                  <button type="button" class="adm-metric-tab" data-metric="pts">Pontos</button>
+                  <button type="button" class="adm-metric-tab" data-metric="tasks">Tasks</button>
+                  <button type="button" class="adm-metric-tab" data-metric="horas">Horas</button>
+                </div>
+                <div class="adm-export-btns">
+                  <button type="button" class="adm-btn-export" id="admExportExcel" title="Exportar Excel">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Excel
+                  </button>
+                  <button type="button" class="adm-btn-export adm-btn-pdf" id="admExportPDF" title="Exportar PDF">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    PDF
+                  </button>
+                </div>
               </div>
             </div>
             <div id="admMonthFilter" class="adm-month-chips"></div>
             <div class="adm-chart-wrap">
               <canvas id="admBarChart"></canvas>
             </div>
+          </div>
+
+          <!-- Breakdown tables -->
+          <div class="adm-breakdown-grid">
+            <div class="adm-breakdown-card" id="admUserBreakdown"></div>
+            <div class="adm-breakdown-card" id="admCompanyBreakdown"></div>
           </div>
 
         </section>
@@ -728,6 +752,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="/js/dashboard.js"></script>
   </body>
 </html>
