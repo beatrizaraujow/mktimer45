@@ -8,6 +8,7 @@
     "build": "echo \"Build concluido\""
   },
   "dependencies": {
+    "date-fns": "^4.4.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1"
   },

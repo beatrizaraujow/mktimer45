@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Histórico MKT · MKTimer</title>
+<link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
@@ -111,7 +112,7 @@ a{color:inherit;text-decoration:none}
 <body>
 
 <nav class="nav">
-  <span class="nav-logo">⏱ MKTimer</span>
+  <span class="nav-logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> MKTimer</span>
   <a href="/app">Dashboard</a>
   <a href="/painel-team">Painel Daily</a>
   <a href="/historico" class="active">Histórico</a>
@@ -124,7 +125,7 @@ a{color:inherit;text-decoration:none}
 </nav>
 
 <div class="topbar">
-  <h1>📋 Histórico MKT — Semana a Semana</h1>
+  <h1><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg> Histórico MKT — Semana a Semana</h1>
 
   <div class="filter-bar">
     <label>Período</label>
@@ -181,7 +182,7 @@ a{color:inherit;text-decoration:none}
   <div class="comp-section">
     <div class="comp-header">
       <div>
-        <div class="comp-title">📊 Comparativo Mensal</div>
+        <div class="comp-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Comparativo Mensal</div>
         <div class="comp-subtitle" id="comp-subtitle"></div>
       </div>
       <div class="comp-chart-tabs">
@@ -276,8 +277,10 @@ function setPreset(preset){
   currentPreset=preset;
 }
 
+const _STAR_ON  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+const _STAR_OFF = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
 function stars(n){
-  return Array.from({length:3},(_,i)=>`<span class="${i<n?'star-filled':'star-empty'}">★</span>`).join('');
+  return Array.from({length:3},(_,i)=>`<span class="${i<n?'star-filled':'star-empty'}">${i<n?_STAR_ON:_STAR_OFF}</span>`).join('');
 }
 
 function weekDateLabel(ws, we){
@@ -391,7 +394,7 @@ async function load(){
 
         const falta = meta100 - w.pts;
         const badge = ms==='above_120'
-          ? `<div class="week-meta-badge gold">★ +${pct-100}% acima da meta</div>`
+          ? `<div class="week-meta-badge gold">+${pct-100}% acima da meta</div>`
           : ms==='above_100'
           ? `<div class="week-meta-badge green">✓ meta atingida</div>`
           : w.isLive && falta > 0

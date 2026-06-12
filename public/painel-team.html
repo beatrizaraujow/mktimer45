@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Painel Daily · MKTimer</title>
+<link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif;min-height:100vh}
@@ -78,12 +79,26 @@ a{color:inherit;text-decoration:none}
 /* EMPTY */
 .empty{text-align:center;padding:60px 20px;color:#3a3e5a}
 .loading{text-align:center;padding:60px;color:#5a6280;font-size:14px}
+
+/* DAILY BRIEF */
+.daily-brief{background:#13151f;border:1px solid #252840;border-left:3px solid #e8b844;border-radius:10px;padding:18px 22px;margin:0 24px 20px;display:flex;gap:18px;align-items:flex-start}
+.daily-brief-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.daily-brief-body{flex:1;min-width:0}
+.daily-brief-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.daily-brief-title{font-size:13px;font-weight:700;color:#e8b844;letter-spacing:.4px;text-transform:uppercase}
+.daily-brief-date{font-size:11px;color:#4a5270}
+.daily-brief-text{font-size:13px;color:#9aa3c4;line-height:1.75;white-space:pre-wrap}
+.daily-brief-text strong{color:#c8d0e7;font-weight:600}
+.daily-brief-text ol,.daily-brief-text ul{padding-left:18px}
+.daily-brief-empty{font-size:13px;color:#3a3e5a;font-style:italic}
+.daily-brief-skeleton{height:14px;background:#1c1e32;border-radius:4px;margin-bottom:8px;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.8}}
 </style>
 </head>
 <body>
 
 <nav class="nav">
-  <span class="nav-logo">⏱ MKTimer</span>
+  <span class="nav-logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> MKTimer</span>
   <a href="/app">Dashboard</a>
   <a href="/painel-team" class="active">Painel Daily</a>
   <a href="/historico">Histórico</a>
@@ -95,7 +110,7 @@ a{color:inherit;text-decoration:none}
 </nav>
 
 <div class="topbar">
-  <h1><span class="icon">👥</span> Equipe — Painel Daily</h1>
+  <h1><span class="icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span> Equipe — Painel Daily</h1>
   <div class="date-nav">
     <button id="btn-prev">‹</button>
     <span id="date-display"></span>
@@ -103,6 +118,21 @@ a{color:inherit;text-decoration:none}
     <button id="btn-today" style="margin-left:4px;font-size:11px;padding:5px 9px">Hoje</button>
   </div>
   <span class="refresh-info">Atualiza em <span id="refresh-countdown">60s</span></span>
+</div>
+
+<div id="daily-brief-wrap">
+  <div class="daily-brief">
+    <div class="daily-brief-icon">☀️</div>
+    <div class="daily-brief-body">
+      <div class="daily-brief-header">
+        <span class="daily-brief-title">Daily do Dia</span>
+        <span class="daily-brief-date" id="daily-brief-date"></span>
+      </div>
+      <div class="daily-brief-skeleton" style="width:80%"></div>
+      <div class="daily-brief-skeleton" style="width:60%"></div>
+      <div class="daily-brief-skeleton" style="width:70%"></div>
+    </div>
+  </div>
 </div>
 
 <div id="content">
@@ -187,7 +217,7 @@ function renderCard(u){
     </div>
 
     <div class="horas-row">
-      <span>🕐 <span>${u.horasStr} validadas</span></span>
+      <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <span>${u.horasStr} validadas</span></span>
       <span>COEF: <span class="coef-val">${u.coef}%</span></span>
     </div>
 
@@ -199,6 +229,42 @@ function renderCard(u){
 
 function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function briefMarkdown(text){
+  return escHtml(text)
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^(\d+)\.\s/gm,'<br><b>$1.</b> ')
+    .replace(/^-\s/gm,'<br>• ')
+    .replace(/\n/g,'<br>');
+}
+
+async function loadDailyBrief(){
+  const wrap = document.getElementById('daily-brief-wrap');
+  const user = getUser();
+  if (!user || !user.name || !user.name.toLowerCase().includes('anny')) { wrap.hidden = true; return; }
+  const data = await api('/api/focus?action=daily-brief');
+  if(!data){ wrap.hidden=true; return; }
+
+  const { brief } = data;
+  if(!brief){
+    wrap.innerHTML=`<div class="daily-brief"><div class="daily-brief-icon">☀️</div><div class="daily-brief-body"><div class="daily-brief-header"><span class="daily-brief-title">Daily do Dia</span></div><p class="daily-brief-empty">Nenhuma daily publicada hoje ainda.</p></div></div>`;
+    return;
+  }
+
+  const d = new Date(`${brief.brief_date}T00:00:00Z`);
+  const dateStr = d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',timeZone:'UTC'});
+  wrap.innerHTML=`
+    <div class="daily-brief">
+      <div class="daily-brief-icon">☀️</div>
+      <div class="daily-brief-body">
+        <div class="daily-brief-header">
+          <span class="daily-brief-title">Daily do Dia</span>
+          <span class="daily-brief-date">${dateStr}</span>
+        </div>
+        <div class="daily-brief-text">${briefMarkdown(brief.content)}</div>
+      </div>
+    </div>`;
 }
 
 async function load(){
@@ -254,6 +320,7 @@ function startRefresh(){
     currentDate=d.toISOString().slice(0,10);
     load();
   };
+  loadDailyBrief();
   load();
   startRefresh();
 })();

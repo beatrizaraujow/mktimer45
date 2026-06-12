@@ -3,287 +3,262 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MKTimer</title>
+  <title>MKT Hub</title>
+  <link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --ink: #222222;
-      --ink-deep: #1a1a1a;
-      --ink-soft: #2c2c2c;
-      --ink-field: #383838;
-      --accent: #f0b600;
-      --accent-2: #ffca28;
-      --text: #ffffff;
-      --text-dim: #b8b8b8;
-      --text-muted: #7d7d7d;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
+
     body {
-      background: radial-gradient(120% 90% at 80% 10%, #2c2c2c 0%, #222222 45%, #161616 100%);
-      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      font-family: "Inter", system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
+      background: #1a1a1a;
       display: grid;
       place-items: center;
       min-height: 100vh;
-      padding: 40px;
+      padding: 24px;
     }
 
-    .stage {
-      position: relative;
-      width: min(880px, 100%);
-      aspect-ratio: 16 / 11;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #262626 0%, var(--ink) 55%, #1c1c1c 100%);
-      overflow: hidden;
-      display: grid;
-      place-items: center;
-      box-shadow:
-        0 40px 80px -30px rgba(0,0,0,0.7),
-        0 12px 30px -16px rgba(0,0,0,0.6);
+    /* ── background blobs ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(245,194,0,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 85% 80%, rgba(255,255,255,0.03) 0%, transparent 55%);
+      pointer-events: none;
     }
 
-    .shape { position: absolute; pointer-events: none; }
-    .shape.blob {
-      width: 360px; height: 360px;
-      border-radius: 80px;
-      background: rgba(255,255,255,0.018);
-      transform: rotate(38deg);
-      top: -40px; right: -40px;
-    }
-    .shape.pill {
-      width: 300px; height: 120px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.02);
-      transform: rotate(38deg);
-      bottom: 60px; right: 120px;
-    }
-    .shape.circle {
-      width: 130px; height: 130px;
-      border-radius: 50%;
-      background: rgba(0,0,0,0.18);
-      left: 60px; bottom: 80px;
-    }
-    .shape.glow {
-      width: 280px; height: 280px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(240,182,0,0.10) 0%, transparent 70%);
-      top: 30%; left: 40%;
-    }
-
-    .star {
-      position: absolute;
-      color: rgba(255,255,255,0.12);
-      font-size: 12px;
-    }
-    .star.s1 { top: 16%; left: 18%; }
-    .star.s2 { top: 30%; left: 12%; font-size: 9px; }
-    .star.s3 { bottom: 20%; right: 16%; }
-    .star.s4 { top: 12%; right: 22%; font-size: 9px; }
-    .star.s5 { bottom: 14%; left: 30%; font-size: 9px; }
-
-    .login {
-      position: relative;
-      z-index: 2;
-      width: 300px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .brand {
-      font-size: 38px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      color: var(--text);
-      margin-bottom: 22px;
-      position: relative;
-    }
-    .brand::after {
-      content: "\00AE";
-      font-size: 11px;
-      font-weight: 600;
-      vertical-align: super;
-      margin-left: 2px;
-      color: var(--text-dim);
-    }
-
+    /* ── card ── */
     .card {
-      width: 100%;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      backdrop-filter: blur(6px);
-    }
-
-    .field {
       position: relative;
-      background: var(--ink-field);
-      border: 1px solid transparent;
-      border-radius: 7px;
-      padding: 10px 14px 9px;
-      transition: border-color .15s, background .15s;
+      z-index: 1;
+      width: min(400px, 100%);
+      background: #222222;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 40px 36px 32px;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.3),
+        0 32px 64px -16px rgba(0,0,0,0.6),
+        0 8px 24px -8px rgba(0,0,0,0.4);
     }
-    .field:focus-within {
-      border-color: var(--accent);
-      background: #404040;
-    }
-    .field .label {
-      display: block;
-      font-size: 8px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 3px;
-    }
-    .field input {
-      width: 100%;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--text);
-      font: 600 14px/1.2 "Inter", sans-serif;
-      letter-spacing: 0.01em;
-      -webkit-appearance: none;
-    }
-    .field input::placeholder {
-      color: var(--text-muted);
-      font-weight: 600;
-      letter-spacing: 0.06em;
-    }
-    .field.plain {
+
+    /* ── brand ── */
+    .brand {
       display: flex;
       align-items: center;
-      min-height: 42px;
+      gap: 12px;
+      margin-bottom: 32px;
     }
-
-    .error-msg {
-      font-size: 11px;
-      color: #ff6b6b;
-      font-weight: 600;
-      text-align: center;
-      display: none;
-      margin: -2px 0;
-    }
-
-    .btn-login {
-      margin-top: 2px;
-      align-self: center;
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      background: #ffffff;
-      color: var(--ink);
-      border: 0;
-      border-radius: 999px;
-      padding: 10px 22px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      cursor: pointer;
-      font-family: inherit;
-      transition: transform .12s, box-shadow .2s, background .2s;
-      box-shadow: 0 8px 18px -8px rgba(0,0,0,0.5);
-    }
-    .btn-login:hover { transform: translateY(-1px); }
-    .btn-login:active { transform: translateY(0); }
-    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .btn-login .chev {
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: #f5c200;
+      border-radius: 10px;
       display: grid;
       place-items: center;
-      color: var(--ink);
       flex-shrink: 0;
     }
-    .btn-login .chev svg { width: 9px; height: 9px; }
+    .brand-icon svg { width: 22px; height: 22px; }
+    .brand-text {}
+    .brand-name {
+      font-size: 20px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
 
-    .alt-link {
-      margin-top: 22px;
-      background: transparent;
-      border: 0;
-      color: var(--text-dim);
+    /* ── divider ── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin-bottom: 28px;
+    }
+
+    /* ── headline ── */
+    .headline {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .subline {
+      font-size: 13px;
+      color: rgba(255,255,255,0.38);
+      font-weight: 500;
+      margin-bottom: 28px;
+    }
+
+    /* ── fields ── */
+    .fields { display: flex; flex-direction: column; gap: 12px; }
+
+    .field-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      text-decoration: underline;
-      text-underline-offset: 3px;
+      color: rgba(255,255,255,0.4);
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #ffffff;
+      font: 600 14px/1.2 "Inter", sans-serif;
+      outline: none;
+      transition: border-color .15s, background .15s;
+      -webkit-appearance: none;
+    }
+    .field-input::placeholder { color: rgba(255,255,255,0.2); font-weight: 500; }
+    .field-input:focus {
+      border-color: #f5c200;
+      background: rgba(245,194,0,0.05);
+    }
+
+    /* ── error ── */
+    .error-msg {
+      display: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ff6b6b;
+      background: rgba(255,107,107,0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      text-align: center;
+    }
+
+    /* ── button ── */
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 13px 20px;
+      background: #f5c200;
+      color: #222222;
+      border: none;
+      border-radius: 10px;
+      font: 800 13px/1 "Inter", sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
-      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 16px -4px rgba(245,194,0,0.4);
+    }
+    .btn:hover {
+      background: #ffd435;
+      box-shadow: 0 6px 20px -4px rgba(245,194,0,0.5);
+      transform: translateY(-1px);
+    }
+    .btn:active { transform: translateY(0); box-shadow: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn svg { width: 14px; height: 14px; }
+
+    /* ── forgot ── */
+    .forgot {
+      display: block;
+      margin-top: 20px;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.28);
+      font: 600 11px/1 "Inter", sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
       transition: color .15s;
     }
-    .alt-link:hover { color: var(--accent); }
+    .forgot:hover { color: #f5c200; }
 
-    @media (max-width: 600px) {
-      body { padding: 20px; }
-      .stage { aspect-ratio: auto; padding: 52px 24px; }
-      .login { width: 100%; max-width: 300px; }
+    @media (max-width: 480px) {
+      .card { padding: 32px 24px 28px; }
     }
   </style>
 </head>
 <body>
-  <div class="stage" data-screen-label="Login">
-    <div class="shape blob"></div>
-    <div class="shape pill"></div>
-    <div class="shape circle"></div>
-    <div class="shape glow"></div>
-    <span class="star s1">&#10022;</span>
-    <span class="star s2">&#10022;</span>
-    <span class="star s3">&#10022;</span>
-    <span class="star s4">&#10022;</span>
-    <span class="star s5">&#10022;</span>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#222222"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#222222"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#222222"/>
+          <circle cx="17.5" cy="17.5" r="3.5" fill="#222222"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">MKT Hub</div>
+        <div class="brand-sub">Marketing Operations</div>
+      </div>
+    </div>
 
-    <form class="login" id="loginForm" novalidate>
-      <div class="brand">MKTimer</div>
+    <div class="divider"></div>
 
-      <div class="card">
-        <label class="field">
-          <span class="label">ID do usuário</span>
+    <div class="headline">Bem-vindo de volta</div>
+    <div class="subline">Entre com suas credenciais para continuar.</div>
+
+    <form id="loginForm" novalidate>
+      <div class="fields">
+        <div class="field-wrap">
+          <label class="field-label" for="userId">Email</label>
           <input
-            type="text"
+            class="field-input"
+            type="email"
             id="userId"
-            name="name"
-            autocomplete="username"
+            name="email"
+            autocomplete="email"
             spellcheck="false"
-            placeholder="seu id"
+            placeholder="seu@email.com"
           >
-        </label>
+        </div>
 
-        <div class="field plain">
+        <div class="field-wrap">
+          <label class="field-label" for="pw">Senha</label>
           <input
+            class="field-input"
             type="password"
             id="pw"
             name="password"
             autocomplete="current-password"
-            placeholder="SENHA"
+            placeholder="••••••••"
           >
         </div>
 
         <p class="error-msg" id="errorMsg" role="alert"></p>
 
-        <button type="submit" class="btn-login" id="submitBtn">
+        <button type="submit" class="btn" id="submitBtn">
           <span id="submitText">Entrar</span>
-          <span class="chev">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 6l6 6-6 6"/>
-            </svg>
-          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
         </button>
       </div>
-
-      <button type="button" class="alt-link" id="forgotBtn">Esqueci minha senha</button>
     </form>
+
+    <button type="button" class="forgot" id="forgotBtn">Esqueci minha senha</button>
   </div>
 
   <script>
@@ -304,7 +279,7 @@
         return;
       }
 
-      submitBtn.disabled    = true;
+      submitBtn.disabled     = true;
       submitText.textContent = 'Entrando…';
 
       try {

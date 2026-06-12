@@ -8,5 +8,11 @@
     { "source": "/historico",    "destination": "/historico.html" },
     { "source": "/admin",        "destination": "/admin.html" },
     { "source": "/",             "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/focus?action=cron-weekly-snapshot",
+      "schedule": "0 2 * * 6"
+    }
   ]
 }

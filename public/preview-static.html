@@ -48,7 +48,7 @@ body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif}
 </head>
 <body>
 <nav class="nav">
-  <span class="nav-logo">⏱ MKTimer</span>
+  <span class="nav-logo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> MKTimer</span>
   <a href="#">Dashboard</a>
   <a href="#" class="active">Painel Daily</a>
   <a href="#">Histórico</a>
@@ -56,7 +56,7 @@ body{background:#0f1117;color:#c8d0e7;font-family:'Inter',system-ui,sans-serif}
   <div class="nav-right">samuel &nbsp;|&nbsp; <span style="cursor:pointer">Sair</span></div>
 </nav>
 <div class="topbar">
-  <h1>👥 Equipe — Painel Daily</h1>
+  <h1><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Equipe — Painel Daily</h1>
   <div class="date-nav">
     <button class="date-btn">‹</button>
     <span class="date-lbl">Qua, 28/05</span>
@@ -141,7 +141,7 @@ grid.innerHTML = members.map(m => {
     </div>
     <div class="meta-row"><span class="meta-l">Meta diária: ${m.meta} pts</span><span class="meta-p">${m.metaPct}%</span></div>
     <div class="bar"><div class="bar-fill ${pOver?'over':''}" style="width:${Math.min(m.metaPct,100)}%"></div></div>
-    <div class="hrow">🕐 <span>${m.horas} validadas</span> &nbsp; COEF: <span class="coef">${m.coef}%</span></div>
+    <div class="hrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:middle"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> <span>${m.horas} validadas</span> &nbsp; COEF: <span class="coef">${m.coef}%</span></div>
     <div class="tasks">${tasks}</div>
   </div>`;
 }).join('');

@@ -2,6 +2,15 @@ const db = require('../_lib/db');
 const { requireAuth } = require('../_lib/auth');
 const { json, methodNotAllowed } = require('../_lib/http');
 const { getDateParts, clampWeeks, getOrCreateActiveSession } = require('../_lib/focus');
+const { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } = require('date-fns');
+const {
+  CONCLUDED_STATUSES,
+  IN_PROGRESS_STATUSES,
+  ALTERATION_STATUSES,
+  STATUS_CAT,
+  SNAPSHOT_STATUS,
+  normalizeStatus,
+} = require('../_lib/constants');
 
 function weekStart(date) {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -41,17 +50,6 @@ function addWeeksUtc(date, weeks) {
   return d;
 }
 
-// ── Status concluídos — SBHub Regras Técnicas seção 3 (+ variações do ClickUp) ──
-const COMPLETED_STATUSES = new Set([
-  // Exatos do documento
-  'aprovar', 'publicar', 'banco de criativos',
-  'concluído', 'concluido', 'concluída', 'concluida',
-  'done', 'closed', 'finalizado', 'finalizada',
-  // Variações comuns no ClickUp
-  'aprovado', 'aprovada',
-  'publicado', 'publicada',
-  'completo', 'completa', 'complete', 'completed',
-]);
 
 // ── Mapeamento Empresa → grupo — seção 2 ─────────────────────────────────
 const EMPRESA_TAGS = [
@@ -74,36 +72,179 @@ function resolveEmpresa(task) {
 }
 
 function cuTaskDone(t) {
-  const s  = (t.status?.status || '').toLowerCase().trim();
-  const tp = (t.status?.type   || '').toLowerCase().trim();
+  const s  = normalizeStatus(t.status?.status);
+  const tp = normalizeStatus(t.status?.type);
   if (tp === 'closed') return true;
-  if (COMPLETED_STATUSES.has(s)) return true;
+  if (CONCLUDED_STATUSES.has(s)) return true;
   // Regex fallback para prefixos/sufixos não mapeados (ex: "Concluído ✓", "Publicado!")
   if (/^(conclu|finaliz|publicad|aprovad|banco.?de.?criativ|complet)/i.test(s)) return true;
   return false;
 }
 
 function cuTaskStatusCat(t) {
-  const s = (t.status?.status || '').toLowerCase().trim();
+  const s = normalizeStatus(t.status?.status);
   // Publicar e aprovar ficam em categorias próprias (verificados antes do done geral)
-  if (/^publicar$|banco.?de.?criativ/i.test(s))                                      return 'publish';
-  if (/^aprovar$|aguardando/i.test(s))                                               return 'approval';
-  if (cuTaskDone(t)) return 'done';
-  if (/altera[cç]|revis[ãa]o?|feedback|ajuste|corre[cç]|rework|change/i.test(s))    return 'revision';
-  if (/l[ií]der|leader/i.test(s))                                                    return 'approval';
-  if (/andamento|in.?progress|progresso|working|doing|fazendo|em.?curso/i.test(s))   return 'doing';
-  return 'todo';
+  if (/^publicar$|banco.?de.?criativ/i.test(s))                                                       return STATUS_CAT.PUBLISH;
+  if (/^aprovar$|aguardando/i.test(s))                                                                return STATUS_CAT.APPROVAL;
+  if (cuTaskDone(t))                                                                                   return STATUS_CAT.DONE;
+  if (ALTERATION_STATUSES.has(s) || /feedback|ajuste|corre[cç]|rework|change/i.test(s))               return STATUS_CAT.REVISION;
+  if (/l[ií]der|leader/i.test(s))                                                                     return STATUS_CAT.APPROVAL;
+  if (IN_PROGRESS_STATUSES.has(s) || /andamento|in.?progress|progresso|working|doing|fazendo|em.?curso/i.test(s)) return STATUS_CAT.DOING;
+  return STATUS_CAT.TODO;
 }
 
 // §4 — task aparece no Painel Daily se qualquer condição for verdadeira
 function isDailyTask(t, todayStr) {
   const dueDateMs = Number(t.due_date || 0);
   const dueStr    = dueDateMs > 0 ? new Date(dueDateMs).toISOString().slice(0, 10) : null;
-  const statusLc  = (t.status?.status || '').toLowerCase().trim();
+  const statusLc  = normalizeStatus(t.status?.status);
   if (/altera[cç]|revis[ãa]/i.test(statusLc)) return true; // voltou para fila (cond. 3)
   if (dueStr === todayStr) return true;                      // vence hoje (cond. 1)
   if (dueStr && dueStr < todayStr && !cuTaskDone(t)) return true; // atrasada (cond. 2)
   return false;
+}
+
+// Retorna { from, to } em YYYY-MM-DD para um filtro nomeado (BRT)
+function getDateRange(filter) {
+  const nowBRT  = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const fmt     = (d) => d.toISOString().slice(0, 10);
+  const wkOpts  = { weekStartsOn: 1 };
+  switch (filter) {
+    case 'hoje':
+      return { from: fmt(nowBRT), to: fmt(nowBRT) };
+    case 'esta_semana': case 'semana':
+      return { from: fmt(startOfWeek(nowBRT, wkOpts)), to: fmt(endOfWeek(nowBRT, wkOpts)) };
+    case 'ultima_semana': case 'ultima-semana': {
+      const prev = subDays(nowBRT, 7);
+      return { from: fmt(startOfWeek(prev, wkOpts)), to: fmt(endOfWeek(prev, wkOpts)) };
+    }
+    case 'este_mes': case 'mes':
+      return { from: fmt(startOfMonth(nowBRT)), to: fmt(nowBRT) };
+    case 'ultimo_mes': case 'mes-ant': {
+      const lastDay = subDays(startOfMonth(nowBRT), 1);
+      return { from: fmt(startOfMonth(lastDay)), to: fmt(endOfMonth(lastDay)) };
+    }
+    case '90d':
+      return { from: fmt(subDays(nowBRT, 90)), to: fmt(nowBRT) };
+    default:
+      return { from: fmt(startOfWeek(nowBRT, wkOpts)), to: fmt(endOfWeek(nowBRT, wkOpts)) };
+  }
+}
+
+// Para DISPLAY: mostra tasks no período, overdue ativamente trabalhadas e concluídas no período.
+// Overdue "todo" (apenas paradas) são excluídas — não polui o card com backlog antigo.
+function isTaskDisplayed(task, startDate, endDate) {
+  const dueDateMs   = Number(task.due_date || 0);
+  const periodStart = startOfDay(new Date(startDate)).getTime();
+  const periodEnd   = endOfDay(new Date(endDate)).getTime();
+
+  // Concluídas: mostra sempre que o timestamp real de conclusão esteja no período,
+  // independente de due_date (tasks sem prazo também aparecem quando finalizadas).
+  if (cuTaskDone(task)) {
+    const closedMs = Number(task.date_closed || task.date_done || task.date_updated || 0);
+    if (closedMs && closedMs >= periodStart && closedMs <= periodEnd) return true;
+    // Sem timestamp confiável: cai no critério de due_date abaixo
+  }
+
+  // Sem due_date: tasks ativas (DOING/REVISION/APPROVAL/PUBLISH) sempre aparecem no card
+  if (!dueDateMs) {
+    if (cuTaskDone(task)) return false; // done sem closedMs válido — não exibe
+    const cat = cuTaskStatusCat(task);
+    return cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION ||
+           cat === STATUS_CAT.APPROVAL || cat === STATUS_CAT.PUBLISH;
+  }
+
+  // due_date dentro do período → sempre mostra
+  if (dueDateMs >= periodStart && dueDateMs <= periodEnd) return true;
+
+  if (dueDateMs < periodStart) {
+    const isDone = cuTaskDone(task);
+    if (!isDone) {
+      const cat = cuTaskStatusCat(task);
+      // Mostra overdue apenas se ativamente trabalhada: em andamento, revisão, aprovação, publicar
+      return cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION ||
+             cat === STATUS_CAT.APPROVAL || cat === STATUS_CAT.PUBLISH;
+    }
+    // Concluída com due_date antes do período: já coberta pelo closedMs acima
+  }
+  return false;
+}
+
+// Uma task pertence ao período se:
+// 1. due_date está dentro do range [startDate, endDate]
+// 2. OU due_date é anterior ao início E a task ainda NÃO está concluída (atrasada)
+// Task sem due_date NUNCA entra em nenhuma contagem.
+function isTaskInPeriod(task, startDate, endDate) {
+  const dueDateMs = Number(task.due_date || 0);
+  if (!dueDateMs) return false;
+
+  const periodStart = startOfDay(new Date(startDate)).getTime();
+  const periodEnd   = endOfDay(new Date(endDate)).getTime();
+
+  if (dueDateMs >= periodStart && dueDateMs <= periodEnd) return true;
+  if (dueDateMs < periodStart && !cuTaskDone(task)) return true;
+  return false;
+}
+
+// Retorna { done: X, total: Y } para o painel.
+// X = concluídas com timestamp real de conclusão (date_closed||date_done||date_updated) dentro do período.
+// Y = tasks com due_date no período + concluídas dentro do período (via timestamp) + atrasadas abertas.
+function getTaskCounts(tasks, assigneeId, startDate, endDate) {
+  const src = assigneeId != null
+    ? tasks.filter(t => (t.assignees || []).some(a => String(a.id) === String(assigneeId)))
+    : tasks;
+  const periodStart = startOfDay(new Date(startDate)).getTime();
+  const periodEnd   = endOfDay(new Date(endDate)).getTime();
+  let total = 0, done = 0;
+  for (const t of src) {
+    const isDone   = cuTaskDone(t);
+    const closedMs = isDone ? Number(t.date_closed || t.date_done || t.date_updated || 0) : 0;
+    // Done conta pelo timestamp real de conclusão — sem exigir due_date
+    if (isDone && closedMs >= periodStart && closedMs <= periodEnd) {
+      total++; done++;
+      continue;
+    }
+    // Não concluída (ou concluída fora do período): usa due_date para pending/overdue
+    const dueDateMs = Number(t.due_date || 0);
+    if (!dueDateMs) continue;
+    const inRange = dueDateMs >= periodStart && dueDateMs <= periodEnd;
+    if (inRange || (dueDateMs < periodStart && !isDone)) total++;
+  }
+  return { done, total };
+}
+
+// Extrai pontos do campo "Ponto de atividade MKT" (hoisted — usado em getPeriodPoints e no loop)
+function extractCuPts(t) {
+  if (!Array.isArray(t.custom_fields)) return 0;
+  const pf = t.custom_fields.find(f =>
+    /ponto de atividade mkt/i.test(f.name || '') ||
+    (/ponto.*atividade|atividade.*ponto/i.test(f.name || '') && f.value != null)
+  ) || t.custom_fields.find(f => /ponto|point/i.test(f.name || '') && f.value != null);
+  if (!pf || pf.value == null) return 0;
+  const pv = Number(pf.value);
+  return Number.isFinite(pv) && pv > 0 ? pv : 0;
+}
+
+// Soma pontos de tasks concluídas no período.
+// Critério exclusivo: timestamp real de conclusão (date_closed||date_done||date_updated) no range.
+function getPeriodPoints(tasks, startDate, endDate) {
+  const periodStart = startOfDay(new Date(startDate)).getTime();
+  const periodEnd   = endOfDay(new Date(endDate)).getTime();
+  return tasks.reduce((sum, t) => {
+    if (!cuTaskDone(t)) return sum;
+    const closedMs = Number(t.date_closed || t.date_done || t.date_updated || 0);
+    if (!closedMs || closedMs < periodStart || closedMs > periodEnd) return sum;
+    return sum + extractCuPts(t);
+  }, 0);
+}
+
+// Meta proporcional à duração do período
+function getMetaForPeriod(weeklyGoal, startDate, endDate) {
+  const days = Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1;
+  if (days <= 1)  return Math.round(weeklyGoal / 5);
+  if (days <= 7)  return weeklyGoal;
+  if (days <= 31) return weeklyGoal * 4;
+  return Math.round(weeklyGoal * (days / 7));
 }
 
 // ── Helpers de snapshot (§7) ─────────────────────────────────────────────
@@ -168,6 +309,15 @@ async function fetchClickUp(url, token) {
     throw err;
   }
 }
+
+// Cache de schema por instância warm — elimina query a information_schema em cada request
+let _focusLiveSchema = null;
+
+// Cache SWR do clickup-live — instância warm serve resposta anterior enquanto reconstrói
+// TTL_FRESH (70s) > client TTL (60s): cada refresh do cliente acerta o cache
+const _liveCache      = new Map(); // key → { payload, ts }
+const LIVE_TTL_FRESH  = 70_000;   // abaixo desse tempo: retorna imediatamente sem chamar ClickUp
+const LIVE_TTL_STALE  = 300_000;  // acima desse tempo: dado muito antigo, força rebuild síncrono
 
 module.exports = async function handler(req, res) {
   try {
@@ -382,7 +532,7 @@ module.exports = async function handler(req, res) {
        WHERE (
          (is_done = TRUE AND COALESCE(completed_at, created_at) >= $1::timestamptz)
          OR
-         (is_done = FALSE AND status_cat = 'approval' AND COALESCE(updated_at, created_at) >= $1::timestamptz)
+         (is_done = FALSE AND status_cat IN ('approval','publish') AND COALESCE(updated_at, created_at) >= $1::timestamptz)
        )
        GROUP BY user_id`,
       [periodStartDate]
@@ -463,6 +613,42 @@ module.exports = async function handler(req, res) {
     mondayBRT.setUTCDate(nowBRT.getUTCDate() - wdBRT + 1);
     const weekStart = mondayBRT.toISOString().slice(0, 10);
 
+    // Resolve display range from filter param (same logic as clickup-live)
+    const tdFilter = req.query.filter || '';
+    const tdFrom   = req.query.from   || '';
+    const tdTo     = req.query.to     || '';
+    let displayFrom = weekStart;
+    let displayTo   = todayStr;
+    if (tdFilter) {
+      const r = getDateRange(tdFilter);
+      displayFrom = r.from;
+      displayTo   = r.to;
+    } else if (tdFrom && tdTo) {
+      displayFrom = tdFrom;
+      displayTo   = tdTo;
+    }
+
+    // periodLabel para o cliente
+    const tdPeriodLabel = tdFilter === 'hoje'          ? 'dia'
+                        : tdFilter === 'semana'         ? 'semana'
+                        : (tdFilter === 'ultima-semana' || tdFilter === 'ultima_semana') ? 'sem. ant.'
+                        : (tdFilter === 'mes' || tdFilter === 'este_mes') ? 'mês'
+                        : tdFilter === 'mes-ant'         ? 'mês ant.'
+                        : tdFilter === '90d'             ? '90 dias'
+                        : 'semana';
+
+    // dias úteis no display range — para metaForPeriod proporcional
+    let tdPeriodWorkdays = 0;
+    {
+      const _ds = new Date(`${displayFrom}T00:00:00Z`);
+      const _de = new Date(`${displayTo}T00:00:00Z`);
+      for (let c = new Date(_ds); c <= _de; c.setUTCDate(c.getUTCDate() + 1)) {
+        const dow = c.getUTCDay();
+        if (dow >= 1 && dow <= 5) tdPeriodWorkdays++;
+      }
+      if (tdPeriodWorkdays < 1) tdPeriodWorkdays = 1;
+    }
+
     // Try full schema; fall back if migration hasn't been run yet
     // show_in_daily=FALSE exclui ADM Master (Maria Clara) da grade do time
     let usersRes;
@@ -499,25 +685,27 @@ module.exports = async function handler(req, res) {
 
     // approval conta pontos; revision = 0; done = pontos integrais
     const ptsCond = hasStatusCat
-      ? `(is_done = TRUE OR status_cat = 'approval')`
+      ? `(is_done = TRUE OR status_cat IN ('approval','publish'))`
       : `is_done`;
     const ptsExpr = hasPoints
       ? `COALESCE(SUM(CASE WHEN ${ptsCond} THEN COALESCE(points,0) ELSE 0 END),0)::int`
       : `0::int`;
 
     // Para pts semanais: tasks done filtradas por completed_at; tasks em approval filtradas por updated_at
-    const weekPtsSql = hasStatusCat && hasPoints
+    const weekPtsSql = (hasStatusCat && hasPoints)
       ? `COALESCE(SUM(
            CASE WHEN is_done = TRUE AND DATE(COALESCE(completed_at, COALESCE(updated_at, created_at))) >= $1::date
                                    AND DATE(COALESCE(completed_at, COALESCE(updated_at, created_at))) <= $2::date
                 THEN COALESCE(points,0)
-                WHEN is_done = FALSE AND status_cat = 'approval'
+                WHEN is_done = FALSE AND status_cat IN ('approval','publish')
                      AND DATE(COALESCE(updated_at, created_at)) >= $1::date
                      AND DATE(COALESCE(updated_at, created_at)) <= $2::date
                 THEN COALESCE(points,0)
                 ELSE 0 END
          ),0)::int`
-      : `COALESCE(SUM(CASE WHEN is_done THEN COALESCE(points,0) ELSE 0 END),0)::int`;
+      : hasPoints
+        ? `COALESCE(SUM(CASE WHEN is_done THEN COALESCE(points,0) ELSE 0 END),0)::int`
+        : `0::int`;
 
     const [taskStatsRes, horasRes, weekPtsRes, taskDetailRes] = await Promise.all([
       db.query(
@@ -551,13 +739,18 @@ module.exports = async function handler(req, res) {
       db.query(
         `SELECT id, user_id, title, category,
                 ${hasPoints ? 'points' : 'NULL::smallint AS points'},
-                is_done, created_at
+                is_done,
+                ${hasStatusCat ? "COALESCE(status_cat,'todo') AS status_cat," : "'todo' AS status_cat,"}
+                DATE(COALESCE(${hasStatusCat ? 'completed_at, updated_at,' : ''} created_at)) AS closed_date,
+                created_at
          FROM focus_tasks
-         WHERE ${todayWhere}
+         WHERE DATE(COALESCE(${hasStatusCat ? 'completed_at, updated_at,' : ''} created_at)) >= $1::date
+           AND DATE(COALESCE(${hasStatusCat ? 'completed_at, updated_at,' : ''} created_at)) <= $2::date
          ORDER BY user_id, is_done DESC,
                   ${hasPoints ? 'COALESCE(points,0) DESC,' : ''}
-                  created_at DESC`,
-        [todayStr]
+                  created_at DESC
+         LIMIT 500`,
+        [displayFrom, displayTo]
       ),
     ]);
 
@@ -565,21 +758,54 @@ module.exports = async function handler(req, res) {
     const horasMap     = new Map(horasRes.rows.map((r) => [Number(r.user_id), Number(r.horas_hoje)]));
     const weekPtsMap   = new Map(weekPtsRes.rows.map((r) => [Number(r.user_id), r]));
 
-    // Conclusões de rotina da semana (apenas para usuários isCompletionBased — Malu/Zion)
-    // Pontos de rotina NÃO somam ao ptsSemana: rotinas não têm pontuação (F5.20)
+    // Conclusões de rotina da semana (para isRoutineBased — Gustavo/Malu/Zion)
     let routinePtsMap = new Map();
+    let routineExpTodayByUid = {}; // pts esperados de rotina para HOJE (meta diária)
+    let routineExpWeekByUid  = {}; // pts esperados de rotina para a SEMANA (meta semanal)
     try {
-      const routinePtsRes = await db.query(
-        `SELECT rc.user_id,
-                COUNT(rc.id)::int AS routine_done
-         FROM routine_completions rc
-         JOIN user_routines ur ON ur.id = rc.routine_id AND ur.active = TRUE
-         WHERE rc.completed_date >= $1 AND rc.completed_date <= $2
-           AND rc.status = 'done'
-         GROUP BY rc.user_id`,
-        [weekStart, todayStr]
-      );
-      routinePtsMap = new Map(routinePtsRes.rows.map(r => [Number(r.user_id), { routine_pts: 0, routine_done: Number(r.routine_done) }]));
+      const [routinePtsRes, routineConfigRes] = await Promise.all([
+        db.query(
+          `SELECT rc.user_id,
+                  COALESCE(SUM(CASE WHEN rc.status = 'done' THEN ur.points ELSE 0 END), 0)::int AS routine_pts,
+                  COUNT(CASE WHEN rc.status = 'done' THEN 1 END)::int AS routine_done
+           FROM routine_completions rc
+           JOIN user_routines ur ON ur.id = rc.routine_id AND ur.active = TRUE
+           WHERE rc.completed_date >= $1 AND rc.completed_date <= $2
+           GROUP BY rc.user_id`,
+          [weekStart, todayStr]
+        ),
+        db.query(
+          `SELECT user_id, frequency, applies_days, points FROM user_routines WHERE active = TRUE`
+        ),
+      ]);
+      routinePtsMap = new Map(routinePtsRes.rows.map(r => [Number(r.user_id), { routine_pts: Number(r.routine_pts), routine_done: Number(r.routine_done) }]));
+
+      const _todayDow = new Date(`${todayStr}T00:00:00Z`).getUTCDay() || 7;
+      const _todayDom = Number(todayStr.slice(8, 10));
+      const _wsDate   = new Date(`${weekStart}T00:00:00Z`);
+      const _teDate   = new Date(`${todayStr}T00:00:00Z`);
+      for (const r of routineConfigRes.rows) {
+        const uid  = Number(r.user_id);
+        const freq = r.frequency || 'daily';
+        const days = r.applies_days || [];
+        const pts  = Number(r.points) || 1;
+        // Hoje
+        let appliesToday = false;
+        if (freq === 'daily')        appliesToday = !days.length || days.includes(_todayDow);
+        else if (freq === 'weekly')  appliesToday = !days.length || days.includes(_todayDow);
+        else if (freq === 'monthly') appliesToday = !days.length || days.includes(_todayDom);
+        if (appliesToday) routineExpTodayByUid[uid] = (routineExpTodayByUid[uid] || 0) + pts;
+        // Semana (weekStart..today)
+        for (let d = new Date(_wsDate); d <= _teDate; d.setUTCDate(d.getUTCDate() + 1)) {
+          const dow = d.getUTCDay() || 7;
+          const dom = d.getUTCDate();
+          let applies = false;
+          if (freq === 'daily')        applies = !days.length || days.includes(dow);
+          else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
+          else if (freq === 'monthly') applies = !days.length || days.includes(dom);
+          if (applies) routineExpWeekByUid[uid] = (routineExpWeekByUid[uid] || 0) + pts;
+        }
+      }
     } catch { /* table may not exist yet */ }
 
     const tasksPerUser = new Map();
@@ -601,41 +827,42 @@ module.exports = async function handler(req, res) {
       const ptsToday    = Number(stats.pts_today);
       const doneToday   = Number(stats.done_today);
       const totalToday  = Number(stats.total_today);
-      const routineData = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
-      // ptsSemana = apenas tasks (rotinas não têm pontos — F5.20)
-      const ptsSemana   = Number(wstats.pts_semana);
-      // doneSemana/totalSemana: soma rotinas para isCompletionBased (Malu/Zion)
+      const routineData  = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
+      const isRoutineBased = Number(user.daily_points_goal) === 0;
+
+      // Para isRoutineBased: meta e pts vêm exclusivamente das rotinas
+      const effectiveWeeklyGoal = isRoutineBased ? (routineExpWeekByUid[uid] || 0) : weeklyGoal;
+      const effectiveDailyGoal  = isRoutineBased ? (routineExpTodayByUid[uid] || 0) : dailyGoal;
+
+      const ptsSemana   = isRoutineBased
+        ? Number(routineData.routine_pts)
+        : Number(wstats.pts_semana);
       const doneSemana  = Number(wstats.done_semana) + Number(routineData.routine_done);
       const totalSemana = Math.max(Number(wstats.total_semana) + Number(routineData.routine_done), doneSemana);
 
-      const cargoLc = (user.cargo || '').toLowerCase();
-      const isCompletionBased =
-        cargoLc.includes('storymaker') ||
-        cargoLc.includes('ugc') ||
-        cargoLc.includes('publisher');
+      const weekPct = effectiveWeeklyGoal > 0
+        ? Math.round((ptsSemana / effectiveWeeklyGoal) * 100)
+        : (totalSemana > 0 ? Math.round((doneSemana / totalSemana) * 100) : 0);
 
-      const weekPct = isCompletionBased
-        ? (totalSemana > 0 ? Math.round((doneSemana / totalSemana) * 100) : 0)
-        : (weeklyGoal  > 0 ? Math.round((ptsSemana / weeklyGoal) * 100)   : 0);
+      const weekLabel = `Sem ${weekNum}`;
 
-      const weekLabel = isCompletionBased ? 'Conclusão' : `Sem ${weekNum}`;
-
-      const dailyPct = isCompletionBased
-        ? (totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0)
-        : (dailyGoal  > 0 ? Math.round((ptsToday  / dailyGoal) * 100)  : 0);
+      const ptsToday_eff = isRoutineBased ? Number(routineData.routine_pts) : Number(stats.pts_today);
+      const dailyPct = effectiveDailyGoal > 0
+        ? Math.round((ptsToday_eff / effectiveDailyGoal) * 100)
+        : (totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0);
 
       // Coeficiente — Regras do Sistema (PDF)
-      // Grupo Pontos (Samuel/Thiago/Klenio/Bia): pts/meta×50 + done/total×35 + horas/16h×15
-      // Malu/Zion (isCompletionBased): done/total×70 + horas/16h×30 (sem componente de pontos)
-      const _ptsRate  = weeklyGoal > 0 ? ptsSemana / weeklyGoal : 0;
+      // Grupo Pontos:   pts/meta×50 + done/total×35 + horas/16h×15
+      // isRoutineBased: rotinaPts/meta×70 + horas/16h×30
+      const _ptsRate  = effectiveWeeklyGoal > 0 ? ptsSemana / effectiveWeeklyGoal : 0;
       const _taskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
-      const _horaRate = horas / 16; // sem cap — pode ultrapassar 100%
-      const coef = isCompletionBased
-        ? Math.round((_taskRate * 0.70 + _horaRate * 0.30) * 100)
+      const _horaRate = horas / 16;
+      const coef = isRoutineBased
+        ? Math.round((_ptsRate  * 0.70 + _horaRate * 0.30) * 100)
         : Math.round((_ptsRate  * 0.50 + _taskRate * 0.35 + _horaRate * 0.15) * 100);
 
       const metaStatus = ptsSemana >= weeklyGoal120 ? 'above_120'
-                       : ptsSemana >= weeklyGoal    ? 'above_100'
+                       : ptsSemana >= effectiveWeeklyGoal ? 'above_100'
                        : 'below_100';
 
       let horasH = Math.floor(horas);
@@ -645,27 +872,58 @@ module.exports = async function handler(req, res) {
         ? `${horasH}h ${String(horasM).padStart(2,'0')}min validadas`
         : '0h validadas';
 
+      const ratio120td = effectiveWeeklyGoal > 0
+        ? (isRoutineBased ? Math.round(effectiveWeeklyGoal * 1.2) : weeklyGoal120) / effectiveWeeklyGoal
+        : 1.2;
+      const metaForPeriod    = isRoutineBased
+        ? (routineExpWeekByUid[uid] || 0)
+        : Math.round(effectiveWeeklyGoal * tdPeriodWorkdays / 5);
+      const metaForPeriod120 = Math.round(metaForPeriod * ratio120td);
+
+      // Mapeia tasks do DB para o formato esperado por renderMemberCard
+      const rawTasks = (tasksPerUser.get(uid) || []).slice(0, 30);
+      const mappedTasks = rawTasks.map(t => ({
+        id:          t.id,
+        title:       t.title || '—',
+        category:    t.category || null,
+        empresa:     null,
+        points:      t.points || null,
+        is_done:     Boolean(t.is_done),
+        statusLabel: t.status_cat || 'todo',
+        statusColor: null,
+        statusCat:   t.status_cat || (t.is_done ? 'done' : 'todo'),
+        due_date:    null,
+        closed_date: t.closed_date ? String(t.closed_date).slice(0, 10) : null,
+        subtasks:    [],
+      }));
+
       return {
         id: uid,
         name: user.name,
         cargo: user.cargo || '',
-        dailyGoal,
-        weeklyGoal,
-        weeklyGoal120,
+        dailyGoal: effectiveDailyGoal,
+        weeklyGoal: effectiveWeeklyGoal,
+        weeklyGoal120: isRoutineBased ? Math.round(effectiveWeeklyGoal * 1.2) : weeklyGoal120,
+        metaForPeriod,
+        metaForPeriod120,
+        periodLabel: tdPeriodLabel,
         metaStatus,
         weekNum,
         weekLabel,
         weekPct,
-        ptsToday,
+        ptsToday: ptsToday_eff,
         doneToday,
         totalToday,
+        doneSemana,
+        totalSemana,
         ptsSemana,
         horas,
         horasStr,
         coef,
         dailyPct: Math.min(dailyPct, 150),
-        isCompletionBased,
-        tasks: (tasksPerUser.get(uid) || []).slice(0, 18),
+        isCompletionBased: false,
+        isRoutineBased,
+        tasks: mappedTasks,
       };
     });
 
@@ -722,23 +980,70 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Optional date filter: if from/to provided, filter by date_done (BRT)
-    const fromP    = (req.query.from     || '').trim();
-    const toP      = (req.query.to       || '').trim();
+    // Resolução do período: filter= tem prioridade; fallback para from=/to=
+    const filterParam = (req.query.filter || '').trim();
+    const fromP    = (req.query.from || '').trim();
+    const toP      = (req.query.to   || '').trim();
     const showOpen = req.query.showOpen === '1';
-    const isFiltered = Boolean(fromP && toP);
 
-    // Fetch tasks do ClickUp — sempre include_closed=true para capturar tasks concluídas
-    // Período longo (>7d): até 4 páginas. Período curto/diário: 2 páginas bastam
-    const rangeMs  = (fromP && toP)
-      ? (new Date(toP).getTime() - new Date(fromP).getTime())
-      : 0;
-    const MAX_PAGES = rangeMs > 7 * 86400000 ? 4 : 2;
+    // Cache SWR: retorna imediatamente se dado for recente (< 70s)
+    const _liveCacheKey = `${filterParam}|${fromP}|${toP}|${showOpen ? '1' : '0'}`;
+    const _liveCacheHit = _liveCache.get(_liveCacheKey);
+    if (_liveCacheHit && (Date.now() - _liveCacheHit.ts) < LIVE_TTL_FRESH) {
+      return json(res, 200, _liveCacheHit.payload);
+    }
 
-    const cuRes = await fetchClickUp(
-      `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=0`,
+    let resolvedFrom = fromP;
+    let resolvedTo   = toP;
+    if (filterParam) {
+      const r  = getDateRange(filterParam);
+      resolvedFrom = r.from;
+      resolvedTo   = r.to;
+    }
+    const isFiltered = Boolean(resolvedFrom && resolvedTo);
+
+    // Fetch tasks do ClickUp — filtra por date_updated_gt (60 dias) para reduzir o conjunto
+    // retornado sem perder tasks ativas. Pagina até last_page com cap de segurança em 10 páginas.
+    const lookbackMs = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    const CU_BASE_PARAMS = `include_closed=true&subtasks=true&include_time_spent=true&date_updated_gt=${lookbackMs}`;
+
+    // Dispara página 0 do ClickUp e query de usuários em paralelo
+    const _cuPage0Promise = fetchClickUp(
+      `https://api.clickup.com/api/v2/list/${listId}/task?${CU_BASE_PARAMS}&page=0`,
       token
     );
+    const _usersPromise = (async () => {
+      try {
+        return await db.query(
+          `SELECT id, name,
+                  COALESCE(cargo,'') AS cargo,
+                  COALESCE(daily_points_goal,26) AS daily_points_goal,
+                  COALESCE(weekly_pts_120, ROUND(daily_points_goal*5*1.2)) AS weekly_pts_120,
+                  COALESCE(clickup_email,'') AS clickup_email,
+                  clickup_user_id
+           FROM users WHERE active = TRUE
+             AND COALESCE(show_in_daily, TRUE) = TRUE
+           ORDER BY name`
+        );
+      } catch {
+        try {
+          return await db.query(
+            `SELECT id, name, COALESCE(cargo,'') AS cargo, COALESCE(daily_points_goal,26) AS daily_points_goal,
+                    COALESCE(clickup_email,'') AS clickup_email, NULL::bigint AS clickup_user_id
+             FROM users WHERE active = TRUE
+               AND COALESCE(show_in_daily, TRUE) = TRUE
+             ORDER BY name`
+          );
+        } catch {
+          return await db.query(
+            `SELECT id, name, '' AS cargo, 26 AS daily_points_goal, '' AS clickup_email, NULL::bigint AS clickup_user_id
+             FROM users WHERE active = TRUE ORDER BY name`
+          );
+        }
+      }
+    })();
+
+    const [cuRes, usersRes] = await Promise.all([_cuPage0Promise, _usersPromise]);
 
     if (!cuRes.ok) {
       const errText = await cuRes.text();
@@ -748,14 +1053,19 @@ module.exports = async function handler(req, res) {
     const firstPage  = await cuRes.json();
     const allCuTasks = [...(firstPage.tasks || [])];
 
+    // Páginas adicionais em paralelo — elimina latência cumulativa do loop sequencial
     if (!firstPage.last_page && (firstPage.tasks || []).length >= 100) {
-      for (let page = 1; page < MAX_PAGES; page++) {
-        const r2 = await fetchClickUp(
-          `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
-          token
-        );
-        if (!r2.ok) break;
-        const body = await r2.json();
+      const extraPages = await Promise.all(
+        Array.from({ length: 9 }, (_, i) => i + 1).map(page =>
+          fetchClickUp(
+            `https://api.clickup.com/api/v2/list/${listId}/task?${CU_BASE_PARAMS}&page=${page}`,
+            token
+          )
+          .then(r2 => r2.ok ? r2.json() : { tasks: [], last_page: true })
+          .catch(() => ({ tasks: [], last_page: true }))
+        )
+      );
+      for (const body of extraPages) {
         allCuTasks.push(...(body.tasks || []));
         if (body.last_page || (body.tasks || []).length < 100) break;
       }
@@ -769,50 +1079,33 @@ module.exports = async function handler(req, res) {
     monday.setUTCDate(nowBRT.getUTCDate() - wd + 1);
     const weekNum   = Math.ceil(nowBRT.getUTCDate() / 7);
 
-    // Load system users — tenta com clickup_user_id + clickup_email, fallback gradual
-    // show_in_daily=FALSE exclui ADM Master (Maria Clara) da grade do time
-    let usersRes;
-    try {
-      usersRes = await db.query(
-        `SELECT id, name,
-                COALESCE(cargo,'') AS cargo,
-                COALESCE(daily_points_goal,26) AS daily_points_goal,
-                COALESCE(weekly_pts_120, ROUND(daily_points_goal*5*1.2)) AS weekly_pts_120,
-                COALESCE(clickup_email,'') AS clickup_email,
-                clickup_user_id
-         FROM users WHERE active = TRUE
-           AND COALESCE(show_in_daily, TRUE) = TRUE
-         ORDER BY name`
-      );
-    } catch {
+    const weekStart = monday.toISOString().slice(0, 10);
+    // Ranking de semanas passadas: usa o from/to recebido como referência semanal
+    // para getPeriodPoints, rotinePtsRes e routineTotalByUid (em vez de weekStart..todayStr)
+    const effectiveWeekStart = (isFiltered && resolvedFrom) ? resolvedFrom : weekStart;
+    const effectiveTo        = (isFiltered && resolvedTo)   ? resolvedTo   : todayStr;
+
+    // Schema check cacheado por instância warm — evita query a information_schema em cada request
+    if (!_focusLiveSchema) {
       try {
-        usersRes = await db.query(
-          `SELECT id, name, COALESCE(cargo,'') AS cargo, COALESCE(daily_points_goal,26) AS daily_points_goal,
-                  COALESCE(clickup_email,'') AS clickup_email, NULL::bigint AS clickup_user_id
-           FROM users WHERE active = TRUE
-             AND COALESCE(show_in_daily, TRUE) = TRUE
-           ORDER BY name`
+        const sc2 = await db.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_schema='public' AND table_name='focus_tasks'
+             AND column_name IN ('status_cat','updated_at','points')`
         );
+        const cols = new Set(sc2.rows.map(r => r.column_name));
+        _focusLiveSchema = {
+          hasStatusCat: cols.has('status_cat') && cols.has('updated_at'),
+          hasPoints:    cols.has('points'),
+        };
       } catch {
-        usersRes = await db.query(
-          `SELECT id, name, '' AS cargo, 26 AS daily_points_goal, '' AS clickup_email, NULL::bigint AS clickup_user_id
-           FROM users WHERE active = TRUE ORDER BY name`
-        );
+        _focusLiveSchema = { hasStatusCat: false, hasPoints: false };
       }
     }
+    const liveHasStatusCat = _focusLiveSchema.hasStatusCat;
+    const liveHasPoints    = _focusLiveSchema.hasPoints;
 
-    const weekStart = monday.toISOString().slice(0, 10);
-
-    // Detecta se colunas de status_cat/updated_at existem para scoring avançado
-    let liveHasStatusCat = false;
-    try {
-      const sc2 = await db.query(
-        `SELECT column_name FROM information_schema.columns
-         WHERE table_schema='public' AND table_name='focus_tasks'
-           AND column_name IN ('status_cat','updated_at')`
-      );
-      liveHasStatusCat = sc2.rowCount >= 2;
-    } catch { /* pré-migração: usa scoring antigo */ }
+    const _pts = liveHasPoints ? `COALESCE(points,0)` : `0`;
 
     const liveWeekFilter = liveHasStatusCat
       ? `DATE(COALESCE(updated_at, created_at)) >= $1 AND DATE(COALESCE(updated_at, created_at)) <= $2`
@@ -822,17 +1115,17 @@ module.exports = async function handler(req, res) {
            CASE WHEN is_done = TRUE
                      AND DATE(COALESCE(completed_at, COALESCE(updated_at, created_at))) >= $1
                      AND DATE(COALESCE(completed_at, COALESCE(updated_at, created_at))) <= $2
-                THEN COALESCE(points,0)
-                WHEN is_done = FALSE AND status_cat = 'approval'
+                THEN ${_pts}
+                WHEN is_done = FALSE AND status_cat IN ('approval','publish')
                      AND DATE(COALESCE(updated_at, created_at)) >= $1
                      AND DATE(COALESCE(updated_at, created_at)) <= $2
-                THEN COALESCE(points,0)
+                THEN ${_pts}
                 ELSE 0 END
          ),0)::int`
-      : `COALESCE(SUM(CASE WHEN is_done THEN COALESCE(points,0) ELSE 0 END),0)::int`;
+      : `COALESCE(SUM(CASE WHEN is_done THEN ${_pts} ELSE 0 END),0)::int`;
 
     // Queries do banco em paralelo — reduz tempo de ~4×latência para ~1×latência
-    const [horasRes, weekPtsRes, routinePtsRes] = await Promise.all([
+    const [horasRes, weekPtsRes, routinePtsRes, routineConfigRes] = await Promise.all([
       db.query(
         `SELECT user_id, COALESCE(SUM(hours),0)::float AS horas_hoje
          FROM time_entries WHERE work_date = $1::date GROUP BY user_id`,
@@ -850,19 +1143,55 @@ module.exports = async function handler(req, res) {
       ).catch(() => ({ rows: [] })),
       db.query(
         `SELECT rc.user_id,
-                COALESCE(SUM(ur.points), 0)::int AS routine_pts,
-                COUNT(rc.id)::int AS routine_done
+                COALESCE(SUM(CASE WHEN rc.status = 'done' THEN ur.points ELSE 0 END), 0)::int AS routine_pts,
+                COUNT(CASE WHEN rc.status = 'done' THEN 1 END)::int AS routine_done
          FROM routine_completions rc
          JOIN user_routines ur ON ur.id = rc.routine_id AND ur.active = TRUE
          WHERE rc.completed_date >= $1 AND rc.completed_date <= $2
          GROUP BY rc.user_id`,
-        [weekStart, todayStr]
+        [effectiveWeekStart, effectiveTo]
+      ).catch(() => ({ rows: [] })),
+      // Configuração das rotinas — para calcular pts esperados por semana (meta Zion/Malu/Gustavo)
+      db.query(
+        `SELECT user_id, frequency, applies_days, points FROM user_routines WHERE active = TRUE`
       ).catch(() => ({ rows: [] })),
     ]);
 
     const horasMap    = new Map(horasRes.rows.map((r) => [Number(r.user_id), Number(r.horas_hoje)]));
     const weekPtsMap  = new Map(weekPtsRes.rows.map((r) => [Number(r.user_id), r]));
     const routinePtsMap = new Map(routinePtsRes.rows.map(r => [Number(r.user_id), r]));
+
+    // Computa pts esperados e slots esperados de rotina por usuário no período (effectiveWeekStart..effectiveTo)
+    // routineExpPtsByUid  → meta semanal em pontos para isRoutineBased (Gustavo/Malu/Zion)
+    // routineTotalByUid   → total de slots (contagem) para doneSemana/totalSemana (exibição done/total)
+    const routineExpPtsByUid = {};
+    const routineTotalByUid  = {};
+    {
+      const _rStart = new Date(`${effectiveWeekStart}T00:00:00Z`);
+      const _rEnd   = new Date(`${effectiveTo}T00:00:00Z`);
+      for (const r of (routineConfigRes.rows || [])) {
+        const uid  = Number(r.user_id);
+        const freq = r.frequency || 'daily';
+        const days = r.applies_days || [];
+        const pts  = Number(r.points) || 1;
+        if (!routineExpPtsByUid[uid]) routineExpPtsByUid[uid] = 0;
+        if (!routineTotalByUid[uid])  routineTotalByUid[uid]  = 0;
+        let cur = new Date(_rStart);
+        while (cur <= _rEnd) {
+          const dow = cur.getUTCDay() || 7;
+          const dom = cur.getUTCDate();
+          let applies = false;
+          if (freq === 'daily')        applies = !days.length || days.includes(dow);
+          else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
+          else if (freq === 'monthly') applies = !days.length || days.includes(dom);
+          if (applies) {
+            routineExpPtsByUid[uid] += pts;
+            routineTotalByUid[uid]++;
+          }
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+      }
+    }
 
     // Build lookup maps: ClickUp user ID (primário) > email > nome
     const userByClickupId = new Map();
@@ -900,9 +1229,12 @@ module.exports = async function handler(req, res) {
       return null;
     };
 
-    // Limites do período para métricas (calculado separado do display de tasks)
-    const periodFromMs = isFiltered ? new Date(`${fromP}T00:00:00-03:00`).getTime() : null;
-    const periodToMs   = isFiltered ? new Date(`${toP}T23:59:59-03:00`).getTime()   : null;
+    // Limites do período para isTaskInPeriod — semana corrente ou range filtrado
+    const periodFrom = isFiltered ? resolvedFrom : weekStart;
+    const periodTo   = isFiltered ? resolvedTo   : todayStr;
+
+    // IDs de todas as tasks carregadas — usado para detectar orphan subtasks
+    const fetchedTaskIds = new Set(allCuTasks.map(t => t.id));
 
     // Índice de subtasks por parent ID (para exibir aninhadas no frontend)
     const subtasksByParent = new Map();
@@ -931,74 +1263,120 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Número de dias úteis (seg-sex) no período efetivo — sem clamp superior para períodos multi-semana
+    let periodWeekdays = 0;
+    {
+      const _d = new Date(`${effectiveWeekStart}T00:00:00Z`);
+      const _e = new Date(`${effectiveTo}T00:00:00Z`);
+      for (let c = new Date(_d); c <= _e; c.setUTCDate(c.getUTCDate() + 1)) {
+        const dow = c.getUTCDay();
+        if (dow >= 1 && dow <= 5) periodWeekdays++;
+      }
+      if (periodWeekdays < 1) periodWeekdays = 1;
+      // sem clamp máximo — permite mês (~20d), customizado, etc.
+    }
+
+    const periodLabel = filterParam === 'hoje'         ? 'dia'
+                      : filterParam === 'semana'        ? 'semana'
+                      : (filterParam === 'ultima-semana' || filterParam === 'ultima_semana') ? 'sem. ant.'
+                      : (filterParam === 'mes' || filterParam === 'este_mes') ? 'mês'
+                      : filterParam === 'mes-ant'        ? 'mês ant.'
+                      : filterParam === '90d'            ? '90 dias'
+                      : `${periodWeekdays}d úteis`;
+
     const members = usersRes.rows.map((user) => {
       const uid          = Number(user.id);
       const tasks        = cuByUid.get(uid) || [];        // todas as tasks (inclui subtasks) — para pts/horas
       const parentTasks  = parentByUid.get(uid) || [];    // só tasks raiz — para contagem done/total
       const horas        = horasMap.get(uid) || 0;
 
-      const dailyGoal    = Number(user.daily_points_goal);
-      const weeklyGoal   = dailyGoal * 5;
-      const weeklyGoal120 = Number(user.weekly_pts_120 || Math.round(weeklyGoal * 1.2));
-      const cargoLc    = (user.cargo || '').toLowerCase();
-      const isCompletionBased =
-        cargoLc.includes('storymaker') || cargoLc.includes('ugc') || cargoLc.includes('publisher');
+      const isRoutineBased = Number(user.daily_points_goal) === 0;
+      const dailyGoal    = isRoutineBased ? 0 : Number(user.daily_points_goal);
+      const weeklyGoal   = isRoutineBased
+        ? (routineExpPtsByUid[uid] || 0)
+        : dailyGoal * 5;
+      const weeklyGoal120 = isRoutineBased
+        ? Math.round(weeklyGoal * 1.2)
+        : Number(user.weekly_pts_120 || Math.round(weeklyGoal * 1.2));
+      const isCompletionBased = false; // substituído por isRoutineBased
 
-      // Contagem de done/total: snapshot atual de todas as tasks-pai (sem filtro de período)
-      // Tasks em 'aprovar'/'publicar' contam como done (cuTaskDone=true)
-      // O filtro de período se aplica apenas a pts e horas ganhos (doneTasksForMetrics abaixo)
-      const doneToday  = parentTasks.filter(t => cuTaskDone(t)).length;
-      const totalToday = parentTasks.length;
+      // Contagem X/Y do filtro ativo — para exibição no header do card (ex: "3/7 no período")
+      const { done: doneToday, total: totalToday } = getTaskCounts(tasks, null, periodFrom, periodTo);
+      // Contagem semanal completa — para doneSemana/totalSemana (barra de progresso + coef)
+      const { done: doneWeek, total: totalWeek }   = getTaskCounts(tasks, null, effectiveWeekStart, effectiveTo);
+      // inPeriod mantido para missingFieldsCount (apenas tasks-pai)
+      const inPeriod = (t) => isTaskInPeriod(t, periodFrom, periodTo);
 
-      const wdb         = weekPtsMap.get(uid) || { pts_semana: 0, done_semana: 0, total_semana: 0 };
-      const routineData = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
-      const routinePts  = Number(routineData.routine_pts);
-      const doneSemana  = doneToday + Number(routineData.routine_done);
-      const totalSemana = Math.max(totalToday + Number(routineData.routine_done), doneSemana);
+      // Contagens separadas por estado
+      // Overdue com trabalho ativo (DOING/REVISION/APPROVAL/PUBLISH) → cuPending (aparecem no card e no X/Y)
+      // Overdue paradas (TODO) → cuOverdue (aparecem no card mas não entram em tTotal)
+      const _pStart = startOfDay(new Date(periodFrom)).getTime();
+      const _pEnd   = endOfDay(new Date(periodTo)).getTime();
+      let cuDone = 0, cuPending = 0, cuOverdue = 0;
+      for (const t of tasks) {
+        const isDone = cuTaskDone(t);
+        if (isDone) {
+          const closedMs = Number(t.date_closed || t.date_done || t.date_updated || 0);
+          if (closedMs >= _pStart && closedMs <= _pEnd) cuDone++;
+          continue; // concluída — não reclassificar como pending/overdue
+        }
+        // Não concluída: classifica por due_date
+        const d = Number(t.due_date || 0);
+        if (!d) continue;
+        if (d >= _pStart && d <= _pEnd) {
+          cuPending++;
+        } else if (d < _pStart) {
+          const cat = cuTaskStatusCat(t);
+          if (cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION ||
+              cat === STATUS_CAT.APPROVAL || cat === STATUS_CAT.PUBLISH) {
+            cuPending++;
+          } else {
+            cuOverdue++;
+          }
+        }
+      }
 
-      // Extrai pontos do campo "Ponto de atividade MKT" (seção 1)
-      const extractCuPts = (t) => {
-        if (!Array.isArray(t.custom_fields)) return 0;
-        const pf = t.custom_fields.find(f =>
-          /ponto de atividade mkt/i.test(f.name || '') ||
-          (/ponto.*atividade|atividade.*ponto/i.test(f.name || '') && f.value != null)
-        ) || t.custom_fields.find(f => /ponto|point/i.test(f.name || '') && f.value != null);
-        if (!pf || pf.value == null) return 0;
-        const pv = Number(pf.value);
-        return Number.isFinite(pv) && pv > 0 ? pv : 0;
-      };
+      const wdb          = weekPtsMap.get(uid) || { pts_semana: 0, done_semana: 0, total_semana: 0 };
+      const routineData  = routinePtsMap.get(uid) || { routine_pts: 0, routine_done: 0 };
+      const routinePts   = Number(routineData.routine_pts);
+      const routineDone  = Number(routineData.routine_done);
+      // Total de slots esperados de rotina no período (calculado a partir das configs ativas)
+      const routineTotal = routineTotalByUid[uid] || 0;
+      // doneSemana/totalSemana: sempre baseados na semana completa (doneWeek), não no filtro ativo
+      const doneSemana   = doneWeek + routineDone;
+      const totalSemana  = Math.max(totalWeek + routineTotal, doneSemana);
 
-      // Extrai time_spent do ClickUp (ms → horas) — seção 1
+      // Extrai time_spent do ClickUp (ms → horas)
       const extractTimeSpent = (t) => {
         const ms = Number(t.time_spent || 0);
         return ms > 0 ? ms / 3600000 : 0;
       };
 
-      // Tasks concluídas no período para pts e horas — tasks-pai E subtasks concluídas
-      // done/total usa só parentTasks (para não inflar X/Y); pts usa ALL tasks (pai + subtasks)
-      const donePtsTasks = (periodFromMs && periodToMs)
-        ? tasks.filter(t => {
-            if (!cuTaskDone(t)) return false;
-            const closedMs = Number(t.date_closed || t.date_done || 0);
-            return closedMs >= periodFromMs && closedMs <= periodToMs;
-          })
-        : tasks.filter(t => cuTaskDone(t));
-
-      // Pts das tasks-pai E subtasks concluídas + rotinas (fonte: ClickUp ao vivo)
-      // DB focus_tasks (wdb.pts_semana) é descartado aqui — dados desatualizados do último sync
-      const ptsCuDone  = donePtsTasks.reduce((sum, t) => sum + extractCuPts(t), 0);
-      const ptsSemana  = ptsCuDone + routinePts;
-      const ptsToday   = ptsCuDone;
+      // Pts e meta: baseados no período efetivo (effectiveWeekStart..effectiveTo)
+      const ptsCuDone    = getPeriodPoints(tasks, effectiveWeekStart, effectiveTo);
+      // isRoutineBased: pts = apenas rotinas concluídas (não tasks ClickUp)
+      const ptsSemana    = isRoutineBased ? routinePts : ptsCuDone + routinePts;
+      const ptsToday     = isRoutineBased ? routinePts : ptsCuDone;
       const ptsParaBarra = ptsSemana;
+      // Meta proporcional ao número de dias úteis no período
+      // isRoutineBased: meta = pts esperados das rotinas no período (já calculado)
+      const metaForPeriod = isRoutineBased
+        ? (routineExpPtsByUid[uid] || 0)
+        : Math.round(weeklyGoal * periodWeekdays / 5);
+      // ratio120 preserva o threshold individual (ex: 156/130 = 1.2, mas pode ser diferente)
+      const ratio120 = weeklyGoal > 0 ? weeklyGoal120 / weeklyGoal : 1.2;
+      const metaForPeriod120 = isRoutineBased
+        ? Math.round((routineExpPtsByUid[uid] || 0) * 1.2)
+        : Math.round(metaForPeriod * ratio120);
 
-      // Horas via time_spent — TODAS as tasks da semana (completas e em andamento), cap 16h/dia
+      // Horas via time_spent — done | doing | revision no período, cap 16h/dia
+      // Tasks sem time_spent são ignoradas (h <= 0 continua o guard abaixo)
       const HORA_CAP_DIA = 16;
-      const horasTasks = (periodFromMs && periodToMs)
-        ? tasks.filter(t => {
-            const updatedMs = Number(t.date_updated || t.date_closed || t.date_done || 0);
-            return updatedMs >= periodFromMs && updatedMs <= periodToMs;
-          })
-        : tasks;
+      const horasTasks = tasks.filter(t => {
+        if (!isTaskInPeriod(t, periodFrom, periodTo)) return false;
+        const cat = cuTaskStatusCat(t);
+        return cuTaskDone(t) || cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION;
+      });
       const dayHoras = {};
       for (const t of horasTasks) {
         const refMs  = Number(t.date_updated || t.date_closed || t.date_done || 0);
@@ -1023,8 +1401,9 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // Aviso de tasks ativas sem campos obrigatórios — apenas tasks-pai
+      // Aviso de tasks ativas sem campos obrigatórios — apenas tasks-pai no período
       const missingFieldsCount = parentTasks.filter(t => {
+        if (!inPeriod(t)) return false;
         if (cuTaskDone(t)) return false;
         const hasEmpresa = resolveEmpresa(t) !== 'Não classificado';
         const hasPontos  = extractCuPts(t) > 0;
@@ -1036,25 +1415,27 @@ module.exports = async function handler(req, res) {
       const weekPct = isCompletionBased
         ? (totalSemana > 0 ? Math.round((doneSemana / totalSemana) * 100)
           : totalToday  > 0 ? Math.round((doneToday  / totalToday)  * 100) : 0)
-        : (weeklyGoal  > 0 ? Math.round((ptsParaBarra / weeklyGoal) * 100) : 0);
+        : (metaForPeriod > 0 ? Math.round((ptsParaBarra / metaForPeriod) * 100) : 0);
 
-      // % meta real e status usando thresholds individuais do banco (PDF)
-      const percentualMeta = weeklyGoal > 0 ? Math.round((ptsParaBarra / weeklyGoal) * 100) : 0;
-      const metaStatus = ptsParaBarra >= weeklyGoal120 ? 'above_120'
-                       : ptsParaBarra >= weeklyGoal    ? 'above_100'
+      // % meta real e status usando thresholds proporcionais ao período
+      const percentualMeta = metaForPeriod > 0 ? Math.round((ptsParaBarra / metaForPeriod) * 100) : 0;
+      const metaStatus = ptsParaBarra >= metaForPeriod120 ? 'above_120'
+                       : ptsParaBarra >= metaForPeriod    ? 'above_100'
                        : 'below_100';
 
-      const weekLabel = isCompletionBased ? 'Conclusão' : `Sem ${weekNum}`;
+      const weekLabel = `Sem ${weekNum}`;
       // Usa horas ClickUp se disponíveis; fallback para banco local
       const horasEfetivas = horasCuTotal > 0 ? horasCuTotal : horas;
       // Coeficiente — Regras do Sistema (PDF)
-      // Grupo Pontos: pts/meta×50% + done/total×35% + horas/16h×15%
-      // Malu/Zion (isCompletionBased): done/total×70% + horas/16h×30% — sem pts, pode passar 100%
-      const _cuTaskRate = totalToday > 0 ? doneToday / totalToday : 0;
-      const _cuHoraRate = horasEfetivas / 16; // sem cap — pode ultrapassar 100%
-      const _cuPtsRate  = weeklyGoal > 0 ? ptsParaBarra / weeklyGoal : 0;
-      const coef        = isCompletionBased
-        ? Math.round((_cuTaskRate * 0.70 + _cuHoraRate * 0.30) * 100)
+      // Grupo Pontos:   pts/meta×50% + done/total×35% + horas/ref×15%
+      // isRoutineBased: rotinaPts/meta×70% + horas/ref×30%
+      // horasRef: proporcional ao período (1 dia útil = 16/5 = 3.2 h de referência)
+      const _cuTaskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
+      const horasRef    = Math.max(16 * periodWeekdays / 5, 1); // 16h/sem × dias úteis proporcionais
+      const _cuHoraRate = horasEfetivas / horasRef; // sem cap — pode ultrapassar 100%
+      const _cuPtsRate  = metaForPeriod > 0 ? ptsParaBarra / metaForPeriod : 0;
+      const coef        = isRoutineBased
+        ? Math.round((_cuPtsRate  * 0.70 + _cuHoraRate * 0.30) * 100)
         : Math.round((_cuPtsRate  * 0.50 + _cuTaskRate * 0.35 + _cuHoraRate * 0.15) * 100);
 
       let horasH = Math.floor(horasEfetivas);
@@ -1064,35 +1445,37 @@ module.exports = async function handler(req, res) {
         ? `${horasH}h ${String(horasM).padStart(2, '0')}min validadas`
         : '0h validadas';
 
-      return {
-        id: uid,
-        name:   user.name,
-        cargo:  user.cargo || '',
-        dailyGoal,
-        weeklyGoal,
-        weeklyGoal120,
-        weekNum,
-        weekLabel,
-        weekPct,
-        percentualMeta,
-        metaStatus,
-        ptsToday,
-        doneToday,
-        totalToday,
-        doneSemana,
-        totalSemana,
-        ptsSemana,
-        horas: horasEfetivas,
-        horasPorEmpresa,
-        horasStr,
-        coef,
-        missingFieldsCount,
-        dailyPct: Math.min(weekPct, 150),
-        isCompletionBased,
-        tasks: (isFiltered
-          ? (parentByUid.get(uid) || [])
-          : (parentByUid.get(uid) || []).filter(t => isDailyTask(t, todayStr))
-        ).slice(0, isFiltered ? 100 : 25).map((t) => {
+      // Tasks para exibição: parents (se a task ou qualquer subtask for relevante) + orphan subtasks
+      const _visibleParents = (parentByUid.get(uid) || []).filter(t => {
+        if (isTaskDisplayed(t, periodFrom, periodTo)) return true;
+        return (subtasksByParent.get(t.id) || []).some(sub => isTaskDisplayed(sub, periodFrom, periodTo));
+      });
+      const _orphanSubs = (cuByUid.get(uid) || []).filter(t =>
+        t.parent && !fetchedTaskIds.has(t.parent) && isTaskDisplayed(t, periodFrom, periodTo)
+      );
+      const TASK_LIST_LIMIT = 30;
+      const _periodDays = Math.round(
+        (new Date(periodTo + 'T00:00:00Z') - new Date(periodFrom + 'T00:00:00Z')) / 86400000
+      ) + 1;
+      const _applyLimit = _periodDays > 7;
+      const _allForDisplay = [..._visibleParents, ..._orphanSubs];
+
+      const _sortedForDisplay = _applyLimit
+        ? [..._allForDisplay].sort((a, b) => {
+            const aDone = cuTaskDone(a);
+            const bDone = cuTaskDone(b);
+            if (aDone !== bDone) return aDone ? 1 : -1; // pendentes primeiro
+            if (!aDone) return Number(a.due_date || 0) - Number(b.due_date || 0); // due_date crescente
+            const ac = Number(a.date_closed || a.date_done || a.date_updated || 0);
+            const bc = Number(b.date_closed || b.date_done || b.date_updated || 0);
+            return bc - ac; // mais recentes primeiro
+          })
+        : _allForDisplay;
+
+      const _tasksTotal     = _allForDisplay.length;
+      const _tasksTruncated = _applyLimit && _tasksTotal > TASK_LIST_LIMIT;
+      const _displayTasks = (_applyLimit ? _sortedForDisplay.slice(0, TASK_LIST_LIMIT) : _sortedForDisplay)
+        .map((t) => {
           const pts     = extractCuPts(t);
           const empresa = resolveEmpresa(t);
           const subs    = (subtasksByParent.get(t.id) || []).map((sub) => ({
@@ -1104,7 +1487,8 @@ module.exports = async function handler(req, res) {
             statusCat:   cuTaskStatusCat(sub),
             points:      extractCuPts(sub) > 0 ? extractCuPts(sub) : null,
           }));
-          const dueDateMs = Number(t.due_date || 0);
+          const dueDateMs  = Number(t.due_date || 0);
+          const closedRaw  = Number(t.date_closed || t.date_done || t.date_updated || 0);
           return {
             id:          t.id,
             title:       t.name || '—',
@@ -1115,14 +1499,54 @@ module.exports = async function handler(req, res) {
             statusLabel: t.status?.status || '',
             statusColor: t.status?.color  || null,
             statusCat:   cuTaskStatusCat(t),
-            due_date:    dueDateMs > 0 ? new Date(dueDateMs).toISOString().slice(0, 10) : null,
+            due_date:    dueDateMs  > 0 ? new Date(dueDateMs).toISOString().slice(0, 10) : null,
+            closed_date: closedRaw  > 0 ? new Date(closedRaw).toISOString().slice(0, 10) : null,
             subtasks:    subs,
           };
-        }),
+        });
+
+      return {
+        id: uid,
+        name:   user.name,
+        cargo:  user.cargo || '',
+        dailyGoal,
+        weeklyGoal,
+        weeklyGoal120,
+        metaForPeriod,
+        metaForPeriod120,
+        periodLabel,
+        weekNum,
+        weekLabel,
+        weekPct,
+        percentualMeta,
+        metaStatus,
+        ptsToday,
+        doneToday,
+        totalToday,
+        tasksDone:    cuDone,
+        tasksPending: cuPending,
+        tasksOverdue: cuOverdue,
+        doneSemana,
+        totalSemana,
+        ptsSemana,
+        horas: horasEfetivas,
+        horasPorEmpresa,
+        horasStr,
+        coef,
+        missingFieldsCount,
+        dailyPct: Math.min(weekPct, 150),
+        isCompletionBased,
+        isRoutineBased,
+        tasksShown:     _displayTasks.length,
+        tasksTotal:     _tasksTotal,
+        tasksTruncated: _tasksTruncated,
+        tasks: _displayTasks,
       };
     });
 
-    return json(res, 200, { date: todayStr, weekNum, source: 'clickup', members });
+    const _livePayload = { date: todayStr, weekNum, source: 'clickup', members };
+    _liveCache.set(_liveCacheKey, { payload: _livePayload, ts: Date.now() });
+    return json(res, 200, _livePayload);
   }
 
   // ── POST clickup-sync ───────────────────────────────────────────────
@@ -1311,7 +1735,7 @@ module.exports = async function handler(req, res) {
                 COALESCE(daily_points_goal,26) AS daily_points_goal,
                 COALESCE(clickup_email,'') AS clickup_email,
                 clickup_user_id
-         FROM users WHERE active = TRUE ORDER BY name`
+         FROM users WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE ORDER BY name`
       );
     } catch {
       usersRes = await db.query(
@@ -1409,9 +1833,9 @@ module.exports = async function handler(req, res) {
         const wFromMs   = new Date(`${weekStart}T00:00:00Z`).getTime();
         const wToMs     = new Date(`${weekEnd}T23:59:59Z`).getTime();
 
-        // Tasks concluídas nesta semana (pelo date_closed BRT)
+        // Tasks concluídas nesta semana — usa date_updated como fallback para status sem date_closed
         const weekTasks = userTasks.filter(t => {
-          const closedMs = Number(t.date_closed || t.date_done || 0);
+          const closedMs = Number(t.date_closed || t.date_done || t.date_updated || 0);
           return closedMs >= wFromMs && closedMs <= wToMs;
         });
 
@@ -1421,7 +1845,7 @@ module.exports = async function handler(req, res) {
         // Horas via time_spent com cap 16h/dia — com breakdown por empresa (§6)
         const dayH = {};
         for (const t of weekTasks) {
-          const closedMs = Number(t.date_closed || t.date_done || 0);
+          const closedMs = Number(t.date_closed || t.date_done || t.date_updated || 0);
           const dayKey   = closedMs > 0 ? new Date(closedMs - 3 * 3600000).toISOString().slice(0, 10) : weekStart;
           const h = Number(t.time_spent || 0) / 3600000;
           if (h <= 0) continue;
@@ -1464,6 +1888,34 @@ module.exports = async function handler(req, res) {
     return json(res, 200, { from, to, source: 'clickup', weeks: weekLabels, users: usersWithWeeks });
   }
 
+  // ── GET cron-weekly-snapshot — disparado toda sexta por vercel crons ──
+  if (req.method === 'GET' && action === 'cron-weekly-snapshot') {
+    const cronSecret = (process.env.CRON_SECRET || '').trim();
+    const authHeader = (req.headers['authorization'] || '').trim();
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return json(res, 401, { error: 'Unauthorized' });
+    }
+    const adminToken = (process.env.ADMIN_JWT_CRON || '').trim();
+    if (!adminToken) {
+      return json(res, 500, { error: 'ADMIN_JWT_CRON não configurado.' });
+    }
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : `http://localhost:3000`;
+    const r = await fetch(`${baseUrl}/api/focus?action=snapshot-calculate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ semana_id: 'esta-semana' }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      console.error('[cron] erro:', data);
+      return json(res, 500, { error: data.error || 'Falha no cálculo automático' });
+    }
+    console.log(`[cron] calculado: ${data.semana_id}, entries: ${data.entries}`);
+    return json(res, 200, { success: true, semana_id: data.semana_id, entries: data.entries });
+  }
+
   // ── GET snapshot-list ─────────────────────────────────────────────────
   if (req.method === 'GET' && action === 'snapshot-list') {
     const snaps = await db.query(
@@ -1471,6 +1923,89 @@ module.exports = async function handler(req, res) {
        FROM week_snapshots ORDER BY week_start DESC LIMIT 52`
     ).catch(() => ({ rows: [] }));
     return json(res, 200, { snapshots: snaps.rows });
+  }
+
+  // ── GET snapshot-monthly — histórico mensal + semanal (admin only) ─────
+  if (req.method === 'GET' && action === 'snapshot-monthly') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+
+    const filterUserId = req.query.user_id ? parseInt(req.query.user_id, 10) : null;
+    const userFilter   = filterUserId ? 'AND se.user_id = $1' : '';
+    const params       = filterUserId ? [filterUserId] : [];
+
+    // Lista de membros com dados nos snapshots
+    const usersRows = await db.query(
+      `SELECT DISTINCT se.user_id AS id, se.nome AS name
+       FROM snapshot_entries se
+       ORDER BY se.nome`
+    ).catch(() => ({ rows: [] }));
+
+    // Totais por semana — to_char garante strings independente do driver pg
+    const weekRows = await db.query(`
+      SELECT
+        ws.semana_id,
+        to_char(ws.week_start, 'YYYY-MM-DD') AS week_start,
+        to_char(ws.week_end,   'YYYY-MM-DD') AS week_end,
+        to_char(ws.week_start, 'YYYY-MM')    AS month,
+        ws.status,
+        COALESCE(SUM(se.tasks_concluidas), 0)::int                           AS total_tasks,
+        ROUND(COALESCE(SUM(se.horas_validadas_total), 0)::numeric, 1)::float AS total_horas,
+        COALESCE(SUM(se.pontos), 0)::int                                     AS total_pontos
+      FROM week_snapshots ws
+      JOIN snapshot_entries se ON se.snapshot_id = ws.id
+      WHERE 1=1 ${userFilter}
+      GROUP BY ws.semana_id, ws.week_start, ws.week_end, ws.status
+      ORDER BY ws.week_start
+    `, params).catch(() => ({ rows: [] }));
+
+    // Agrupar semanas por mês
+    const monthMap = {};
+    for (const r of weekRows.rows) {
+      const month = r.month; // já é 'YYYY-MM' via to_char
+      if (!monthMap[month]) monthMap[month] = { month, total_tasks: 0, total_horas: 0, total_pontos: 0 };
+      monthMap[month].total_tasks  += Number(r.total_tasks)  || 0;
+      monthMap[month].total_horas   = parseFloat((monthMap[month].total_horas + (Number(r.total_horas) || 0)).toFixed(1));
+      monthMap[month].total_pontos += Number(r.total_pontos) || 0;
+    }
+    const months = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month));
+    const weeks  = weekRows.rows.map(r => ({
+      semana_id:    r.semana_id,
+      week_start:   r.week_start,
+      week_end:     r.week_end,
+      month:        r.month,
+      status:       r.status,
+      total_tasks:  Number(r.total_tasks)  || 0,
+      total_horas:  Number(r.total_horas)  || 0,
+      total_pontos: Number(r.total_pontos) || 0,
+    }));
+
+    // Dados por usuário por semana — usado pelo gráfico "Por Colaborador"
+    const userWeekRows = await db.query(`
+      SELECT
+        se.user_id,
+        se.nome                                                            AS name,
+        to_char(ws.week_start, 'YYYY-MM-DD')                              AS week_start,
+        to_char(ws.week_end,   'YYYY-MM-DD')                              AS week_end,
+        COALESCE(se.tasks_concluidas,        0)::int                      AS total_tasks,
+        ROUND(COALESCE(se.horas_validadas_total, 0)::numeric, 1)::float   AS total_horas,
+        COALESCE(se.pontos,                  0)::int                      AS total_pontos
+      FROM week_snapshots ws
+      JOIN snapshot_entries se ON se.snapshot_id = ws.id
+      WHERE 1=1 ${userFilter}
+      ORDER BY ws.week_start, se.nome
+    `, params).catch(() => ({ rows: [] }));
+
+    const userWeeks = userWeekRows.rows.map(r => ({
+      user_id:      r.user_id,
+      name:         r.name,
+      week_start:   r.week_start,
+      week_end:     r.week_end,
+      total_tasks:  Number(r.total_tasks)  || 0,
+      total_horas:  Number(r.total_horas)  || 0,
+      total_pontos: Number(r.total_pontos) || 0,
+    }));
+
+    return json(res, 200, { months, weeks, users: usersRows.rows, userWeeks });
   }
 
   // ── GET snapshot-get ──────────────────────────────────────────────────
@@ -1483,7 +2018,7 @@ module.exports = async function handler(req, res) {
     );
     if (!snap.rowCount) return json(res, 404, { error: 'Snapshot não encontrado.' });
     const snapshot = snap.rows[0];
-    if (auth.role !== 'admin' && snapshot.status !== 'FECHADO') return json(res, 403, { error: 'Semana ainda não encerrada.' });
+    if (auth.role !== 'admin' && snapshot.status !== SNAPSHOT_STATUS.FECHADO) return json(res, 403, { error: 'Semana ainda não encerrada.' });
     const entries = await db.query(
       `SELECT * FROM snapshot_entries WHERE snapshot_id = $1 ${auth.role !== 'admin' ? 'AND user_id = $2' : ''} ORDER BY posicao_ranking, nome`,
       auth.role !== 'admin' ? [snapshot.id, auth.sub] : [snapshot.id]
@@ -1501,7 +2036,8 @@ module.exports = async function handler(req, res) {
     if (!cuToken || !cuListId) return json(res, 400, { error: 'ClickUp não configurado.' });
 
     let snapWeekStart, snapWeekEnd, semana_id;
-    if (req.body?.semana_id) {
+    if (req.body?.semana_id && req.body.semana_id !== 'esta-semana') {
+      // Semana específica por ID (YYYY-WNN)
       semana_id = req.body.semana_id;
       const match = semana_id.match(/^(\d{4})-W(\d{2})$/);
       if (!match) return json(res, 400, { error: 'semana_id inválido. Use "YYYY-WNN".' });
@@ -1511,7 +2047,16 @@ module.exports = async function handler(req, res) {
       snapWeekStart = mon.toISOString().slice(0, 10);
       const we = new Date(mon); we.setUTCDate(we.getUTCDate() + 6);
       snapWeekEnd = we.toISOString().slice(0, 10);
+    } else if (req.body?.semana_id === 'esta-semana') {
+      // Semana atual (segunda desta semana até hoje)
+      const nowBRT = new Date(Date.now() - 3 * 3600000);
+      const mon = mondayOfDate(nowBRT.toISOString().slice(0, 10));
+      snapWeekStart = mon.toISOString().slice(0, 10);
+      const we = new Date(mon); we.setUTCDate(we.getUTCDate() + 6);
+      snapWeekEnd = we.toISOString().slice(0, 10);
+      semana_id = isoWeekId(mon);
     } else {
+      // Padrão: semana anterior
       const nowBRT2 = new Date(Date.now() - 3 * 3600000);
       const mon = mondayOfDate(nowBRT2.toISOString().slice(0, 10));
       mon.setUTCDate(mon.getUTCDate() - 7);
@@ -1566,7 +2111,8 @@ module.exports = async function handler(req, res) {
     const snapTasksByUid = new Map();
     for (const task of cuAllTasks) {
       if (!cuTaskDone(task)) continue;
-      const closedMs = Number(task.date_closed || task.date_done || 0);
+      // 'aprovar'/'publicar' têm date_closed/date_done nulos no ClickUp — usa date_updated como fallback
+      const closedMs = Number(task.date_closed || task.date_done || task.date_updated || 0);
       if (closedMs < snapFromMs || closedMs > snapToMs) continue;
       for (const a of (Array.isArray(task.assignees) ? task.assignees : [])) {
         const u = matchSnap(a); if (!u) continue;
@@ -1583,7 +2129,7 @@ module.exports = async function handler(req, res) {
       const pts = uTasks.reduce((s, t) => s + extractPtsSnap(t), 0);
       const dH = {};
       for (const t of uTasks) {
-        const cm = Number(t.date_closed || t.date_done || 0);
+        const cm = Number(t.date_closed || t.date_done || t.date_updated || 0);
         const dk = cm > 0 ? new Date(cm - 3*3600000).toISOString().slice(0,10) : snapWeekStart;
         const h = Number(t.time_spent||0)/3600000; if (h<=0) continue;
         if (!dH[dk]) dH[dk] = { total:0, porEmpresa:{} };
@@ -1664,7 +2210,7 @@ module.exports = async function handler(req, res) {
       return json(res, 400, { error: 'semana_id e entries[] obrigatórios.' });
     const sv = await db.query('SELECT id, status, week_start FROM week_snapshots WHERE semana_id=$1', [semana_id]);
     if (!sv.rowCount) return json(res, 404, { error: 'Snapshot não encontrado.' });
-    if (sv.rows[0].status === 'FECHADO') return json(res, 409, { error: 'Semana já fechada.' });
+    if (sv.rows[0].status === SNAPSHOT_STATUS.FECHADO) return json(res, 409, { error: 'Semana já fechada.' });
     const snapId2 = sv.rows[0].id;
     const wStart  = sv.rows[0].week_start;
     const vc = await db.connect();
@@ -1728,6 +2274,32 @@ module.exports = async function handler(req, res) {
       return json(res, 200, { success:true, log:logEntry });
     } catch(err) { await ec.query('ROLLBACK'); throw err; }
     finally { ec.release(); }
+  }
+
+  // ── daily-brief (GET/POST) ────────────────────────────────────────────────
+  const DAILY_SECRET = 'mkt_daily_2026';
+  if (action === 'daily-brief') {
+    if (req.method === 'GET') {
+      const { rows } = await db.query(
+        `SELECT id, content, brief_date::text AS brief_date, created_at
+         FROM daily_briefs ORDER BY brief_date DESC LIMIT 1`
+      ).catch(() => ({ rows: [] }));
+      return json(res, 200, { brief: rows[0] || null });
+    }
+    if (req.method === 'POST') {
+      const secret = req.headers['x-cron-secret'];
+      if (secret !== DAILY_SECRET && auth.role !== 'admin') return json(res, 403, { error: 'Forbidden.' });
+      const { content, brief_date } = req.body || {};
+      if (!content?.trim()) return json(res, 400, { error: 'content is required.' });
+      const dateVal = brief_date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+      const { rows } = await db.query(
+        `INSERT INTO daily_briefs (content, brief_date) VALUES ($1, $2::date)
+         ON CONFLICT (brief_date) DO UPDATE SET content = EXCLUDED.content, created_at = NOW()
+         RETURNING id, brief_date::text AS brief_date`,
+        [content.trim(), dateVal]
+      );
+      return json(res, 200, { ok: true, brief: rows[0] });
+    }
   }
 
   return methodNotAllowed(res, ['GET', 'POST', 'PATCH']);

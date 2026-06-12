@@ -14,9 +14,10 @@ function getJwtSecret() {
 function signAuthToken(user) {
   return jwt.sign(
     {
-      sub: user.id,
-      name: user.name,
-      role: user.role,
+      sub:       user.id,
+      name:      user.name,
+      role:      user.role,
+      is_master: user.is_master === true,
     },
     getJwtSecret(),
     { expiresIn: '12h' }
@@ -58,8 +59,18 @@ function requireAdmin(auth, res) {
   return true;
 }
 
+// ADMIN_MASTER (§8) — exclusivo de Maria Clara; verifica campo is_master no JWT
+function requireMaster(auth, res) {
+  if (!auth || auth.role !== 'admin' || auth.is_master !== true) {
+    json(res, 403, { error: 'Somente ADMIN_MASTER pode executar esta ação.' });
+    return false;
+  }
+  return true;
+}
+
 module.exports = {
   signAuthToken,
   requireAuth,
   requireAdmin,
+  requireMaster,
 };

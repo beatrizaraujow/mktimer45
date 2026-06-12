@@ -4,102 +4,116 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Controle Semanal — Bia (Estagiária)</title>
+<link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; background: #fff; color: #1a1a2e; }
+  body { font-family: 'Inter', Arial, sans-serif; font-size: 11px; background: #1a1a1a; color: #ffffff; -webkit-font-smoothing: antialiased; }
 
   .header {
-    background: #1a1a2e;
+    background: #222222;
     color: #fff;
-    padding: 18px 28px 14px;
+    padding: 20px 28px 16px;
     text-align: center;
+    border-bottom: 2px solid #f5c200;
   }
-  .header h1 { font-size: 17px; font-weight: 700; letter-spacing: 1px; }
-  .header p  { font-size: 10px; color: #aac; margin-top: 4px; font-style: italic; }
+  .header h1 { font-size: 16px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #ffffff; }
+  .header p  { font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 5px; }
 
   .meta-strip {
     display: flex;
-    gap: 0;
-    background: #f0f0ff;
-    border-bottom: 2px solid #7c3aed;
-    padding: 10px 28px;
+    background: #222222;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 28px;
     align-items: center;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 24px;
   }
-  .meta-chip {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-  }
-  .meta-chip .val { font-size: 18px; font-weight: 700; color: #7c3aed; }
-  .meta-chip .lbl { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: .4px; }
-  .meta-note { margin-left: auto; font-size: 9.5px; color: #555; text-align: right; line-height: 1.5; }
+  .meta-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .meta-chip .val { font-size: 18px; font-weight: 800; color: #f5c200; letter-spacing: -0.02em; }
+  .meta-chip .lbl { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: .06em; }
+  .meta-note { margin-left: auto; font-size: 9.5px; color: rgba(255,255,255,0.35); text-align: right; line-height: 1.6; }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  thead tr { background: #7c3aed; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: #2a2a2a; }
   thead th {
-    color: #fff;
-    font-size: 10px;
+    color: rgba(255,255,255,0.6);
+    font-size: 9px;
     font-weight: 700;
     text-align: center;
-    padding: 8px 6px;
-    letter-spacing: 0.5px;
+    padding: 9px 6px;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    border: 1px solid #6d28d9;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: #2a2a2a;
   }
-  tbody tr:nth-child(even) td { background: #f9f8ff; }
-  tbody tr:nth-child(odd)  td { background: #fff; }
-  tbody tr.semana-atual td  { background: #fffbdd !important; }
-  tbody tr.semana-futura td { background: #f5f5f5 !important; color: #bbb; }
+  tbody tr:nth-child(even) td { background: #242424; }
+  tbody tr:nth-child(odd)  td { background: #222222; }
+  tbody tr.semana-atual td  { background: rgba(245,194,0,0.07) !important; }
+  tbody tr.semana-futura td { background: #1e1e1e !important; color: rgba(255,255,255,0.2); }
 
   td {
-    padding: 6px 8px;
-    border: 1px solid #ddd;
+    padding: 7px 8px;
+    border: 1px solid rgba(255,255,255,0.06);
     vertical-align: middle;
     text-align: center;
     line-height: 1.4;
+    color: rgba(255,255,255,0.85);
   }
-  td.col-obs { text-align: left; font-size: 10px; color: #444; }
+  td.col-obs { text-align: left; font-size: 10px; color: rgba(255,255,255,0.65); }
 
-  .semana-badge {
-    font-weight: 700; font-size: 11px; color: #1a1a2e;
-  }
-  .periodo { font-size: 10px; color: #444; white-space: nowrap; }
-  .pts-val  { font-size: 13px; font-weight: 700; color: #1a1a2e; }
-  .meta-val { font-size: 10px; color: #7c3aed; font-style: italic; }
-  .pct-val  { font-size: 12px; font-weight: 700; }
-  .pct-high  { color: #1a6a2a; }
-  .pct-ok    { color: #856404; }
-  .pct-low   { color: #842029; }
-  .coins-val { font-size: 12px; }
-  .status-concluido { background: #d4edda; color: #1a6a2a; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
-  .status-andamento { background: #fff3cd; color: #856404; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
-  .status-afazer    { background: #e9ecef; color: #555;    border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; display: inline-block; }
-  .validado-sim { color: #1a6a2a; font-size: 14px; font-weight: 700; }
-  .validado-nao { color: #bbb; font-size: 11px; }
+  .semana-badge { font-weight: 700; font-size: 11px; color: #ffffff; }
+  .periodo      { font-size: 10px; color: rgba(255,255,255,0.45); white-space: nowrap; }
+  .pts-val      { font-size: 13px; font-weight: 800; color: #f5c200; }
+  .meta-val     { font-size: 10px; color: rgba(255,255,255,0.35); font-style: italic; }
+  .pct-val      { font-size: 12px; font-weight: 700; }
+  .pct-high     { color: #4ade80; }
+  .pct-ok       { color: #f5c200; }
+  .pct-low      { color: #ff6b6b; }
+  .coins-val    { font-size: 12px; color: #f5c200; }
+  .coins-pend   { font-size: 9px; color: rgba(255,255,255,0.3); font-style: italic; }
+
+  .status-concluido { background: rgba(74,222,128,0.12); color: #4ade80;  border-radius: 4px; padding: 2px 7px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .status-andamento { background: rgba(245,194,0,0.12);  color: #f5c200;  border-radius: 4px; padding: 2px 7px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .status-afazer    { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); border-radius: 4px; padding: 2px 7px; font-size: 9px; font-weight: 700; display: inline-block; }
+  .validado-sim { color: #4ade80; font-size: 14px; font-weight: 700; }
+  .validado-nao { color: rgba(255,255,255,0.25); font-size: 11px; }
 
   .legend {
-    display: flex; gap: 18px; padding: 10px 28px;
-    background: #f8f8fc; border-top: 2px solid #dde; flex-wrap: wrap;
+    display: flex; gap: 18px; padding: 12px 28px;
+    background: #1e1e1e; border-top: 1px solid rgba(255,255,255,0.07); flex-wrap: wrap;
+    color: rgba(255,255,255,0.45);
   }
   .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; }
   .legend-box  { width: 14px; height: 14px; border-radius: 3px; }
 
   .summary-row td {
-    background: #7c3aed !important;
-    color: #fff;
+    background: #f5c200 !important;
+    color: #222222;
     font-weight: 700;
     font-size: 11px;
-    padding: 8px;
+    padding: 9px 8px;
     text-align: center;
   }
 
-  .coins-pend { font-size: 9px; color: #999; font-style: italic; }
+  .footer-note {
+    padding: 12px 28px;
+    background: #1e1e1e;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 9.5px;
+    color: rgba(255,255,255,0.3);
+    line-height: 1.6;
+  }
+  .footer-note strong { color: rgba(255,255,255,0.5); }
 
   @media print {
-    body { font-size: 9.5px; }
+    body { background: #fff; color: #111; font-size: 9.5px; }
+    .header { background: #222; border-bottom-color: #f5c200; }
+    .meta-strip { background: #f5f5f5; }
+    thead th { background: #333; color: #fff; border-color: #444; }
+    tbody tr:nth-child(even) td { background: #f9f9f9; }
+    tbody tr:nth-child(odd)  td { background: #fff; }
+    td { border-color: #ddd; color: #111; }
     .header h1 { font-size: 14px; }
     th, td { padding: 4px 5px; }
   }
@@ -109,7 +123,7 @@
 
 <div class="header">
   <h1>CONTROLE SEMANAL DE PERFORMANCE — BIA (ESTAGIÁRIA)</h1>
-  <p>Registro semanal de pontos, tarefas e validação de Maria &nbsp;·&nbsp; MKT Hub / Grupo Quatro5 &nbsp;·&nbsp; Atualizado em 02/06/2026</p>
+  <p>Registro semanal de pontos, tarefas e validação de Maria &nbsp;·&nbsp; MKT Hub / Grupo Quatro5 &nbsp;·&nbsp; Atualizado em 08/06/2026</p>
 </div>
 
 <div class="meta-strip">
@@ -126,11 +140,11 @@
     <span class="lbl">meta 120% / semana</span>
   </div>
   <div class="meta-chip">
-    <span class="val" style="color:#1a6a2a">271</span>
+    <span class="val" style="color:#4ade80">403*</span>
     <span class="lbl">pts acumulados</span>
   </div>
   <div class="meta-chip">
-    <span class="val" style="color:#7c3aed">8</span>
+    <span class="val">9</span>
     <span class="lbl">semanas registradas</span>
   </div>
   <div class="meta-note">
@@ -255,35 +269,45 @@
       <td><span class="validado-nao">Pendente</span></td>
     </tr>
 
-    <!-- S08 — SEMANA ATUAL (EM ANDAMENTO) -->
-    <tr class="semana-atual">
-      <td><span class="semana-badge" style="color:#856404;">S08</span></td>
+    <!-- S08 — CONCLUÍDA -->
+    <tr>
+      <td><span class="semana-badge">S08</span></td>
       <td><span class="periodo">02/06 – 06/06/2026</span></td>
-      <td><span class="pts-val" style="color:#856404;">88*</span></td>
+      <td><span class="pts-val">173</span></td>
       <td><span class="meta-val">30</span></td>
       <td><span class="meta-val">36</span></td>
-      <td><span class="pct-val pct-high">293%*</span></td>
+      <td><span class="pct-val pct-high">577%</span></td>
       <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
       <td>—</td>
       <td class="col-obs">
-        <span class="status-andamento">Em andamento</span>
+        <span class="status-concluido">Concluído</span>
         · <strong>01/06:</strong> Revisão + feedback Maria / MKTHub_Ajustes.md (5pts) · bugfixes 7 commits (8pts)
         · <strong>02/06:</strong> F5.1–F5.8 — rename MKT Hub, contraste, filtros, meta ajustada, EM ALTERAÇÃO + badge empresa, contagem X/Y, Ranking Daily 🥇, rotinas 3x/semana (53pts) · Fix F1.2 paginação ClickUp (3pts)
         · <strong>03/06:</strong> F5.9 — vínculo ClickUp por User ID: migration + API + 8 users populados via API (8pts) · F5.10 — Gustavo Rocha adicionado, Maria Clara ADM-only, nomes sincronizados com ClickUp (5pts)
-        <br/><em style="color:#999;font-size:9px;">* parcial — semana termina 06/06</em>
+        · <strong>04/06:</strong> F5.12 — fix pós-sprint: métricas, metas, coef, subtasks, ranking + paginação ClickUp (8pts) · F5.13 — migration routines_v2, reset senhas, update metas, db.js, schema (5pts)
+        · <strong>05/06:</strong> F5.14 — gráfico histórico rotinas semanal (8pts) · F5.15 — ícone 🔔 tasks sem pts (3pts) · F5.16 — ALTERAÇÃO priorizada + regex expandido (3pts) · F5.17 — tasks atrasadas no daily em vermelho (5pts) · F5.18 — dedup tasks/pontos (3pts) · F5.19 — import rotinas via CSV (8pts) · F5.20 — remover pontos das rotinas (3pts)
+        · <strong>06/06:</strong> F5.21 — ranking por coef % meta (3pts) · F5.22 — ícones SVG Lucide (8pts) · F7.1–F7.5 — redesign ADM: cards compactos, toolbar, scoring v2, rotinas no score (26pts) · F7.6–F7.10 — bugfixes: loading init, encoding UTF-8, renderAdmHistoryChart, BOM fix (15pts)
       </td>
       <td><span class="validado-nao">Pendente</span></td>
     </tr>
 
-    <!-- S09–S20 — A FAZER -->
-    <tr class="semana-futura">
-      <td><span class="semana-badge">S09</span></td>
+    <!-- S09 — SEMANA ATUAL (EM ANDAMENTO) -->
+    <tr class="semana-atual">
+      <td><span class="semana-badge" style="color:#f5c200;">S09</span></td>
       <td><span class="periodo">09/06 – 13/06/2026</span></td>
-      <td>—</td><td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
-      <td>—</td><td>—</td><td>—</td>
-      <td class="col-obs"><span class="status-afazer">A fazer</span></td>
-      <td><span class="validado-nao">—</span></td>
+      <td><span class="pts-val">31*</span></td>
+      <td><span class="meta-val">30</span></td><td><span class="meta-val">36</span></td>
+      <td><span class="pct-val pct-high">103%*</span></td>
+      <td><span class="coins-val">★★★</span><br/><span class="coins-pend">3 coins est.</span></td>
+      <td>—</td>
+      <td class="col-obs">
+        <span class="status-andamento">Em andamento</span>
+        · <strong>08/06:</strong> F7.11 — redesign login MKT Hub (card dark, paleta #222222/#f5c200, brand SVG) (5pts) · F7.12 — migração paleta completa (7000+ linhas CSS, navy→neutral #222222) (8pts) · F7.13 — week picker no filtro ADM History (5pts) · F7.14 — fix pills ativas (outline pattern, texto sempre visível) (3pts) · F7.15 — fix select dropdown (color-scheme dark, nomes visíveis) (2pts) · F7.16 — gráfico "Por Colaborador" no ADM History (5pts) · F7.17 — tema dark semanas-bia + roadmap (3pts)
+        <br/><em style="color:#999;font-size:9px;">* semana em andamento (08/06 = pré-sprint domingo)</em>
+      </td>
+      <td><span class="validado-nao">Pendente</span></td>
     </tr>
+    <!-- S10–S20 — A FAZER -->
     <tr class="semana-futura">
       <td><span class="semana-badge">S10</span></td>
       <td><span class="periodo">16/06 – 20/06/2026</span></td>
@@ -375,39 +399,38 @@
 
     <!-- RESUMO -->
     <tr class="summary-row">
-      <td colspan="2">TOTAL ACUMULADO (S01–S08)</td>
-      <td>287 pts*</td>
-      <td colspan="2">Meta total: 240 pts</td>
-      <td>120%</td>
-      <td>18 coins est.</td>
+      <td colspan="2">TOTAL ACUMULADO (S01–S09)</td>
+      <td>403 pts*</td>
+      <td colspan="2">Meta total: 270 pts (9 sem)</td>
+      <td>149%</td>
+      <td>27 coins est.</td>
       <td>—</td>
-      <td colspan="2">* S08 parcial (02/06) · Coins pendentes implementação F1.7</td>
+      <td colspan="2">* S09 em andamento (08/06) · Coins pendentes implementação F1.7</td>
     </tr>
 
   </tbody>
 </table>
 
 <div class="legend">
-  <strong style="font-size:10px; margin-right:4px;">Legenda:</strong>
-  <div class="legend-item"><span style="font-size:14px;">★★★</span> ≥ 100% meta (3 coins)</div>
-  <div class="legend-item"><span style="font-size:14px;">★★☆</span> 80–99% meta (2 coins)</div>
-  <div class="legend-item"><span style="font-size:14px;">★☆☆</span> 60–79% meta (1 coin)</div>
-  <div class="legend-item"><span style="font-size:14px;">☆☆☆</span> &lt; 60% meta (0 coins)</div>
+  <strong style="font-size:10px; margin-right:4px; color:rgba(255,255,255,0.6)">Legenda:</strong>
+  <div class="legend-item"><span style="font-size:14px;color:#f5c200;">★★★</span> ≥ 100% meta (3 coins)</div>
+  <div class="legend-item"><span style="font-size:14px;color:#f5c200;">★★☆</span> 80–99% meta (2 coins)</div>
+  <div class="legend-item"><span style="font-size:14px;color:#f5c200;">★☆☆</span> 60–79% meta (1 coin)</div>
+  <div class="legend-item"><span style="font-size:14px;color:rgba(255,255,255,0.25);">☆☆☆</span> &lt; 60% meta (0 coins)</div>
   <div class="legend-item">
-    <div class="legend-box" style="background:#fffbdd; border:1px solid #856404;"></div> Semana atual
+    <div class="legend-box" style="background:rgba(245,194,0,0.15); border:1px solid rgba(245,194,0,0.4);"></div> Semana atual
   </div>
   <div class="legend-item">
-    <div class="legend-box" style="background:#f5f5f5; border:1px solid #ddd;"></div> Semanas futuras
+    <div class="legend-box" style="background:#1e1e1e; border:1px solid rgba(255,255,255,0.1);"></div> Semanas futuras
   </div>
-  <div style="margin-left:auto; font-size:10px; color:#555; font-weight:700;">
-    Pontos acumulados: <span style="color:#7c3aed">287</span> / 240 est. &nbsp;|&nbsp;
-    <span style="color:#1a6a2a">120% da meta acumulada</span> &nbsp;|&nbsp;
-    Início: 14/04/2026 &nbsp;|&nbsp; Atualizado: 03/06/2026
+  <div style="margin-left:auto; font-size:10px; color:rgba(255,255,255,0.5); font-weight:700;">
+    Pontos acumulados: <span style="color:#f5c200">403*</span> / 270 est. &nbsp;|&nbsp;
+    <span style="color:#4ade80">149% da meta acumulada</span> &nbsp;|&nbsp;
+    Início: 14/04/2026 &nbsp;|&nbsp; Atualizado: 08/06/2026
   </div>
 </div>
 
-<!-- NOTA RODAPÉ -->
-<div style="padding:12px 28px;background:#f8f8fc;border-top:1px solid #dde;font-size:9.5px;color:#777;line-height:1.6;">
+<div class="footer-note">
   <strong>Notas:</strong>
   Pontos contabilizados são os pontos de desenvolvimento do projeto MKT Hub (roadmap), distribuídos por semana de trabalho ·
   SB Coins marcados com ★ são estimativas — implementação backend pendente (F1.7) ·

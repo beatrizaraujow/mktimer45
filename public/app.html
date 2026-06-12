@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MKT Hub</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -47,6 +47,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <span>Rotina</span>
           </button>
+          <button type="button" class="nav-tab" data-panel="rituais" id="rituaisNavTab" role="tab" style="display:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Rituais</span>
+          </button>
           <button type="button" class="nav-tab" data-panel="ranking" role="tab">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
             <span>Ranking</span>
@@ -66,9 +70,7 @@
           <span class="nav-divider"></span>
           <button type="button" id="profileAvatarBtn" class="nav-avatar" title="Perfil" aria-label="Perfil">
             <span id="profileInitial">U</span>
-            <span class="avatar-badge">+</span>
           </button>
-          <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
           <button type="button" id="openPasswordBtn" class="nav-hist-btn" style="display:none">Senha</button>
           <button type="button" id="logoutBtn" class="nav-logout" aria-label="Sair" title="Sair">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v16h5"/><path d="M13 8l4 4-4 4"/><path d="M7 12h10"/></svg>
@@ -385,11 +387,13 @@
               <input type="date" class="dfb-input" id="dailyDFBTo" />
             </div>
             <div class="dfb-pills">
+              <button class="dfb-pill" data-dfb="daily" data-preset="hoje">Hoje</button>
               <button class="dfb-pill active" data-dfb="daily" data-preset="semana">Esta semana</button>
               <button class="dfb-pill" data-dfb="daily" data-preset="ultima-semana">Última semana</button>
               <button class="dfb-pill" data-dfb="daily" data-preset="mes">Este mês</button>
               <button class="dfb-pill" data-dfb="daily" data-preset="mes-ant">Último mês</button>
               <button class="dfb-pill" data-dfb="daily" data-days="90">90d</button>
+              <button class="dfb-pill" data-dfb="daily" data-preset="custom">Personalizado</button>
             </div>
             <span class="dfb-period-label" id="dailyDFBPeriodLabel"></span>
           </div>
@@ -482,6 +486,11 @@
           </div>
         </section>
 
+        <!-- ── Rituais do Time ───────────────────────────────────────── -->
+        <section class="rituais-panel" data-lockable="true" data-panel-view="rituais" hidden>
+          <div id="rituaisContent"></div>
+        </section>
+
         <!-- ── Tabela de Pontuação ───────────────────────────────────── -->
         <section class="ranking-panel" data-lockable="true" data-panel-view="ranking" hidden>
           <div id="rankingContent"></div>
@@ -490,91 +499,8 @@
         <section class="pts-table-panel" data-lockable="true" data-panel-view="tabela-pts" hidden></section>
 
         <!-- ── Versão ADM ─────────────────────────────────────────────── -->
-        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
-
-          <!-- Filter bar -->
-          <div class="adm-filter-bar">
-            <span class="adm-filter-label">Pessoa</span>
-            <select id="admUserSelect" class="adm-select">
-              <option value="">Toda a equipe</option>
-            </select>
-            <span class="adm-filter-sep">·</span>
-            <div class="adm-date-presets" id="admDatePresets">
-              <button class="adm-preset-btn" data-preset="30d">30 dias</button>
-              <button class="adm-preset-btn" data-preset="3m">3 meses</button>
-              <button class="adm-preset-btn active" data-preset="6m">6 meses</button>
-              <button class="adm-preset-btn" data-preset="1a">Este ano</button>
-              <button class="adm-preset-btn" data-preset="custom">Personalizado</button>
-            </div>
-            <div class="adm-custom-range" id="admCustomRange" style="display:none">
-              <input type="date" id="admDateFrom" class="adm-date-input">
-              <span class="adm-filter-label">→</span>
-              <input type="date" id="admDateTo" class="adm-date-input">
-            </div>
-          </div>
-
-          <!-- Card principal: KPIs + gráfico integrados -->
-          <div class="adm-main-card">
-
-            <!-- Toolbar: título (esq) + controles (dir) -->
-            <div class="adm-toolbar">
-              <div class="adm-toolbar-left">
-                <span class="adm-card-title">Comparativo Mês a Mês</span>
-                <span class="adm-card-sub" id="admChartSubtitle"></span>
-              </div>
-              <div class="adm-toolbar-right">
-                <div id="admMonthFilter" class="adm-month-chips"></div>
-                <div class="adm-vdivider" id="admChipDivider" style="display:none"></div>
-                <div class="adm-metric-tabs" id="admMetricTabs">
-                  <button type="button" class="adm-metric-tab active" data-metric="all">Todos</button>
-                  <button type="button" class="adm-metric-tab" data-metric="pts">Pontos</button>
-                  <button type="button" class="adm-metric-tab" data-metric="tasks">Tasks</button>
-                  <button type="button" class="adm-metric-tab" data-metric="horas">Horas</button>
-                </div>
-                <div class="adm-vdivider"></div>
-                <div class="adm-export-btns">
-                  <button type="button" class="adm-btn-export" id="admExportExcel">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    Excel
-                  </button>
-                  <button type="button" class="adm-btn-export adm-btn-pdf" id="admExportPDF">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                    PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- KPI strip: 3 métricas inline -->
-            <div class="adm-kpi-strip">
-              <div class="adm-kpi-item">
-                <span class="adm-kpi-val" id="admStatDone">—</span>
-                <span class="adm-kpi-lbl">Tasks Concluídas</span>
-              </div>
-              <div class="adm-kpi-item">
-                <span class="adm-kpi-val" id="admStatHours">—</span>
-                <span class="adm-kpi-lbl">Horas Registradas</span>
-              </div>
-              <div class="adm-kpi-item adm-kpi-accent">
-                <span class="adm-kpi-val" id="admStatPoints">—</span>
-                <span class="adm-kpi-lbl">Pontuação Total</span>
-              </div>
-            </div>
-
-            <!-- Gráfico -->
-            <div class="adm-chart-wrap">
-              <canvas id="admBarChart"></canvas>
-            </div>
-
-          </div>
-
-          <!-- Breakdown tables -->
-          <div class="adm-breakdown-grid">
-            <div class="adm-breakdown-card" id="admUserBreakdown"></div>
-            <div class="adm-breakdown-card" id="admCompanyBreakdown"></div>
-          </div>
-
-        </section>
+        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>          <div id="admHistoryWrap"></div>
+          <div id="snapValidationWrap"></div>        </section>
 
       </main>
     </div><!-- /.app-shell -->
@@ -695,6 +621,27 @@
       </div>
     </dialog>
 
+    <!-- Período personalizado — Painel Daily -->
+    <dialog id="dailyCustomDialog">
+      <div class="custom-range-card">
+        <h3 class="custom-range-title">Período personalizado</h3>
+        <div class="custom-range-fields">
+          <label class="custom-range-label">
+            De
+            <input type="date" id="dailyCustomFromInput" class="custom-range-input" />
+          </label>
+          <label class="custom-range-label">
+            Até
+            <input type="date" id="dailyCustomToInput" class="custom-range-input" />
+          </label>
+        </div>
+        <div class="custom-range-footer">
+          <button type="button" id="dailyCustomCancel" class="tm-btn-ghost">Cancelar</button>
+          <button type="button" id="dailyCustomApply" class="tm-btn-primary">Aplicar</button>
+        </div>
+      </div>
+    </dialog>
+
     <!-- Seletor de semana — Score -->
     <dialog id="weekPickerDialog">
       <div class="wpd-card">
@@ -757,9 +704,29 @@
       </div>
     </dialog>
 
+    <dialog id="snapWeekDialog">
+      <div class="snap-week-dialog">
+        <div class="snap-week-dialog-top">
+          <div class="snap-week-dialog-heading">
+            <span class="snap-week-dialog-kicker" id="snapWeekDialogYear">Fechamento semanal</span>
+            <h3 class="snap-week-dialog-title" id="snapWeekDialogTitle">Selecionar semana</h3>
+          </div>
+          <button type="button" class="snap-week-close-btn" id="snapWeekClose" aria-label="Fechar">×</button>
+        </div>
+
+        <div class="dfb-pills snap-week-dialog-pills" id="snapWeekDialogPills">
+          <button type="button" class="dfb-pill" data-snap-preset-dialog="semana">Esta semana</button>
+          <button type="button" class="dfb-pill" data-snap-preset-dialog="ultima-semana">Última semana</button>
+        </div>
+
+        <div class="snap-week-list" id="snapWeekList"></div>
+      </div>
+    </dialog>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="/js/constants.js"></script>
     <script src="/js/dashboard.js"></script>
   </body>
 </html>

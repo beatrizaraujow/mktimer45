@@ -92,12 +92,12 @@ module.exports = async function handler(req, res) {
             const dow = new Date(`${d}T00:00:00Z`).getUTCDay() || 7; // 1=Mon..7=Sun
             let applies = false;
             if (r.frequency === 'daily') {
-              applies = true;
+              applies = !r.applies_days || r.applies_days.length === 0 || r.applies_days.includes(dow);
             } else if (r.frequency === 'weekly') {
               applies = !r.applies_days || r.applies_days.includes(dow);
             } else if (r.frequency === 'monthly') {
-              // applies on the creation day of month — simplified: applies on first day of each week
-              applies = dow === 1; // Monday only for now
+              const dom = Number(d.slice(8, 10));
+              applies = !r.applies_days || r.applies_days.length === 0 || r.applies_days.includes(dom);
             }
             if (applies) {
               dayStatuses[d] = compMap[r.id]?.[d] || null;
@@ -111,6 +111,7 @@ module.exports = async function handler(req, res) {
             description: r.description,
             company: r.company,
             frequency: r.frequency,
+            applies_days: r.applies_days || null,
             points: r.points,
             days: dayStatuses,
           };
@@ -256,6 +257,110 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // GET ?action=weekly-history&weeks=N[&userId=X]
+    // Returns last N weeks summary (pct, done, total) for routine completion chart
+    if (req.method === 'GET' && action === 'weekly-history') {
+      const weeks = Math.min(Math.max(parseInt(req.query.weeks || '8', 10), 1), 26);
+      let targetUids;
+      if (auth.role === 'admin' && req.query.userId) {
+        targetUids = [parseInt(req.query.userId, 10)];
+      } else if (auth.role === 'admin' && !req.query.userId) {
+        const all = await db.query(`SELECT id FROM users WHERE active = TRUE`);
+        targetUids = all.rows.map(r => Number(r.id));
+      } else {
+        targetUids = [auth.sub];
+      }
+
+      try {
+        // Build week ranges (Mon–Sun), going back N weeks from current week
+        const now = new Date();
+        const dow = now.getUTCDay() || 7;
+        const thisMon = new Date(now);
+        thisMon.setUTCDate(now.getUTCDate() - dow + 1);
+        thisMon.setUTCHours(0, 0, 0, 0);
+
+        const weekRanges = [];
+        for (let i = weeks - 1; i >= 0; i--) {
+          const mon = new Date(thisMon);
+          mon.setUTCDate(thisMon.getUTCDate() - i * 7);
+          const sun = new Date(mon);
+          sun.setUTCDate(mon.getUTCDate() + 6);
+          weekRanges.push({
+            from: mon.toISOString().slice(0, 10),
+            to:   sun.toISOString().slice(0, 10),
+          });
+        }
+
+        const globalFrom = weekRanges[0].from;
+        const globalTo   = weekRanges[weekRanges.length - 1].to;
+
+        // Get all active routines for these users + their frequency/applies_days
+        const colCheck = await db.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_name = 'user_routines'
+             AND column_name IN ('frequency','applies_days')`
+        );
+        const cols = new Set(colCheck.rows.map(r => r.column_name));
+        const frequencyCol  = cols.has('frequency')   ? 'ur.frequency'    : "'daily'::text AS frequency";
+        const appliesDCol   = cols.has('applies_days')? 'ur.applies_days' : 'NULL::int[] AS applies_days';
+
+        const routinesRes = await db.query(
+          `SELECT ur.id, ur.user_id, ${frequencyCol}, ${appliesDCol}
+           FROM user_routines ur
+           WHERE ur.user_id = ANY($1::int[]) AND ur.active = TRUE`,
+          [targetUids]
+        );
+
+        // Get all completions (status=done only) in range
+        const compRes = await db.query(
+          `SELECT rc.routine_id, rc.completed_date::text AS date
+           FROM routine_completions rc
+           JOIN user_routines ur ON ur.id = rc.routine_id
+           WHERE ur.user_id = ANY($1::int[])
+             AND rc.completed_date >= $2 AND rc.completed_date <= $3
+             AND rc.status = 'done'`,
+          [targetUids, globalFrom, globalTo]
+        );
+        const doneSet = new Set(compRes.rows.map(r => `${r.routine_id}_${r.date}`));
+
+        // For each week, compute applicable slots and done slots
+        const result = weekRanges.map(({ from, to }) => {
+          const dates = [];
+          const cur = new Date(`${from}T00:00:00Z`);
+          const end = new Date(`${to}T00:00:00Z`);
+          while (cur <= end) {
+            dates.push(cur.toISOString().slice(0, 10));
+            cur.setUTCDate(cur.getUTCDate() + 1);
+          }
+
+          let total = 0, done = 0;
+          for (const r of routinesRes.rows) {
+            for (const d of dates) {
+              const dow2 = new Date(`${d}T00:00:00Z`).getUTCDay() || 7;
+              const freq = r.frequency || 'daily';
+              const applyDays = r.applies_days;
+              let applies = false;
+              const dom2 = Number(d.slice(8, 10));
+              if (freq === 'daily')   applies = !applyDays || applyDays.includes(dow2);
+              if (freq === 'weekly')  applies = !applyDays || applyDays.includes(dow2);
+              if (freq === 'monthly') applies = !applyDays || applyDays.length === 0 || applyDays.includes(dom2);
+              if (!applies) continue;
+              total++;
+              if (doneSet.has(`${r.id}_${d}`)) done++;
+            }
+          }
+          const pct = total > 0 ? Math.round((done / total) * 100) : null;
+          const [,mo,dy] = from.split('-');
+          return { from, to, label: `${dy}/${mo}`, done, total, pct };
+        });
+
+        return json(res, 200, { weeks: result });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { weeks: [] });
+        throw e;
+      }
+    }
+
     // POST ?action=create  body: { userId, title, observation?, company?, frequency, applies_days?, points, sort_order? }
     if (req.method === 'POST' && action === 'create') {
       if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
@@ -281,10 +386,11 @@ module.exports = async function handler(req, res) {
       if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
       const rid = parseInt(req.query.routineId, 10);
       if (!rid) return json(res, 400, { error: 'routineId required.' });
-      const { title, observation, company, frequency, applies_days, points, sort_order, active } = req.body || {};
+      const { title, observation, company, frequency, applies_days, points, sort_order, active, userId } = req.body || {};
       try {
         await db.query(
           `UPDATE user_routines SET
+             user_id     = COALESCE($10, user_id),
              title       = COALESCE($2, title),
              observation = COALESCE($3, observation),
              company     = COALESCE($4, company),
@@ -295,9 +401,10 @@ module.exports = async function handler(req, res) {
              active      = COALESCE($9, active)
            WHERE id = $1`,
           [rid, title?.trim() || null, observation?.trim() || null, company?.trim() || null,
-           frequency || null, applies_days?.length ? applies_days : null,
+           frequency || null, Array.isArray(applies_days) ? applies_days : null,
            points ? Number(points) : null, sort_order != null ? Number(sort_order) : null,
-           active != null ? Boolean(active) : null]
+           active != null ? Boolean(active) : null,
+           userId ? Number(userId) : null]
         );
         return json(res, 200, { ok: true });
       } catch (e) { throw e; }
@@ -329,6 +436,16 @@ module.exports = async function handler(req, res) {
         }
 
         if (reqStatus === 'remove') {
+          // Membros não podem desfazer rotinas já concluídas
+          if (auth.role !== 'admin') {
+            const existing = await db.query(
+              `SELECT status FROM routine_completions WHERE routine_id = $1 AND completed_date = $2`,
+              [rid, date]
+            );
+            if (existing.rows[0]?.status === 'done') {
+              return json(res, 403, { error: 'Não é possível desfazer uma rotina já concluída.' });
+            }
+          }
           await db.query(
             `DELETE FROM routine_completions WHERE routine_id = $1 AND completed_date = $2`,
             [rid, date]
@@ -434,6 +551,167 @@ module.exports = async function handler(req, res) {
         return json(res, 200, { rows });
       } catch (e) {
         if (e.code === '42P01') return json(res, 200, { rows: [] });
+        throw e;
+      }
+    }
+
+    // ── Rituais do Time ────────────────────────────────────────────────
+
+    // GET ?action=ritual-week&from=YYYY-MM-DD&to=YYYY-MM-DD
+    if (req.method === 'GET' && action === 'ritual-week') {
+      const from = (req.query.from || '').trim();
+      const to   = (req.query.to   || '').trim();
+      if (!from || !to) return json(res, 400, { error: 'from and to required.' });
+      try {
+        const ritualsRes = await db.query(
+          `SELECT id, title, type, description, day_of_week, sort_order
+           FROM team_rituals WHERE active = TRUE ORDER BY sort_order, id`
+        );
+        const occsRes = await db.query(
+          `SELECT ro.id, ro.ritual_id, ro.occurrence_date::text AS date, ro.status, ro.notes
+           FROM ritual_occurrences ro
+           JOIN team_rituals rt ON rt.id = ro.ritual_id
+           WHERE rt.active = TRUE
+             AND ro.occurrence_date >= $1 AND ro.occurrence_date <= $2`,
+          [from, to]
+        );
+        const occIds = occsRes.rows.map(r => r.id);
+        let attendanceRows = [];
+        if (occIds.length > 0) {
+          const attRes = await db.query(
+            `SELECT ra.occurrence_id, ra.user_id, u.name
+             FROM ritual_attendance ra JOIN users u ON u.id = ra.user_id
+             WHERE ra.occurrence_id = ANY($1::int[])`,
+            [occIds]
+          );
+          attendanceRows = attRes.rows;
+        }
+        const attMap = {};
+        for (const a of attendanceRows) {
+          if (!attMap[a.occurrence_id]) attMap[a.occurrence_id] = [];
+          attMap[a.occurrence_id].push({ userId: a.user_id, name: a.name });
+        }
+        const occMap = {};
+        for (const o of occsRes.rows) {
+          if (!occMap[o.ritual_id]) occMap[o.ritual_id] = {};
+          occMap[o.ritual_id][o.date] = {
+            id: o.id, status: o.status, notes: o.notes, attendance: attMap[o.id] || [],
+          };
+        }
+        const dates = [];
+        const cur = new Date(`${from}T00:00:00Z`);
+        const end = new Date(`${to}T00:00:00Z`);
+        while (cur <= end) { dates.push(cur.toISOString().slice(0, 10)); cur.setUTCDate(cur.getUTCDate() + 1); }
+        const usersRes = await db.query(`SELECT id, name FROM users WHERE active = TRUE ORDER BY name`);
+        const rituals = ritualsRes.rows.map(r => {
+          const days = {};
+          for (const d of dates) {
+            const dow = new Date(`${d}T00:00:00Z`).getUTCDay() || 7;
+            let applies = false;
+            if (r.type === 'daily')        applies = dow >= 1 && dow <= 5;
+            else if (r.type === 'weekly')  applies = dow === (r.day_of_week || 1);
+            else if (r.type === 'monthly') applies = !!(occMap[r.id]?.[d]);
+            if (applies || occMap[r.id]?.[d]) {
+              days[d] = occMap[r.id]?.[d] || { id: null, status: 'pending', notes: null, attendance: [] };
+            }
+          }
+          return { id: r.id, title: r.title, type: r.type, description: r.description,
+                   day_of_week: r.day_of_week, sort_order: r.sort_order, days };
+        });
+        return json(res, 200, { rituals, dates, users: usersRes.rows });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { rituals: [], dates: [], users: [], _migrationNeeded: true });
+        throw e;
+      }
+    }
+
+    // POST ?action=ritual-toggle-status  body: { ritualId, date, status }
+    if (req.method === 'POST' && action === 'ritual-toggle-status') {
+      if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const { ritualId, date, status } = req.body || {};
+      if (!ritualId || !date) return json(res, 400, { error: 'ritualId and date required.' });
+      const newStatus = ['done', 'cancelled', 'pending'].includes(status) ? status : 'done';
+      try {
+        if (newStatus === 'pending') {
+          await db.query(`DELETE FROM ritual_occurrences WHERE ritual_id = $1 AND occurrence_date = $2`, [ritualId, date]);
+          return json(res, 200, { status: 'pending', occurrenceId: null });
+        }
+        const r = await db.query(
+          `INSERT INTO ritual_occurrences (ritual_id, occurrence_date, status)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (ritual_id, occurrence_date) DO UPDATE SET status = $3
+           RETURNING id`,
+          [ritualId, date, newStatus]
+        );
+        return json(res, 200, { status: newStatus, occurrenceId: r.rows[0].id });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { status: null, _migrationNeeded: true });
+        throw e;
+      }
+    }
+
+    // POST ?action=ritual-toggle-attendance  body: { occurrenceId, userId }
+    if (req.method === 'POST' && action === 'ritual-toggle-attendance') {
+      if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const { occurrenceId, userId } = req.body || {};
+      if (!occurrenceId || !userId) return json(res, 400, { error: 'occurrenceId and userId required.' });
+      try {
+        const existing = await db.query(
+          `SELECT id FROM ritual_attendance WHERE occurrence_id = $1 AND user_id = $2`, [occurrenceId, userId]
+        );
+        if (existing.rowCount > 0) {
+          await db.query(`DELETE FROM ritual_attendance WHERE occurrence_id = $1 AND user_id = $2`, [occurrenceId, userId]);
+          return json(res, 200, { attended: false });
+        }
+        await db.query(
+          `INSERT INTO ritual_attendance (occurrence_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [occurrenceId, userId]
+        );
+        return json(res, 200, { attended: true });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { attended: null, _migrationNeeded: true });
+        throw e;
+      }
+    }
+
+    // POST ?action=ritual-save  body: { id?, title, type, description, day_of_week, sort_order }
+    if (req.method === 'POST' && action === 'ritual-save') {
+      if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const { id, title, type, description, day_of_week, sort_order } = req.body || {};
+      if (!title || !type) return json(res, 400, { error: 'title and type required.' });
+      if (!['daily', 'weekly', 'monthly'].includes(type)) return json(res, 400, { error: 'Invalid type.' });
+      try {
+        if (id) {
+          await db.query(
+            `UPDATE team_rituals SET title=$2, type=$3, description=$4, day_of_week=$5, sort_order=$6 WHERE id=$1`,
+            [id, title.trim(), type, description?.trim() || null,
+             day_of_week ? Number(day_of_week) : null, Number(sort_order) || 0]
+          );
+          return json(res, 200, { ok: true, id });
+        }
+        const r = await db.query(
+          `INSERT INTO team_rituals (title, type, description, day_of_week, sort_order)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [title.trim(), type, description?.trim() || null,
+           day_of_week ? Number(day_of_week) : null, Number(sort_order) || 0]
+        );
+        return json(res, 201, { ok: true, id: r.rows[0].id });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { ok: false, _migrationNeeded: true });
+        throw e;
+      }
+    }
+
+    // DELETE ?action=ritual-delete&ritualId=X
+    if (req.method === 'DELETE' && action === 'ritual-delete') {
+      if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const rid = parseInt(req.query.ritualId, 10);
+      if (!rid) return json(res, 400, { error: 'ritualId required.' });
+      try {
+        await db.query(`UPDATE team_rituals SET active = FALSE WHERE id = $1`, [rid]);
+        return json(res, 200, { ok: true });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { ok: false, _migrationNeeded: true });
         throw e;
       }
     }
