@@ -120,20 +120,6 @@ a{color:inherit;text-decoration:none}
   <span class="refresh-info">Atualiza em <span id="refresh-countdown">60s</span></span>
 </div>
 
-<div id="daily-brief-wrap">
-  <div class="daily-brief">
-    <div class="daily-brief-icon">☀️</div>
-    <div class="daily-brief-body">
-      <div class="daily-brief-header">
-        <span class="daily-brief-title">Daily do Dia</span>
-        <span class="daily-brief-date" id="daily-brief-date"></span>
-      </div>
-      <div class="daily-brief-skeleton" style="width:80%"></div>
-      <div class="daily-brief-skeleton" style="width:60%"></div>
-      <div class="daily-brief-skeleton" style="width:70%"></div>
-    </div>
-  </div>
-</div>
 
 <div id="content">
   <p class="loading">Carregando...</p>
@@ -240,6 +226,8 @@ function briefMarkdown(text){
 }
 
 async function loadDailyBrief(){
+  return; // brief moved to app.html /daily-adm (admin only)
+  // eslint-disable-next-line no-unreachable
   const wrap = document.getElementById('daily-brief-wrap');
   const user = getUser();
   if (!user || !user.name || !user.name.toLowerCase().includes('anny')) { wrap.hidden = true; return; }
