@@ -5808,6 +5808,11 @@ dialog {
 .adr-qv { color: #8892b4; }
 .adr-empty { font-size: 12px; color: #3a3e5a; font-style: italic; }
 
+/* ── Daily ADM Panel ── */
+.daily-adm-panel { padding: 24px 0 0; }
+.daily-adm-brief-wrap { padding: 0 0 8px; }
+.daily-adm-panel .daily-brief-wrap { padding: 0 24px 16px; }
+
 /* ── Daily Brief ── */
 .daily-brief-wrap { padding: 0 24px 16px; }
 .daily-brief { background: #13151f; border: 1px solid #252840; border-left: 3px solid #e8b844; border-radius: 10px; padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }

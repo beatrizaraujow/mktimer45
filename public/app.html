@@ -39,6 +39,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Histórico</span>
           </button>
+          <button type="button" class="nav-tab" data-panel="daily-adm" id="dailyAdmNavTab" role="tab" style="display:none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <span>Daily</span>
+          </button>
           <button type="button" class="nav-tab" data-panel="adm" id="admNavTab" role="tab" style="display:none">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             <span>ADM</span>
@@ -398,22 +402,6 @@
             <span class="dfb-period-label" id="dailyDFBPeriodLabel"></span>
           </div>
 
-          <!-- Daily Brief (populated by JS, visible only for authorized users) -->
-          <div class="daily-brief-wrap" id="dailyBriefWrap" hidden>
-            <div class="daily-brief">
-              <div class="daily-brief-icon">☀️</div>
-              <div class="daily-brief-body">
-                <div class="daily-brief-header">
-                  <span class="daily-brief-title">Daily do Dia</span>
-                  <span class="daily-brief-date" id="dailyBriefDate"></span>
-                </div>
-                <div class="daily-brief-skeleton" style="width:85%"></div>
-                <div class="daily-brief-skeleton" style="width:65%"></div>
-                <div class="daily-brief-skeleton" style="width:75%"></div>
-              </div>
-            </div>
-          </div>
-
           <!-- Team grid (populated by JS) -->
           <div class="td-grid" id="teamDailyGrid"></div>
 
@@ -514,19 +502,39 @@
 
         <section class="pts-table-panel" data-lockable="true" data-panel-view="tabela-pts" hidden></section>
 
-        <!-- ── Versão ADM ─────────────────────────────────────────────── -->
-        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
-          <div id="admHistoryWrap"></div>
-          <div id="snapValidationWrap"></div>
-          <!-- Respostas da Daily (ADM) -->
-          <div id="admDailyResponsesWrap" style="padding:20px 24px">
+        <!-- ── Daily ADM (somente admin) ───────────────────────────────── -->
+        <section class="daily-adm-panel" data-panel-view="daily-adm" hidden>
+          <div class="daily-adm-brief-wrap">
+            <div class="daily-brief-wrap" id="dailyBriefWrap">
+              <div class="daily-brief">
+                <div class="daily-brief-icon">☀️</div>
+                <div class="daily-brief-body">
+                  <div class="daily-brief-header">
+                    <span class="daily-brief-title">Daily do Dia</span>
+                    <span class="daily-brief-date" id="dailyBriefDate"></span>
+                  </div>
+                  <div class="daily-brief-skeleton" style="width:85%"></div>
+                  <div class="daily-brief-skeleton" style="width:65%"></div>
+                  <div class="daily-brief-skeleton" style="width:75%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Respostas da equipe (ADM) -->
+          <div id="admDailyResponsesWrap" style="padding:0 24px 24px">
             <div class="adr-header">
-              <h3 class="adr-title">Respostas da Daily</h3>
+              <h3 class="adr-title">Respostas da Equipe</h3>
               <input type="date" id="adrDateInput" class="adr-date-input" />
             </div>
             <div class="adr-person-bar" id="adrPersonBar"></div>
             <div id="adrGrid" class="adr-grid"></div>
           </div>
+        </section>
+
+        <!-- ── Versão ADM ─────────────────────────────────────────────── -->
+        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
+          <div id="admHistoryWrap"></div>
+          <div id="snapValidationWrap"></div>
         </section>
 
       </main>

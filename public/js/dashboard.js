@@ -1367,10 +1367,11 @@ function initSidebarPanels() {
       _stopTdTimers();
       _setLiveBadge(false);
     }
-    if (panelName === 'painel-daily') { loadDailyBrief(); await loadTeamDaily(); }
+    if (panelName === 'painel-daily') { await loadTeamDaily(); }
+    if (panelName === 'daily-adm')    { loadDailyBrief(); loadAdmDailyResponses(); }
     if (panelName === 'calendario')   renderCalendarTasks();
     if (panelName === 'historico')    await loadHistoricoPanel();
-    if (panelName === 'adm')          { await loadAdmPanel(); loadAdmDailyResponses(); }
+    if (panelName === 'adm')          { await loadAdmPanel(); }
     if (panelName === 'rotina')       await loadRoutinePanel();
     if (panelName === 'rituais')      await loadRituaisPanel();
     if (panelName === 'ranking')      await loadRankingPanel();
@@ -1626,6 +1627,8 @@ async function init() {
     _isAdminUser = true;
     const admNavTab = document.getElementById('admNavTab');
     if (admNavTab) admNavTab.style.display = '';
+    const dailyAdmNavTab = document.getElementById('dailyAdmNavTab');
+    if (dailyAdmNavTab) dailyAdmNavTab.style.display = '';
     const syncBtn = document.getElementById('clickupSyncBtn');
     if (syncBtn) syncBtn.style.display = '';
   }
