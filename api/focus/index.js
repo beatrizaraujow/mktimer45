@@ -2293,30 +2293,13 @@ module.exports = async function handler(req, res) {
     finally { ec.release(); }
   }
 
-  // ── daily-brief (GET/POST) ────────────────────────────────────────────────
-  const DAILY_SECRET = 'mkt_daily_2026';
-  if (action === 'daily-brief') {
-    if (req.method === 'GET') {
-      const { rows } = await db.query(
-        `SELECT id, content, brief_date::text AS brief_date, created_at
-         FROM daily_briefs ORDER BY brief_date DESC LIMIT 1`
-      ).catch(() => ({ rows: [] }));
-      return json(res, 200, { brief: rows[0] || null });
-    }
-    if (req.method === 'POST') {
-      const secret = req.headers['x-cron-secret'];
-      if (secret !== DAILY_SECRET && auth.role !== 'admin') return json(res, 403, { error: 'Forbidden.' });
-      const { content, brief_date } = req.body || {};
-      if (!content?.trim()) return json(res, 400, { error: 'content is required.' });
-      const dateVal = brief_date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
-      const { rows } = await db.query(
-        `INSERT INTO daily_briefs (content, brief_date) VALUES ($1, $2::date)
-         ON CONFLICT (brief_date) DO UPDATE SET content = EXCLUDED.content, created_at = NOW()
-         RETURNING id, brief_date::text AS brief_date`,
-        [content.trim(), dateVal]
-      );
-      return json(res, 200, { ok: true, brief: rows[0] });
-    }
+  // ── daily-brief GET (autenticado) ─────────────────────────────────────────
+  if (action === 'daily-brief' && req.method === 'GET') {
+    const { rows } = await db.query(
+      `SELECT id, content, brief_date::text AS brief_date, created_at
+       FROM daily_briefs ORDER BY brief_date DESC LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+    return json(res, 200, { brief: rows[0] || null });
   }
 
   return methodNotAllowed(res, ['GET', 'POST', 'PATCH']);
