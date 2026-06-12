@@ -323,10 +323,11 @@ module.exports = async function handler(req, res) {
   try {
   const action = (req.query.action || '').toString();
 
-  // daily-brief POST aceita x-cron-secret sem JWT
-  if (req.method === 'POST' && action === 'daily-brief') {
-    const DAILY_SECRET = 'mkt_daily_2026';
-    if (req.headers['x-cron-secret'] !== DAILY_SECRET) return json(res, 403, { error: 'Forbidden.' });
+  // daily-brief: intercepta antes do requireAuth quando x-cron-secret válido
+  // (mktime45 redireciona 301→mktimer45, curl converte POST→GET; checamos só o secret)
+  const DAILY_SECRET = 'mkt_daily_2026';
+  if (action === 'daily-brief' && req.headers['x-cron-secret'] === DAILY_SECRET) {
+    if (req.method !== 'POST') return json(res, 405, { error: 'Method Not Allowed.' });
     const { content, brief_date } = req.body || {};
     if (!content?.trim()) return json(res, 400, { error: 'content is required.' });
     const dateVal = brief_date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
