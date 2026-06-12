@@ -2695,7 +2695,7 @@ function _renderTeamGrid(data) {
 async function loadDailyBrief() {
   const wrap = document.getElementById('dailyBriefWrap');
   if (!wrap) return;
-  const user = _currentUser;
+  const user = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
   if (!user || !user.name || !user.name.toLowerCase().includes('anny')) return;
 
   wrap.hidden = false;
