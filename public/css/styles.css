@@ -5765,6 +5765,20 @@ dialog {
   text-align: right;
 }
 
+/* ── Daily Brief ── */
+.daily-brief-wrap { padding: 0 24px 16px; }
+.daily-brief { background: #13151f; border: 1px solid #252840; border-left: 3px solid #e8b844; border-radius: 10px; padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }
+.daily-brief-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.daily-brief-body { flex: 1; min-width: 0; }
+.daily-brief-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.daily-brief-title { font-size: 11px; font-weight: 700; color: #e8b844; letter-spacing: .5px; text-transform: uppercase; }
+.daily-brief-date { font-size: 11px; color: #4a5270; }
+.daily-brief-text { font-size: 13px; color: #9aa3c4; line-height: 1.75; white-space: pre-wrap; }
+.daily-brief-text strong { color: #c8d0e7; font-weight: 600; }
+.daily-brief-empty { font-size: 13px; color: #3a3e5a; font-style: italic; }
+.daily-brief-skeleton { height: 13px; background: #1c1e32; border-radius: 4px; margin-bottom: 8px; animation: db-pulse 1.5s ease-in-out infinite; }
+@keyframes db-pulse { 0%,100%{opacity:.4} 50%{opacity:.8} }
+
 /* ── 3×2 Grid ── */
 .td-grid {
   display: grid;

@@ -398,6 +398,22 @@
             <span class="dfb-period-label" id="dailyDFBPeriodLabel"></span>
           </div>
 
+          <!-- Daily Brief (populated by JS, visible only for authorized users) -->
+          <div class="daily-brief-wrap" id="dailyBriefWrap" hidden>
+            <div class="daily-brief">
+              <div class="daily-brief-icon">☀️</div>
+              <div class="daily-brief-body">
+                <div class="daily-brief-header">
+                  <span class="daily-brief-title">Daily do Dia</span>
+                  <span class="daily-brief-date" id="dailyBriefDate"></span>
+                </div>
+                <div class="daily-brief-skeleton" style="width:85%"></div>
+                <div class="daily-brief-skeleton" style="width:65%"></div>
+                <div class="daily-brief-skeleton" style="width:75%"></div>
+              </div>
+            </div>
+          </div>
+
           <!-- Team grid (populated by JS) -->
           <div class="td-grid" id="teamDailyGrid"></div>
 

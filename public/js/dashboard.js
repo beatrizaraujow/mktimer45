@@ -1367,7 +1367,7 @@ function initSidebarPanels() {
       _stopTdTimers();
       _setLiveBadge(false);
     }
-    if (panelName === 'painel-daily') await loadTeamDaily();
+    if (panelName === 'painel-daily') { loadDailyBrief(); await loadTeamDaily(); }
     if (panelName === 'calendario')   renderCalendarTasks();
     if (panelName === 'historico')    await loadHistoricoPanel();
     if (panelName === 'adm')          await loadAdmPanel();
@@ -2690,6 +2690,43 @@ function _renderTeamGrid(data) {
 
   _tdLastMembers = data.members;
   renderTdView(data.members);
+}
+
+async function loadDailyBrief() {
+  const wrap = document.getElementById('dailyBriefWrap');
+  if (!wrap) return;
+  const user = _currentUser;
+  if (!user || !user.name || !user.name.toLowerCase().includes('anny')) return;
+
+  wrap.hidden = false;
+  try {
+    const resp = await fetch('/api/focus?action=daily-brief', { headers: authHeaders() });
+    const data = resp.ok ? await resp.json() : null;
+    if (!data || !data.brief) {
+      wrap.querySelector('.daily-brief').innerHTML = `
+        <div class="daily-brief-icon">☀️</div>
+        <div class="daily-brief-body">
+          <div class="daily-brief-header"><span class="daily-brief-title">Daily do Dia</span></div>
+          <p class="daily-brief-empty">Nenhuma daily publicada hoje ainda.</p>
+        </div>`;
+      return;
+    }
+    const b = data.brief;
+    const d = new Date(`${b.brief_date}T00:00:00Z`);
+    const dateStr = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC' });
+    const html = escHtml(b.content)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+    wrap.querySelector('.daily-brief').innerHTML = `
+      <div class="daily-brief-icon">☀️</div>
+      <div class="daily-brief-body">
+        <div class="daily-brief-header">
+          <span class="daily-brief-title">Daily do Dia</span>
+          <span class="daily-brief-date">${dateStr}</span>
+        </div>
+        <div class="daily-brief-text">${html}</div>
+      </div>`;
+  } catch (_) { wrap.hidden = true; }
 }
 
 async function loadTeamDaily({ force = false } = {}) {
