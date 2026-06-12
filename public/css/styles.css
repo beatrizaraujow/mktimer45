@@ -5765,6 +5765,49 @@ dialog {
   text-align: right;
 }
 
+/* ── Daily Response Form ── */
+.dbr-section { margin-top: 16px; border-top: 1px solid #1e2135; padding-top: 14px; }
+.dbr-form { display: flex; flex-direction: column; gap: 10px; }
+.dbr-field { display: flex; flex-direction: column; gap: 4px; }
+.dbr-label { font-size: 11px; font-weight: 600; color: #7882a4; letter-spacing: .3px; }
+.dbr-ta { background: #0f1117; border: 1px solid #252840; border-radius: 6px; color: #c8d0e7; font-size: 13px; font-family: inherit; padding: 8px 10px; resize: vertical; min-height: 54px; transition: border-color .15s; }
+.dbr-ta:focus { outline: none; border-color: #e8b844; }
+.dbr-submit { align-self: flex-start; background: #e8b844; color: #0f1117; font-size: 12px; font-weight: 700; border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; transition: opacity .15s; }
+.dbr-submit:hover { opacity: .85; }
+.dbr-submit:disabled { opacity: .5; cursor: default; }
+.dbr-done { display: flex; flex-direction: column; gap: 8px; }
+.dbr-done-badge { font-size: 11px; font-weight: 700; color: #3dba6f; letter-spacing: .3px; }
+.dbr-answers { display: flex; flex-direction: column; gap: 5px; }
+.dbr-answer { font-size: 12px; color: #8892b4; line-height: 1.5; }
+.dbr-q { color: #5a6280; font-weight: 600; margin-right: 4px; }
+.dbr-edit-btn { align-self: flex-start; background: none; border: 1px solid #2a2e4a; color: #7882a4; font-size: 11px; padding: 4px 10px; border-radius: 5px; cursor: pointer; transition: .15s; }
+.dbr-edit-btn:hover { background: #1e2135; color: #c8d0e7; }
+
+/* ── ADM Daily Responses ── */
+.adr-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.adr-title { font-size: 15px; font-weight: 700; color: #c8d0e7; }
+.adr-date-input { background: #1c1e32; border: 1px solid #252840; border-radius: 6px; color: #c8d0e7; font-size: 12px; padding: 5px 10px; font-family: inherit; }
+.adr-person-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.adr-chip { background: #1c1e32; border: 1px solid #252840; color: #8892b4; font-size: 12px; padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: .15s; }
+.adr-chip:hover, .adr-chip.active { background: #252840; color: #c8d0e7; border-color: #4a5580; }
+.adr-chip.pending { border-color: #f06a6a44; color: #f06a6a; }
+.adr-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+@media(max-width:1100px){ .adr-grid { grid-template-columns: repeat(2,1fr); } }
+@media(max-width:700px){ .adr-grid { grid-template-columns: 1fr; } }
+.adr-card { background: #161825; border: 1px solid #1e2135; border-radius: 10px; padding: 14px 16px; }
+.adr-card.responded { border-color: #3dba6f22; }
+.adr-card.pending   { border-color: #f06a6a22; opacity: .8; }
+.adr-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.adr-name  { font-size: 14px; font-weight: 700; color: #e8eaf6; }
+.adr-cargo { font-size: 11px; color: #5a6280; margin-top: 2px; }
+.adr-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+.adr-badge.ok { background: #3dba6f22; color: #3dba6f; }
+.adr-badge.no { background: #f06a6a22; color: #f06a6a; }
+.adr-qa { display: flex; gap: 6px; font-size: 12px; margin-bottom: 5px; line-height: 1.5; }
+.adr-ql { color: #5a6280; font-weight: 600; white-space: nowrap; }
+.adr-qv { color: #8892b4; }
+.adr-empty { font-size: 12px; color: #3a3e5a; font-style: italic; }
+
 /* ── Daily Brief ── */
 .daily-brief-wrap { padding: 0 24px 16px; }
 .daily-brief { background: #13151f; border: 1px solid #252840; border-left: 3px solid #e8b844; border-radius: 10px; padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }

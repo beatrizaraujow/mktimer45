@@ -2302,6 +2302,56 @@ module.exports = async function handler(req, res) {
     return json(res, 200, { brief: rows[0] || null });
   }
 
+  // ── daily-response POST (salva resposta do usuário logado) ────────────────
+  if (action === 'daily-response' && req.method === 'POST') {
+    const { q1, q2, q3 } = req.body || {};
+    const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const { rows } = await db.query(
+      `INSERT INTO daily_responses (user_id, brief_date, q1, q2, q3)
+       VALUES ($1, $2::date, $3, $4, $5)
+       ON CONFLICT (user_id, brief_date) DO UPDATE
+         SET q1 = EXCLUDED.q1, q2 = EXCLUDED.q2, q3 = EXCLUDED.q3, updated_at = NOW()
+       RETURNING id, brief_date::text AS brief_date`,
+      [auth.sub, today, q1 || null, q2 || null, q3 || null]
+    );
+    return json(res, 200, { ok: true, response: rows[0] });
+  }
+
+  // ── daily-response GET (resposta do próprio usuário) ──────────────────────
+  if (action === 'daily-response' && req.method === 'GET') {
+    const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const { rows } = await db.query(
+      `SELECT q1, q2, q3, brief_date::text AS brief_date, updated_at
+       FROM daily_responses WHERE user_id = $1 AND brief_date = $2::date`,
+      [auth.sub, today]
+    ).catch(() => ({ rows: [] }));
+    return json(res, 200, { response: rows[0] || null });
+  }
+
+  // ── daily-responses GET (admin: todas as respostas de uma data) ───────────
+  if (action === 'daily-responses' && req.method === 'GET') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Forbidden.' });
+    const date = req.query.date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const { rows: members } = await db.query(
+      `SELECT id, name, COALESCE(cargo,'') AS cargo
+       FROM users WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE ORDER BY name`
+    );
+    const { rows: responses } = await db.query(
+      `SELECT dr.user_id, dr.q1, dr.q2, dr.q3, dr.updated_at::text AS updated_at
+       FROM daily_responses dr WHERE dr.brief_date = $1::date`,
+      [date]
+    ).catch(() => ({ rows: [] }));
+    const respMap = new Map(responses.map(r => [Number(r.user_id), r]));
+    return json(res, 200, {
+      date,
+      members: members.map(m => ({
+        id: m.id, name: m.name, cargo: m.cargo,
+        responded: respMap.has(Number(m.id)),
+        ...(respMap.get(Number(m.id)) || { q1: null, q2: null, q3: null }),
+      })),
+    });
+  }
+
   return methodNotAllowed(res, ['GET', 'POST', 'PATCH']);
   } catch (err) {
     console.error('[focus] error:', err.message, err.stack);

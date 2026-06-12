@@ -1370,7 +1370,7 @@ function initSidebarPanels() {
     if (panelName === 'painel-daily') { loadDailyBrief(); await loadTeamDaily(); }
     if (panelName === 'calendario')   renderCalendarTasks();
     if (panelName === 'historico')    await loadHistoricoPanel();
-    if (panelName === 'adm')          await loadAdmPanel();
+    if (panelName === 'adm')          { await loadAdmPanel(); loadAdmDailyResponses(); }
     if (panelName === 'rotina')       await loadRoutinePanel();
     if (panelName === 'rituais')      await loadRituaisPanel();
     if (panelName === 'ranking')      await loadRankingPanel();
@@ -2695,38 +2695,93 @@ function _renderTeamGrid(data) {
 async function loadDailyBrief() {
   const wrap = document.getElementById('dailyBriefWrap');
   if (!wrap) return;
-  const user = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
-  if (!user || !user.name || !user.name.toLowerCase().includes('anny')) return;
-
   wrap.hidden = false;
+
   try {
-    const resp = await fetch('/api/focus?action=daily-brief', { headers: authHeaders() });
-    const data = resp.ok ? await resp.json() : null;
-    if (!data || !data.brief) {
-      wrap.querySelector('.daily-brief').innerHTML = `
-        <div class="daily-brief-icon">☀️</div>
-        <div class="daily-brief-body">
-          <div class="daily-brief-header"><span class="daily-brief-title">Daily do Dia</span></div>
-          <p class="daily-brief-empty">Nenhuma daily publicada hoje ainda.</p>
-        </div>`;
+    const [briefResp, myResp] = await Promise.all([
+      fetch('/api/focus?action=daily-brief',    { headers: authHeaders() }),
+      fetch('/api/focus?action=daily-response', { headers: authHeaders() }),
+    ]);
+    const briefData = briefResp.ok ? await briefResp.json() : null;
+    const myData   = myResp.ok   ? await myResp.json()   : null;
+
+    if (!briefData?.brief) {
+      wrap.innerHTML = `<div class="daily-brief-wrap">
+        <div class="daily-brief">
+          <div class="daily-brief-icon">☀️</div>
+          <div class="daily-brief-body">
+            <div class="daily-brief-header"><span class="daily-brief-title">Daily do Dia</span></div>
+            <p class="daily-brief-empty">Nenhuma daily publicada hoje ainda.</p>
+          </div>
+        </div></div>`;
       return;
     }
-    const b = data.brief;
+
+    const b = briefData.brief;
     const d = new Date(`${b.brief_date}T00:00:00Z`);
     const dateStr = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC' });
-    const html = escHtml(b.content)
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
-    wrap.querySelector('.daily-brief').innerHTML = `
-      <div class="daily-brief-icon">☀️</div>
-      <div class="daily-brief-body">
-        <div class="daily-brief-header">
-          <span class="daily-brief-title">Daily do Dia</span>
-          <span class="daily-brief-date">${dateStr}</span>
+    const html = escHtml(b.content).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+
+    const existing = myData?.response;
+    const formHtml = existing
+      ? `<div class="dbr-done">
+          <span class="dbr-done-badge">✓ Respondido</span>
+          <div class="dbr-answers">
+            <div class="dbr-answer"><span class="dbr-q">Fechei ontem:</span> ${escHtml(existing.q1 || '—')}</div>
+            <div class="dbr-answer"><span class="dbr-q">Tocando hoje:</span> ${escHtml(existing.q2 || '—')}</div>
+            <div class="dbr-answer"><span class="dbr-q">Bloqueio:</span> ${escHtml(existing.q3 || 'Nenhum')}</div>
+          </div>
+          <button class="dbr-edit-btn" onclick="showDailyForm(${JSON.stringify(existing).replace(/"/g,'&quot;')})">Editar</button>
+        </div>`
+      : `<form class="dbr-form" id="dailyRespForm">
+          <div class="dbr-field"><label class="dbr-label">1. O que fechei ontem?</label><textarea class="dbr-ta" name="q1" rows="2" placeholder="Entregas concluídas..."></textarea></div>
+          <div class="dbr-field"><label class="dbr-label">2. O que estou tocando hoje?</label><textarea class="dbr-ta" name="q2" rows="2" placeholder="Foco do dia..."></textarea></div>
+          <div class="dbr-field"><label class="dbr-label">3. Tem algum bloqueio?</label><textarea class="dbr-ta" name="q3" rows="2" placeholder="Algo travando..."></textarea></div>
+          <button type="submit" class="dbr-submit">Enviar resposta</button>
+        </form>`;
+
+    wrap.innerHTML = `<div class="daily-brief-wrap">
+      <div class="daily-brief">
+        <div class="daily-brief-icon">☀️</div>
+        <div class="daily-brief-body">
+          <div class="daily-brief-header">
+            <span class="daily-brief-title">Daily do Dia</span>
+            <span class="daily-brief-date">${dateStr}</span>
+          </div>
+          <div class="daily-brief-text">${html}</div>
+          <div class="dbr-section" id="dbrSection">${formHtml}</div>
         </div>
-        <div class="daily-brief-text">${html}</div>
-      </div>`;
+      </div></div>`;
+
+    document.getElementById('dailyRespForm')?.addEventListener('submit', submitDailyResponse);
   } catch (_) { wrap.hidden = true; }
+}
+
+function showDailyForm(existing) {
+  const section = document.getElementById('dbrSection');
+  if (!section) return;
+  section.innerHTML = `<form class="dbr-form" id="dailyRespForm">
+    <div class="dbr-field"><label class="dbr-label">1. O que fechei ontem?</label><textarea class="dbr-ta" name="q1" rows="2">${escHtml(existing.q1||'')}</textarea></div>
+    <div class="dbr-field"><label class="dbr-label">2. O que estou tocando hoje?</label><textarea class="dbr-ta" name="q2" rows="2">${escHtml(existing.q2||'')}</textarea></div>
+    <div class="dbr-field"><label class="dbr-label">3. Tem algum bloqueio?</label><textarea class="dbr-ta" name="q3" rows="2">${escHtml(existing.q3||'')}</textarea></div>
+    <button type="submit" class="dbr-submit">Salvar alterações</button>
+  </form>`;
+  document.getElementById('dailyRespForm').addEventListener('submit', submitDailyResponse);
+}
+
+async function submitDailyResponse(e) {
+  e.preventDefault();
+  const form = e.target;
+  const btn  = form.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const r = await fetch('/api/focus?action=daily-response', {
+      method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q1: form.q1.value.trim(), q2: form.q2.value.trim(), q3: form.q3.value.trim() }),
+    });
+    if (r.ok) { await loadDailyBrief(); }
+    else { btn.disabled = false; btn.textContent = 'Tentar novamente'; }
+  } catch (_) { btn.disabled = false; btn.textContent = 'Tentar novamente'; }
 }
 
 async function loadTeamDaily({ force = false } = {}) {
@@ -6308,6 +6363,74 @@ function renderAdmHistoryChart(filtered) {
       scales,
     },
   });
+}
+
+// ── ADM: Respostas da Daily ───────────────────────────────────────────────
+let _adrDate = new Date(Date.now() - 3*3600000).toISOString().slice(0,10);
+let _adrFilter = null;
+let _adrData = null;
+
+async function loadAdmDailyResponses(date) {
+  const wrap = document.getElementById('admDailyResponsesWrap');
+  if (!wrap) return;
+  if (date) _adrDate = date;
+  const input = document.getElementById('adrDateInput');
+  if (input && !input._init) {
+    input._init = true;
+    input.value = _adrDate;
+    input.addEventListener('change', e => loadAdmDailyResponses(e.target.value));
+  }
+  const grid = document.getElementById('adrGrid');
+  grid.innerHTML = '<p style="color:#5a6280;font-size:13px">Carregando...</p>';
+  try {
+    const r = await fetch(`/api/focus?action=daily-responses&date=${_adrDate}`, { headers: authHeaders() });
+    if (!r.ok) { grid.innerHTML = ''; return; }
+    _adrData = await r.json();
+    _adrFilter = null;
+    renderAdrPersonBar();
+    renderAdrGrid();
+  } catch(_) { grid.innerHTML = ''; }
+}
+
+function renderAdrPersonBar() {
+  const bar = document.getElementById('adrPersonBar');
+  if (!bar || !_adrData) return;
+  const members = _adrData.members || [];
+  bar.innerHTML = ['Todos', ...members.map(m => m.name)].map((name, i) => {
+    const id = i === 0 ? null : members[i-1].id;
+    const responded = i === 0 ? null : members[i-1].responded;
+    const active = _adrFilter === id;
+    return `<button class="adr-chip ${active?'active':''} ${responded===false?'pending':''}" data-id="${id??''}" onclick="adrSetFilter(${id??'null'})">${escHtml(name)}${responded===false?' ·':''}${responded===true?' ✓':''}</button>`;
+  }).join('');
+}
+
+function adrSetFilter(id) {
+  _adrFilter = id === 'null' || id === null ? null : Number(id);
+  renderAdrPersonBar();
+  renderAdrGrid();
+}
+
+function renderAdrGrid() {
+  const grid = document.getElementById('adrGrid');
+  if (!grid || !_adrData) return;
+  let members = _adrData.members || [];
+  if (_adrFilter !== null) members = members.filter(m => m.id === _adrFilter);
+  if (!members.length) { grid.innerHTML = '<p style="color:#5a6280;font-size:13px">Nenhum membro.</p>'; return; }
+  grid.innerHTML = members.map(m => `
+    <div class="adr-card ${m.responded?'responded':'pending'}">
+      <div class="adr-card-header">
+        <div>
+          <div class="adr-name">${escHtml(m.name)}</div>
+          <div class="adr-cargo">${escHtml(m.cargo||'')}</div>
+        </div>
+        <span class="adr-badge ${m.responded?'ok':'no'}">${m.responded?'Respondeu':'Pendente'}</span>
+      </div>
+      ${m.responded ? `
+        <div class="adr-qa"><span class="adr-ql">Fechei ontem:</span><span class="adr-qv">${escHtml(m.q1||'—')}</span></div>
+        <div class="adr-qa"><span class="adr-ql">Tocando hoje:</span><span class="adr-qv">${escHtml(m.q2||'—')}</span></div>
+        <div class="adr-qa"><span class="adr-ql">Bloqueio:</span><span class="adr-qv">${escHtml(m.q3||'Nenhum')}</span></div>
+      ` : '<p class="adr-empty">Ainda não respondeu.</p>'}
+    </div>`).join('');
 }
 
 function hideLoadingOverlay() {

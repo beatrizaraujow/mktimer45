@@ -515,8 +515,19 @@
         <section class="pts-table-panel" data-lockable="true" data-panel-view="tabela-pts" hidden></section>
 
         <!-- ── Versão ADM ─────────────────────────────────────────────── -->
-        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>          <div id="admHistoryWrap"></div>
-          <div id="snapValidationWrap"></div>        </section>
+        <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
+          <div id="admHistoryWrap"></div>
+          <div id="snapValidationWrap"></div>
+          <!-- Respostas da Daily (ADM) -->
+          <div id="admDailyResponsesWrap" style="padding:20px 24px">
+            <div class="adr-header">
+              <h3 class="adr-title">Respostas da Daily</h3>
+              <input type="date" id="adrDateInput" class="adr-date-input" />
+            </div>
+            <div class="adr-person-bar" id="adrPersonBar"></div>
+            <div id="adrGrid" class="adr-grid"></div>
+          </div>
+        </section>
 
       </main>
     </div><!-- /.app-shell -->
