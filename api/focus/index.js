@@ -321,10 +321,26 @@ const LIVE_TTL_STALE  = 300_000;  // acima desse tempo: dado muito antigo, forç
 
 module.exports = async function handler(req, res) {
   try {
+  const action = (req.query.action || '').toString();
+
+  // daily-brief POST aceita x-cron-secret sem JWT
+  if (req.method === 'POST' && action === 'daily-brief') {
+    const DAILY_SECRET = 'mkt_daily_2026';
+    if (req.headers['x-cron-secret'] !== DAILY_SECRET) return json(res, 403, { error: 'Forbidden.' });
+    const { content, brief_date } = req.body || {};
+    if (!content?.trim()) return json(res, 400, { error: 'content is required.' });
+    const dateVal = brief_date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const { rows } = await db.query(
+      `INSERT INTO daily_briefs (content, brief_date) VALUES ($1, $2::date)
+       ON CONFLICT (brief_date) DO UPDATE SET content = EXCLUDED.content, created_at = NOW()
+       RETURNING id, brief_date::text AS brief_date`,
+      [content.trim(), dateVal]
+    );
+    return json(res, 200, { ok: true, brief: rows[0] });
+  }
+
   const auth = requireAuth(req, res);
   if (!auth) return;
-
-  const action = (req.query.action || '').toString();
 
   if (req.method === 'POST' && action === 'start') {
     const session = await getOrCreateActiveSession(auth.sub);
