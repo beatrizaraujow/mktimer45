@@ -77,7 +77,7 @@ function cuTaskDone(t) {
   if (tp === 'closed') return true;
   if (CONCLUDED_STATUSES.has(s)) return true;
   // Regex fallback para prefixos/sufixos não mapeados (ex: "Concluído ✓", "Publicado!")
-  if (/^(conclu|finaliz|publicad|aprovad|banco.?de.?criativ|complet)/i.test(s)) return true;
+  if (/^(conclu|finaliz|publicad|aprovad|aprovac|banco.?de.?criativ|complet)/i.test(s)) return true;
   return false;
 }
 

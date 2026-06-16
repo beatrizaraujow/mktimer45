@@ -4,6 +4,7 @@
 const CONCLUDED_STATUSES = new Set([
   'aprovar', 'publicar', 'banco de criativos',
   'concluído', 'concluido', 'done', 'closed', 'finalizado',
+  'aprovação lider', 'aprovacao lider',
   'aprovação de lider', 'aprovacao de lider',
 ]);
 
