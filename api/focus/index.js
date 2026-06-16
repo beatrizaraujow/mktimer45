@@ -874,12 +874,8 @@ module.exports = async function handler(req, res) {
       const effectiveWeeklyGoal = isRoutineBased ? (routineExpWeekByUid[uid] || 0) : weeklyGoal;
       const effectiveDailyGoal  = isRoutineBased ? (routineExpTodayByUid[uid] || 0) : dailyGoal;
 
-      const ptsSemana   = isRoutineBased
-        ? Number(routineData.routine_pts)
-        : Number(wstats.pts_semana);
-      const ptsPeriodo  = isRoutineBased
-        ? Number(routineData.routine_pts)
-        : (periodPtsMap.get(uid) ?? Number(wstats.pts_semana));
+      const ptsSemana   = Number(wstats.pts_semana);
+      const ptsPeriodo  = periodPtsMap.get(uid) ?? Number(wstats.pts_semana);
       const doneSemana  = Number(wstats.done_semana) + Number(routineData.routine_done);
       const totalSemana = Math.max(Number(wstats.total_semana) + Number(routineData.routine_done), doneSemana);
 
@@ -889,7 +885,7 @@ module.exports = async function handler(req, res) {
 
       const weekLabel = `Sem ${weekNum}`;
 
-      const ptsToday_eff = isRoutineBased ? Number(routineData.routine_pts) : Number(stats.pts_today);
+      const ptsToday_eff = Number(stats.pts_today);
       const dailyPct = effectiveDailyGoal > 0
         ? Math.round((ptsToday_eff / effectiveDailyGoal) * 100)
         : (totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0);
@@ -900,9 +896,7 @@ module.exports = async function handler(req, res) {
       const _ptsRate  = effectiveWeeklyGoal > 0 ? ptsSemana / effectiveWeeklyGoal : 0;
       const _taskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
       const _horaRate = horas / 16;
-      const coef = isRoutineBased
-        ? Math.round((_ptsRate  * 0.70 + _horaRate * 0.30) * 100)
-        : Math.round((_ptsRate  * 0.50 + _taskRate * 0.35 + _horaRate * 0.15) * 100);
+      const coef = Math.round((_ptsRate * 0.50 + _taskRate * 0.35 + _horaRate * 0.15) * 100);
 
       const metaStatus = ptsSemana >= weeklyGoal120 ? 'above_120'
                        : ptsSemana >= effectiveWeeklyGoal ? 'above_100'
@@ -915,12 +909,8 @@ module.exports = async function handler(req, res) {
         ? `${horasH}h ${String(horasM).padStart(2,'0')}min validadas`
         : '0h validadas';
 
-      const ratio120td = effectiveWeeklyGoal > 0
-        ? (isRoutineBased ? Math.round(effectiveWeeklyGoal * 1.2) : weeklyGoal120) / effectiveWeeklyGoal
-        : 1.2;
-      const metaForPeriod    = isRoutineBased
-        ? (routineExpWeekByUid[uid] || 0)
-        : Math.round(effectiveWeeklyGoal * tdPeriodWorkdays / 5);
+      const ratio120td = effectiveWeeklyGoal > 0 ? weeklyGoal120 / effectiveWeeklyGoal : 1.2;
+      const metaForPeriod    = Math.round(effectiveWeeklyGoal * tdPeriodWorkdays / 5);
       const metaForPeriod120 = Math.round(metaForPeriod * ratio120td);
 
       // Mapeia tasks do DB para o formato esperado por renderMemberCard
@@ -946,7 +936,7 @@ module.exports = async function handler(req, res) {
         cargo: user.cargo || '',
         dailyGoal: effectiveDailyGoal,
         weeklyGoal: effectiveWeeklyGoal,
-        weeklyGoal120: isRoutineBased ? Math.round(effectiveWeeklyGoal * 1.2) : weeklyGoal120,
+        weeklyGoal120,
         metaForPeriod,
         metaForPeriod120,
         periodLabel: tdPeriodLabel,
@@ -1394,18 +1384,12 @@ module.exports = async function handler(req, res) {
 
       const ptsCuDone    = getPeriodPoints(tasks, weekStart, todayStr);     // semana — para coef
       const ptsCuPeriod  = getPeriodPoints(tasks, periodFrom, periodTo);   // período ativo — para display
-      const ptsSemana    = isRoutineBased ? routinePts : ptsCuPeriod + routinePts;
-      const ptsToday     = isRoutineBased ? routinePts : ptsCuDone;
-      const ptsParaBarra = isRoutineBased ? routinePts : ptsCuDone + routinePts; // coef sempre semanal
-      // Meta sempre semanal — KPI coef/concluídas refletem a semana, não o filtro do período
-      const metaForPeriod = isRoutineBased
-        ? (routineExpPtsByUid[uid] || 0)
-        : weeklyGoal;
-      // ratio120 preserva o threshold individual (ex: 156/130 = 1.2, mas pode ser diferente)
-      const ratio120 = weeklyGoal > 0 ? weeklyGoal120 / weeklyGoal : 1.2;
-      const metaForPeriod120 = isRoutineBased
-        ? Math.round((routineExpPtsByUid[uid] || 0) * 1.2)
-        : weeklyGoal120;
+      const ptsSemana    = ptsCuPeriod;
+      const ptsToday     = ptsCuDone;
+      const ptsParaBarra = ptsCuDone;
+      const metaForPeriod    = weeklyGoal;
+      const ratio120         = weeklyGoal > 0 ? weeklyGoal120 / weeklyGoal : 1.2;
+      const metaForPeriod120 = weeklyGoal120;
 
       // Horas via time_spent — done | doing | revision no período, cap 16h/dia
       // Tasks sem time_spent são ignoradas (h <= 0 continua o guard abaixo)
@@ -1466,15 +1450,12 @@ module.exports = async function handler(req, res) {
       const horasEfetivas = horasCuTotal > 0 ? horasCuTotal : horas;
       // Coeficiente — Regras do Sistema (PDF)
       // Grupo Pontos:   pts/meta×50% + done/total×35% + horas/ref×15%
-      // isRoutineBased: rotinaPts/meta×70% + horas/ref×30%
       // horasRef: sempre semanal (16h) — KPI não varia com o filtro de data ativo
       const _cuTaskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
       const horasRef    = 16;
       const _cuHoraRate = horasEfetivas / horasRef; // sem cap — pode ultrapassar 100%
       const _cuPtsRate  = metaForPeriod > 0 ? ptsParaBarra / metaForPeriod : 0;
-      const coef        = isRoutineBased
-        ? Math.round((_cuPtsRate  * 0.70 + _cuHoraRate * 0.30) * 100)
-        : Math.round((_cuPtsRate  * 0.50 + _cuTaskRate * 0.35 + _cuHoraRate * 0.15) * 100);
+      const coef        = Math.round((_cuPtsRate * 0.50 + _cuTaskRate * 0.35 + _cuHoraRate * 0.15) * 100);
 
       let horasH = Math.floor(horasEfetivas);
       let horasM = Math.round((horasEfetivas - horasH) * 60);
