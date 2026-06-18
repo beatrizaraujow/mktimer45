@@ -20,13 +20,17 @@ let donutChart;
 let lastDailyItems = [];
 let mustChangePassword = false;
 
-let _isAdminUser = false;
+let _isAdminUser  = false;
+let _isMasterUser = false;
 
 // ── Histórico panel state ─────────────────────────────────────────────
 let histFilter = 'semana';
 let histCustomFrom = null;
 let histCustomTo = null;
 let histBarChart = null;
+
+// ── Coins widget state (Anny Beatriz) ─────────────────────────────────
+let _ucMonthOffset = 0;
 
 // ── ADM panel state ───────────────────────────────────────────────────
 let admFilter = 'mes';
@@ -1368,7 +1372,15 @@ function initSidebarPanels() {
       _setLiveBadge(false);
     }
     if (panelName === 'painel-daily') { await loadTeamDaily(); }
-    if (panelName === 'daily-adm')    { loadDailyBrief(); loadAdmDailyResponses(); }
+    if (panelName === 'daily-adm') {
+      loadDailyBrief();
+      if (_isAdminUser) {
+        const wrap = document.getElementById('admDailyResponsesWrap');
+        if (wrap) wrap.style.display = '';
+        loadAdmDailyResponses();
+        renderAdmDailyPublishForm();
+      }
+    }
     if (panelName === 'calendario')   renderCalendarTasks();
     if (panelName === 'historico')    await loadHistoricoPanel();
     if (panelName === 'adm')          { await loadAdmPanel(); }
@@ -1624,11 +1636,10 @@ async function init() {
   if (calInInitEl) calInInitEl.value = overviewCalendarIn;
   // Show admin-only UI
   if (userProfile && userProfile.role === 'admin') {
-    _isAdminUser = true;
+    _isAdminUser  = true;
+    _isMasterUser = userProfile.is_master === true;
     const admNavTab = document.getElementById('admNavTab');
     if (admNavTab) admNavTab.style.display = '';
-    const dailyAdmNavTab = document.getElementById('dailyAdmNavTab');
-    if (dailyAdmNavTab) dailyAdmNavTab.style.display = '';
     const syncBtn = document.getElementById('clickupSyncBtn');
     if (syncBtn) syncBtn.style.display = '';
   }
@@ -1655,9 +1666,41 @@ async function init() {
   initHistoricoFilters();
   initAdmFilters();
   initTeamDaily();
+  initMobileNav();
 
   hideLoadingOverlay();
   await refreshAll();
+}
+
+function initMobileNav() {
+  const hamburger = document.getElementById('hamburgerBtn');
+  const nav = document.getElementById('mainNav');
+  const overlay = document.getElementById('navOverlay');
+  if (!hamburger || !nav || !overlay) return;
+
+  function openNav() {
+    nav.classList.add('nav-open');
+    overlay.classList.add('active');
+    hamburger.setAttribute('aria-expanded', 'true');
+    overlay.removeAttribute('aria-hidden');
+  }
+
+  function closeNav() {
+    nav.classList.remove('nav-open');
+    overlay.classList.remove('active');
+    hamburger.setAttribute('aria-expanded', 'false');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  hamburger.addEventListener('click', () => {
+    nav.classList.contains('nav-open') ? closeNav() : openNav();
+  });
+
+  overlay.addEventListener('click', closeNav);
+
+  nav.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', closeNav);
+  });
 }
 
 // �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
@@ -2153,9 +2196,9 @@ function renderPersonTable(member) {
         <span class="pt-role">${member.cargo}</span>
       </div>
       <div class="pt-head-stats">
-        <span class="pt-hstat">${doneCount}/${totalCount} concluídas</span>
-        <span class="pt-hstat accent">${weekPts} pts</span>
-        <span class="pt-hstat" style="color:${barColor}">${adjustedPct}%</span>
+        <span class="pt-hstat" title="Tasks concluídas na semana atual">${doneCount}/${totalCount} concluídas · sem</span>
+        <span class="pt-hstat accent" title="Pontos acumulados na semana atual">${weekPts} pts semana</span>
+        <span class="pt-hstat" style="color:${barColor}" title="Coeficiente da semana atual">${adjustedPct}%</span>
       </div>
     </div>
     <div class="pt-progress-row">
@@ -2362,10 +2405,8 @@ function renderMemberCard(member) {
     return Boolean(t.due_date && t.due_date >= periodFrom && t.due_date <= periodTo);
   });
 
-  // Stat de concluídas = tasks exibidas completas + subtasks done; fallback para doneSemana da API
-  const doneSubs = member.tasks.reduce((n, t) =>
-    n + (t.subtasks || []).filter(s => s.is_done).length, 0);
-  const tDone = (completasTasks.length + doneSubs) || doneCount;
+  // Stat de concluídas: sempre doneSemana da API (week-scoped), independente do filtro de período
+  const tDone = doneCount;
 
   // Helper: renderiza seção (colapsável ou não)
   const renderSection = (label, color, tasks, collapsible, catKey) => {
@@ -2430,7 +2471,7 @@ function renderMemberCard(member) {
     <div class="mc-stats">
       <div class="mc-stat">
         <span class="mc-stat-val">${tDone}</span>
-        <span class="mc-stat-lbl">Concluídas${overdueChip}</span>
+        <span class="mc-stat-lbl" title="Tasks concluídas na semana atual">Concluídas · sem${overdueChip}</span>
       </div>
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
@@ -2440,7 +2481,7 @@ function renderMemberCard(member) {
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
         <span class="mc-stat-val" style="color:${weekPctColor(member.coef)}">${member.coef}%</span>
-        <span class="mc-stat-lbl">Coeficiente</span>
+        <span class="mc-stat-lbl" title="Coeficiente da semana atual">Coef. semana</span>
       </div>
     </div>
 
@@ -2725,22 +2766,44 @@ async function loadDailyBrief() {
     const dateStr = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'UTC' });
     const html = escHtml(b.content).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
 
+    // Armazena labels para uso em showDailyForm e no modal de edição ADM
+    _dailyLabels = {
+      q1: b.q1_label || 'O que fechei ontem?',
+      q2: b.q2_label || 'O que estou tocando hoje?',
+      q3: b.q3_label || 'Tem algum bloqueio?',
+    };
+
     const existing = myData?.response;
     const formHtml = existing
       ? `<div class="dbr-done">
-          <span class="dbr-done-badge">✓ Respondido</span>
-          <div class="dbr-answers">
-            <div class="dbr-answer"><span class="dbr-q">Fechei ontem:</span> ${escHtml(existing.q1 || '—')}</div>
-            <div class="dbr-answer"><span class="dbr-q">Tocando hoje:</span> ${escHtml(existing.q2 || '—')}</div>
-            <div class="dbr-answer"><span class="dbr-q">Bloqueio:</span> ${escHtml(existing.q3 || 'Nenhum')}</div>
+          <div class="dbr-done-header">
+            <span class="dbr-done-badge">✓ Respondido</span>
+            ${_isAdminUser ? `<button class="dbr-edit-btn" onclick="showDailyForm(${JSON.stringify(existing).replace(/"/g,'&quot;')})">Editar</button>` : ''}
           </div>
-          <button class="dbr-edit-btn" onclick="showDailyForm(${JSON.stringify(existing).replace(/"/g,'&quot;')})">Editar</button>
+          <div class="dbr-done-answers">
+            <div class="dbr-done-item"><div class="dbr-done-q">${escHtml(_dailyLabels.q1)}</div><div class="dbr-done-a">${escHtml(existing.q1 || '—')}</div></div>
+            <div class="dbr-done-item"><div class="dbr-done-q">${escHtml(_dailyLabels.q2)}</div><div class="dbr-done-a">${escHtml(existing.q2 || '—')}</div></div>
+            <div class="dbr-done-item"><div class="dbr-done-q">${escHtml(_dailyLabels.q3)}</div><div class="dbr-done-a">${escHtml(existing.q3 || 'Nenhum bloqueio')}</div></div>
+          </div>
+          ${!_isAdminUser ? '<p class="dbr-locked-msg">Só é possível editar através do gestor.</p>' : ''}
         </div>`
-      : `<form class="dbr-form" id="dailyRespForm">
-          <div class="dbr-field"><label class="dbr-label">1. O que fechei ontem?</label><textarea class="dbr-ta" name="q1" rows="2" placeholder="Entregas concluídas..."></textarea></div>
-          <div class="dbr-field"><label class="dbr-label">2. O que estou tocando hoje?</label><textarea class="dbr-ta" name="q2" rows="2" placeholder="Foco do dia..."></textarea></div>
-          <div class="dbr-field"><label class="dbr-label">3. Tem algum bloqueio?</label><textarea class="dbr-ta" name="q3" rows="2" placeholder="Algo travando..."></textarea></div>
-          <button type="submit" class="dbr-submit">Enviar resposta</button>
+      : `<div class="dbr-form-header"><span class="dbr-form-title">Sua resposta de hoje</span></div>
+        <form class="dbr-form" id="dailyRespForm">
+          <div class="dbr-field">
+            <label class="dbr-label"><span class="dbr-num">1</span>${escHtml(_dailyLabels.q1)}</label>
+            <textarea class="dbr-ta" name="q1" rows="3" placeholder="O que você concluiu ou avançou ontem?"></textarea>
+          </div>
+          <div class="dbr-field">
+            <label class="dbr-label"><span class="dbr-num">2</span>${escHtml(_dailyLabels.q2)}</label>
+            <textarea class="dbr-ta" name="q2" rows="3" placeholder="Quais tarefas ou projetos estão em andamento hoje?"></textarea>
+          </div>
+          <div class="dbr-field">
+            <label class="dbr-label"><span class="dbr-num">3</span>${escHtml(_dailyLabels.q3)}</label>
+            <textarea class="dbr-ta" name="q3" rows="2" placeholder="Alguma dependência, espera ou impedimento?"></textarea>
+          </div>
+          <div class="dbr-actions">
+            <button type="submit" class="dbr-submit">Enviar resposta</button>
+          </div>
         </form>`;
 
     wrap.innerHTML = `<div class="daily-brief-wrap">
@@ -2764,9 +2827,9 @@ function showDailyForm(existing) {
   const section = document.getElementById('dbrSection');
   if (!section) return;
   section.innerHTML = `<form class="dbr-form" id="dailyRespForm">
-    <div class="dbr-field"><label class="dbr-label">1. O que fechei ontem?</label><textarea class="dbr-ta" name="q1" rows="2">${escHtml(existing.q1||'')}</textarea></div>
-    <div class="dbr-field"><label class="dbr-label">2. O que estou tocando hoje?</label><textarea class="dbr-ta" name="q2" rows="2">${escHtml(existing.q2||'')}</textarea></div>
-    <div class="dbr-field"><label class="dbr-label">3. Tem algum bloqueio?</label><textarea class="dbr-ta" name="q3" rows="2">${escHtml(existing.q3||'')}</textarea></div>
+    <div class="dbr-field"><label class="dbr-label">1. ${escHtml(_dailyLabels.q1)}</label><textarea class="dbr-ta" name="q1" rows="2">${escHtml(existing.q1||'')}</textarea></div>
+    <div class="dbr-field"><label class="dbr-label">2. ${escHtml(_dailyLabels.q2)}</label><textarea class="dbr-ta" name="q2" rows="2">${escHtml(existing.q2||'')}</textarea></div>
+    <div class="dbr-field"><label class="dbr-label">3. ${escHtml(_dailyLabels.q3)}</label><textarea class="dbr-ta" name="q3" rows="2">${escHtml(existing.q3||'')}</textarea></div>
     <button type="submit" class="dbr-submit">Salvar alterações</button>
   </form>`;
   document.getElementById('dailyRespForm').addEventListener('submit', submitDailyResponse);
@@ -2790,6 +2853,19 @@ async function submitDailyResponse(e) {
 async function loadTeamDaily({ force = false } = {}) {
   const grid = document.getElementById('teamDailyGrid');
   if (!grid) return;
+
+  // Week-boundary detection: se virou semana desde a última visita, descarta cache e força refresh
+  const _nowBRT  = new Date(Date.now() - 3 * 3600000);
+  const _wd      = _nowBRT.getUTCDay() || 7;
+  const _monday  = new Date(_nowBRT);
+  _monday.setUTCDate(_nowBRT.getUTCDate() - _wd + 1);
+  const _mondayISO  = _monday.toISOString().slice(0, 10);
+  const _storedWeek = localStorage.getItem('tdLastWeekStart');
+  if (_storedWeek && _storedWeek !== _mondayISO) {
+    _tdCache.clear();
+    force = true;
+  }
+  localStorage.setItem('tdLastWeekStart', _mondayISO);
 
   dfbRecalcPreset('daily');
   const { from, to, preset } = _dfb.daily;
@@ -2939,6 +3015,7 @@ function initRoutineEditModal() {
             <option value="weekly">Semanal (1x/semana)</option>
             <option value="3x_week">3x na semana</option>
             <option value="custom">Personalizado (dias da semana)</option>
+            <option value="biweekly">Quinzenal (2x/mês)</option>
             <option value="monthly">Mensal (dia do mês)</option>
           </select>
         </div>
@@ -2957,6 +3034,14 @@ function initRoutineEditModal() {
         <div id="rpEditMonthDayWrap" style="display:none;margin:4px 0 8px">
           <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:0 0 6px">Todo dia:</p>
           <input id="rpEditMonthDay" class="rp-edit-input" type="number" min="1" max="31" placeholder="Ex: 15" style="width:90px" />
+        </div>
+        <div id="rpEditBiWeeklyWrap" style="display:none;margin:4px 0 8px">
+          <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:0 0 6px">Dias do mês:</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="rpEditBiDay1" class="rp-edit-input" type="number" min="1" max="31" placeholder="Dia 1" style="width:75px" />
+            <span style="color:rgba(255,255,255,0.4);font-size:12px">e</span>
+            <input id="rpEditBiDay2" class="rp-edit-input" type="number" min="1" max="31" placeholder="Dia 2" style="width:75px" />
+          </div>
         </div>
         <div class="rp-edit-field">
           <label class="rp-edit-label">Empresa</label>
@@ -2985,10 +3070,12 @@ function initRoutineEditModal() {
   // Mostrar/ocultar seletores conforme frequência selecionada
   document.getElementById('rpEditFreq').addEventListener('change', (e) => {
     const val = e.target.value;
-    const needsDays     = val === 'weekly' || val === '3x_week' || val === 'custom';
-    const needsMonthDay = val === 'monthly';
-    document.getElementById('rpEditDayWrap').style.display      = needsDays     ? '' : 'none';
-    document.getElementById('rpEditMonthDayWrap').style.display = needsMonthDay ? '' : 'none';
+    const needsDays      = val === 'weekly' || val === '3x_week' || val === 'custom';
+    const needsMonthDay  = val === 'monthly';
+    const needsBiWeekly  = val === 'biweekly';
+    document.getElementById('rpEditDayWrap').style.display        = needsDays     ? '' : 'none';
+    document.getElementById('rpEditMonthDayWrap').style.display   = needsMonthDay ? '' : 'none';
+    document.getElementById('rpEditBiWeeklyWrap').style.display   = needsBiWeekly ? '' : 'none';
     if (val === '3x_week') {
       document.querySelectorAll('#rpEditDayCheckboxes input').forEach(i => {
         i.checked = [1, 3, 5].includes(Number(i.value));
@@ -3012,7 +3099,7 @@ function openRoutineEditModal(routine) {
   const _fillUser = () => { if (userSel) userSel.value = String(routine.userId || ''); };
   if (userSel && userSel.options.length === 0) {
     api('/api/users').then(data => {
-      (data.users || []).forEach(u => {
+      (data.users || []).filter(u => !u.name.toLowerCase().includes('clara')).forEach(u => {
         const opt = document.createElement('option');
         opt.value = u.id; opt.textContent = u.name;
         userSel.appendChild(opt);
@@ -3029,20 +3116,24 @@ function openRoutineEditModal(routine) {
   const days = routine.applies_days || [];
   let displayFreq = routine.frequency || 'daily';
   if (displayFreq === 'daily') {
-    displayFreq = days.length ? 'daily-weekdays' : 'daily';
+    displayFreq = (days.length === 5 && days.every((d, i) => d === i + 1)) ? 'daily-weekdays' : days.length ? 'daily-weekdays' : 'daily';
   } else if (displayFreq === 'weekly') {
+    // retrocompat: registros antigos gravados como 'weekly' com dias
     if      (days.length === 0) displayFreq = 'weekly';
     else if (days.length === 3) displayFreq = '3x_week';
+    else if (days.length === 1) displayFreq = 'weekly';
     else                        displayFreq = 'custom';
   }
-  // monthly permanece 'monthly'
+  // 3x_week, custom, biweekly e monthly permanecem como estão
   document.getElementById('rpEditFreq').value = displayFreq;
 
   // Mostra/oculta pickers
-  const needsDays     = ['weekly', '3x_week', 'custom'].includes(displayFreq);
-  const needsMonthDay = displayFreq === 'monthly';
-  document.getElementById('rpEditDayWrap').style.display      = needsDays     ? '' : 'none';
-  document.getElementById('rpEditMonthDayWrap').style.display = needsMonthDay ? '' : 'none';
+  const needsDays      = ['weekly', '3x_week', 'custom'].includes(displayFreq);
+  const needsMonthDay  = displayFreq === 'monthly';
+  const needsBiWeekly  = displayFreq === 'biweekly';
+  document.getElementById('rpEditDayWrap').style.display        = needsDays     ? '' : 'none';
+  document.getElementById('rpEditMonthDayWrap').style.display   = needsMonthDay ? '' : 'none';
+  document.getElementById('rpEditBiWeeklyWrap').style.display   = needsBiWeekly ? '' : 'none';
 
   // Pré-preenche checkboxes de dias
   document.querySelectorAll('#rpEditDayCheckboxes input').forEach(i => {
@@ -3051,6 +3142,11 @@ function openRoutineEditModal(routine) {
   // Pré-preenche dia do mês
   if (needsMonthDay && days.length) {
     document.getElementById('rpEditMonthDay').value = days[0];
+  }
+  // Pré-preenche dias quinzenais
+  if (needsBiWeekly && days.length >= 1) {
+    document.getElementById('rpEditBiDay1').value = days[0] || '';
+    document.getElementById('rpEditBiDay2').value = days[1] || '';
   }
 
   document.getElementById('rpEditOverlay').style.display = 'flex';
@@ -3078,14 +3174,21 @@ function openRoutineEditModal(routine) {
       const checked = [...document.querySelectorAll('#rpEditDayCheckboxes input:checked')].map(i => Number(i.value));
       applies_days = checked.length ? checked : null;
     } else if (freqRaw === '3x_week') {
-      frequency = 'weekly';
+      frequency = '3x_week';
       const checked = [...document.querySelectorAll('#rpEditDayCheckboxes input:checked')].map(i => Number(i.value));
+      if (checked.length !== 3) { alert('Para 3x na semana, selecione exatamente 3 dias.'); return; }
       applies_days = checked.length ? checked : [1, 3, 5];
     } else if (freqRaw === 'custom') {
-      frequency = 'weekly';
+      frequency = 'custom';
       const checked = [...document.querySelectorAll('#rpEditDayCheckboxes input:checked')].map(i => Number(i.value));
       if (!checked.length) { alert('Selecione ao menos um dia da semana.'); return; }
       applies_days = checked;
+    } else if (freqRaw === 'biweekly') {
+      frequency = 'biweekly';
+      const d1 = Number(document.getElementById('rpEditBiDay1').value);
+      const d2 = Number(document.getElementById('rpEditBiDay2').value);
+      if (!d1 || d1 < 1 || d1 > 31 || !d2 || d2 < 1 || d2 > 31) { alert('Informe dois dias do mês válidos (1–31).'); return; }
+      applies_days = [d1, d2].sort((a, b) => a - b);
     } else if (freqRaw === 'monthly') {
       frequency = 'monthly';
       const dom = Number(document.getElementById('rpEditMonthDay').value);
@@ -3505,6 +3608,7 @@ async function loadHistoricoPanel() {
     } catch (_) { /* snapshot API pode não existir ainda — ignora */ }
 
     renderHistoricoWeeklyTable(histData.weeks || [], mergedUsers, snapshotMap);
+    loadCoinsWidget();
   } catch (err) {
     console.error('[historico] erro:', err.message);
     if (wrap) wrap.innerHTML = `<p style="padding:24px;color:#e05252;font-size:13px">Erro: ${err.message}</p>`;
@@ -3532,7 +3636,8 @@ function renderHistoricoWeeklyTable(weekLabels, users, snapshotMap = {}) {
     return;
   }
 
-  // Coins: 0=nenhum 1-6 escala meta (max 6)
+  // Coins: 0=nenhum, 3=100%, 5=120%, +ranking → max 8
+  // índices acima de 5 usam gem; função helper evita undefined
   const COIN_CFG = [
     null,
     { label: '1 Coin',  cls: 'hwt-coin-1', icon: IC.medal(1) },
@@ -3541,7 +3646,10 @@ function renderHistoricoWeeklyTable(weekLabels, users, snapshotMap = {}) {
     { label: '4 Coins', cls: 'hwt-coin-4', icon: IC.medal(2) },
     { label: '5 Coins', cls: 'hwt-coin-5', icon: IC.medal(3) },
     { label: '6 Coins', cls: 'hwt-coin-6', icon: IC.gem },
+    { label: '7 Coins', cls: 'hwt-coin-6', icon: IC.gem },
+    { label: '8 Coins', cls: 'hwt-coin-6', icon: IC.gem },
   ];
+  const coinCfgFor = n => COIN_CFG[Math.min(n, COIN_CFG.length - 1)] || null;
 
   const firstWeek = weekLabels[0];
   const monthIdx  = firstWeek ? Number(firstWeek.weekStart.slice(5, 7)) - 1 : -1;
@@ -3575,13 +3683,12 @@ function renderHistoricoWeeklyTable(weekLabels, users, snapshotMap = {}) {
       }
 
       // Calcula coins da semana: usa w.coins se disponível (history.js),
-      // senão deriva do pct (clickup-history não envia coins)
+      // senão deriva do pct com nova escala (0/<100%, 3/100%, 5/120%)
       const pct6 = w.pct || 0;
       const coins = w.coins != null ? w.coins
-        : pct6 >= 120 ? 6 : pct6 >= 100 ? 5 : pct6 >= 80 ? 4
-        : pct6 >= 60  ? 3 : pct6 >= 40  ? 2 : pct6 >= 20 ? 1 : 0;
-      // Badge só aparece para quem bateu a meta (≥100% = 5 coins)
-      const coinCfg = coins >= 5 ? COIN_CFG[coins] : null;
+        : pct6 >= 120 ? 5 : pct6 >= 100 ? 3 : 0;
+      // Badge só aparece para quem bateu a meta (≥3 coins)
+      const coinCfg = coins >= 3 ? coinCfgFor(coins) : null;
       const above120 = w.metaStatus === 'above_120' || w.pts >= meta120;
       const above100 = w.metaStatus === 'above_100' || w.pts >= meta100;
 
@@ -3653,16 +3760,150 @@ function renderHistoricoWeeklyTable(weekLabels, users, snapshotMap = {}) {
     <div class="hist-weekly-wrap">
       <div class="hist-weekly-title">${titleText}</div>
       <div class="hwt-legend">
-        <span class="hwt-leg-item">${IC.medal(1)} 1–2 = ≥20–40%</span>
-        <span class="hwt-leg-item">${IC.medal(2)} 3–4 = ≥60–80%</span>
-        <span class="hwt-leg-item">${IC.medal(3)} 5 Coins = meta 100%</span>
-        <span class="hwt-leg-item">${IC.gem} 6 Coins = 120%</span>
+        <span class="hwt-leg-item">${IC.medal(2)} 3 Coins = meta 100%</span>
+        <span class="hwt-leg-item">${IC.medal(3)} 5 Coins = meta 120%</span>
+        <span class="hwt-leg-item">${IC.gem} +3/+2/+1 = ranking 1º/2º/3º</span>
       </div>
       <table class="hwt-table">
         ${thead}
         <tbody>${tbody}</tbody>
       </table>
     </div>`;
+}
+
+async function loadCoinsWidget() {
+  if (userProfile?.email !== 'anny.beatriz@grupoquatro5.com') return;
+  const wrap = document.getElementById('ucCoinsWrap');
+  if (!wrap) return;
+
+  const now    = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + _ucMonthOffset, 1);
+  const last   = new Date(target.getFullYear(), target.getMonth() + 1, 0);
+  const from   = target.toISOString().slice(0, 10);
+  const to     = last.toISOString().slice(0, 10);
+  const monthLabel = `${CAL_MONTH_NAMES[target.getMonth()]} ${target.getFullYear()}`;
+
+  wrap.innerHTML = '<div class="uc-loading">Carregando coins...</div>';
+
+  try {
+    const h = { Authorization: `Bearer ${getToken()}` };
+    const [histResp, cuResp, sResp] = await Promise.all([
+      fetch(`/api/reports/history?from=${from}&to=${to}`, { headers: h }),
+      fetch(`/api/focus?action=clickup-history&from=${from}&to=${to}`, { headers: h }).catch(() => null),
+      fetch('/api/focus?action=snapshot-list', { headers: h }).catch(() => null),
+    ]);
+
+    const histData = histResp.ok ? await histResp.json() : {};
+    let annysData  = (histData.users || []).find(u => u.id === userProfile.id);
+
+    // Mescla dados ClickUp — mesmo padrão de loadHistoricoPanel
+    if (annysData && !annysData.isRoutineBased && cuResp?.ok) {
+      try {
+        const cuData = await cuResp.json();
+        const cuUser = (cuData.users || []).find(u => u.id === userProfile.id);
+        if (cuUser) annysData = { ...annysData, weeks: cuUser.weeks, weeklyGoal: cuUser.weeklyGoal, meta100: cuUser.meta100, meta120: cuUser.meta120 };
+      } catch (_) {}
+    }
+
+    let snapshotMap = {};
+    if (sResp?.ok) {
+      try { (await sResp.json()).snapshots?.forEach(s => { snapshotMap[s.week_start] = s; }); }
+      catch (_) {}
+    }
+
+    wrap.innerHTML = renderUserCoinsWidget(histData.weeks || [], annysData, snapshotMap, monthLabel);
+    document.getElementById('ucNavPrev')?.addEventListener('click', () => { _ucMonthOffset--; loadCoinsWidget(); });
+    document.getElementById('ucNavNext')?.addEventListener('click', () => { if (_ucMonthOffset < 0) { _ucMonthOffset++; loadCoinsWidget(); } });
+  } catch (e) {
+    wrap.innerHTML = '';
+    console.error('[coinsWidget]', e.message);
+  }
+}
+
+function renderUserCoinsWidget(weekLabels, userData, snapshotMap, monthLabel) {
+  const UC_COIN_CFG = [
+    null,
+    { icon: IC.medal(1) },
+    { icon: IC.medal(1) },
+    { icon: IC.medal(2) },
+    { icon: IC.medal(2) },
+    { icon: IC.medal(3) },
+    { icon: IC.gem      },
+  ];
+
+  let totalEarned    = 0;
+  let totalValidated = 0;
+
+  const cards = weekLabels.map((wl, i) => {
+    const w = userData?.weeks?.[i];
+
+    if (!w || (w.pts === 0 && !w.isLive)) {
+      return `<div class="uc-week-card uc-wc-empty">
+        <div class="uc-wc-icon">—</div>
+        <div class="uc-wc-label">Sem ${wl.index}</div>
+      </div>`;
+    }
+
+    const pct6  = w.pct || 0;
+    const coins = w.coins != null ? w.coins
+      : pct6 >= 120 ? 5 : pct6 >= 100 ? 3 : 0;
+    const ucCoinIcon = n => n >= 1 ? (UC_COIN_CFG[Math.min(n, UC_COIN_CFG.length - 1)]?.icon || IC.gem) : '—';
+    const snap    = snapshotMap[w.weekStart];
+    const closed  = snap?.status === SNAPSHOT_STATUS.FECHADO;
+    const pending = snap?.status === SNAPSHOT_STATUS.PENDENTE;
+
+    if (w.isLive) {
+      return `<div class="uc-week-card uc-wc-live">
+        <div class="uc-wc-icon">${coins >= 1 ? ucCoinIcon(coins) : '⟳'}</div>
+        <div class="uc-wc-coins">${coins > 0 ? coins : '—'}</div>
+        <div class="uc-wc-label">Sem ${wl.index}</div>
+        <div class="uc-wc-status">ao vivo · ${w.pts} pts</div>
+      </div>`;
+    }
+
+    totalEarned += coins;
+    if (closed) totalValidated += coins;
+
+    const icon    = ucCoinIcon(coins);
+    const cardCls = coins >= 6 ? 'uc-wc-6' : coins >= 5 ? 'uc-wc-5' : coins >= 3 ? 'uc-wc-3' : coins >= 1 ? 'uc-wc-1' : 'uc-wc-0';
+    const statusCls = closed ? 'uc-wc-validated' : pending ? 'uc-wc-pending' : 'uc-wc-unsnapped';
+    const statusTxt = closed ? `${IC.lock} validada` : pending ? '● aguarda validação' : '● sem validação';
+
+    return `<div class="uc-week-card ${cardCls} ${statusCls}">
+      <div class="uc-wc-icon">${icon}</div>
+      <div class="uc-wc-coins">${coins}</div>
+      <div class="uc-wc-label">Sem ${wl.index}</div>
+      <div class="uc-wc-status">${statusTxt}</div>
+    </div>`;
+  }).join('');
+
+  const noData     = !userData || !weekLabels.length;
+  const cardsBlock = noData
+    ? `<div class="uc-no-data">Nenhum dado para este período.</div>`
+    : `<div class="uc-cards-row">${cards}</div>`;
+
+  const totalsBlock = totalEarned > 0
+    ? `<div class="uc-totals">
+         <span class="uc-total-earned"><strong>${totalEarned}</strong> ganhas</span>
+         <span class="uc-total-sep">·</span>
+         <span class="uc-total-validated"><strong>${totalValidated}</strong> validadas</span>
+       </div>`
+    : (noData ? '' : `<div class="uc-totals"><span class="uc-total-none">nenhuma coin registrada</span></div>`);
+
+  const nextDisabled = _ucMonthOffset >= 0 ? 'disabled' : '';
+
+  return `<div class="uc-coins-widget" id="ucCoinsWidget">
+    <div class="uc-coins-header">
+      <span class="uc-coins-title">${IC.gem} Suas Coins</span>
+      <div class="uc-month-nav">
+        <button class="uc-nav-btn" id="ucNavPrev" title="Mês anterior">‹</button>
+        <span class="uc-month-label">${monthLabel}</span>
+        <button class="uc-nav-btn" id="ucNavNext" title="Próximo mês" ${nextDisabled}>›</button>
+      </div>
+    </div>
+    ${cardsBlock}
+    ${totalsBlock}
+  </div>`;
 }
 
 function renderMetasSummary(weekLabels, users) {
@@ -3917,8 +4158,346 @@ function getAdmDateRange() {
 
 async function loadAdmPanel() {
   if (!_isAdminUser) return;
+  loadSmeBalance();
   await loadAdmHistory();
   await loadSnapshotValidation();
+}
+
+// ── SME: saldo de coins por colaborador ───────────────────────────────
+async function loadSmeBalance() {
+  const wrap = document.getElementById('smeBalanceWrap');
+  if (!wrap || !_isAdminUser) return;
+  wrap.innerHTML = '<p class="sme-loading">Carregando saldo de coins...</p>';
+  try {
+    const data = await api('/api/focus?action=coins-balance');
+    renderSmeBalance(wrap, data.balance || []);
+  } catch (err) {
+    wrap.innerHTML = `<p class="sme-err">Erro ao carregar saldo: ${escHtml(err.message)}</p>`;
+  }
+}
+
+function _sbalSparkSvg(weeklyData, w, h, color) {
+  const c   = color || '#f6c200';
+  const pts = Array.isArray(weeklyData) ? weeklyData.map(d => d.v || 0) : [];
+  if (pts.length < 2) {
+    return `<svg viewBox="0 0 ${w} ${h}" class="sbal-spark" preserveAspectRatio="none">
+      <path d="M 2,${h-3} Q ${w*0.4},${h*0.4} ${w-2},4" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+    </svg>`;
+  }
+  const max = Math.max(...pts, 1);
+  const min = Math.min(...pts, 0);
+  const range = max - min || 1;
+  const n = pts.length;
+  const co = pts.map((v, i) => ({
+    x: (i / (n - 1)) * (w - 4) + 2,
+    y: h - 2 - ((v - min) / range) * (h - 6),
+  }));
+  // Catmull-Rom → cubic bezier
+  let d = `M ${co[0].x.toFixed(2)},${co[0].y.toFixed(2)}`;
+  for (let i = 1; i < co.length; i++) {
+    const p0 = co[Math.max(0, i - 2)];
+    const p1 = co[i - 1];
+    const p2 = co[i];
+    const p3 = co[Math.min(co.length - 1, i + 1)];
+    const t = 0.42;
+    const cp1x = p1.x + (p2.x - p0.x) * t / 2;
+    const cp1y = p1.y + (p2.y - p0.y) * t / 2;
+    const cp2x = p2.x - (p3.x - p1.x) * t / 2;
+    const cp2y = p2.y - (p3.y - p1.y) * t / 2;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  const area = `${d} L ${co[co.length-1].x.toFixed(2)},${h} L 2,${h} Z`;
+  return `<svg viewBox="0 0 ${w} ${h}" class="sbal-spark" preserveAspectRatio="none">
+    <path d="${area}" fill="${c}" opacity="0.2"/>
+    <path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+// ── ADM v2: wallet sparkline com área preenchida ─────────────────────
+function _walletSparkSvg(weeklyData, uid) {
+  const pts = Array.isArray(weeklyData) ? weeklyData.map(d => d.v || 0) : [];
+  const W = 120, H = 44;
+  const gId = `wsg${uid}`;
+  if (pts.length < 2) {
+    return `<svg viewBox="0 0 ${W} ${H}" class="adm-wallet-spark" preserveAspectRatio="none">
+      <path d="M 2,${H-4} Q ${W*0.4},${H*0.4} ${W-2},6" fill="none" stroke="#FCC100" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+    </svg>`;
+  }
+  const max = Math.max(...pts, 1);
+  const min = Math.min(...pts, 0);
+  const range = max - min || 1;
+  const n = pts.length;
+  const co = pts.map((v, i) => ({
+    x: (i / (n - 1)) * (W - 4) + 2,
+    y: H - 4 - ((v - min) / range) * (H - 10),
+  }));
+  // Catmull-Rom → cubic bezier
+  let d = `M ${co[0].x.toFixed(2)},${co[0].y.toFixed(2)}`;
+  for (let i = 1; i < co.length; i++) {
+    const p0 = co[Math.max(0, i - 2)];
+    const p1 = co[i - 1];
+    const p2 = co[i];
+    const p3 = co[Math.min(co.length - 1, i + 1)];
+    const t = 0.42;
+    const cp1x = p1.x + (p2.x - p0.x) * t / 2;
+    const cp1y = p1.y + (p2.y - p0.y) * t / 2;
+    const cp2x = p2.x - (p3.x - p1.x) * t / 2;
+    const cp2y = p2.y - (p3.y - p1.y) * t / 2;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+  }
+  const area = `${d} L ${co[co.length-1].x.toFixed(2)},${H} L 2,${H} Z`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="adm-wallet-spark" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="${gId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FCC100" stop-opacity="0.32"/>
+        <stop offset="100%" stop-color="#FCC100" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#${gId})"/>
+    <path d="${d}" fill="none" stroke="#FCC100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+// ── ADM v2: header do painel (semana, avatares, seletor) ─────────────
+function renderAdmPanelHeader(balance) {
+  const wrap = document.getElementById('admPanelHdr');
+  if (!wrap) return;
+
+  const nowBRT = new Date(Date.now() - 3 * 3600000);
+  const dow = nowBRT.getUTCDay() || 7;
+  const mon = new Date(nowBRT); mon.setUTCDate(nowBRT.getUTCDate() - dow + 1);
+  const sun = new Date(mon);    sun.setUTCDate(mon.getUTCDate() + 6);
+
+  const thu = new Date(nowBRT); thu.setUTCDate(nowBRT.getUTCDate() - (nowBRT.getUTCDay() || 7) + 4);
+  const yr1 = new Date(Date.UTC(thu.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((thu - yr1) / 86400000 + 1) / 7);
+
+  const MONTHS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const fmtD = (d) => `${String(d.getUTCDate()).padStart(2,'0')} ${MONTHS[d.getUTCMonth()]}`;
+
+  const pal = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22d3a3','#6366f1','#f04444'];
+  const avC = (nm) => { let h=0; for(const c of nm) h=(h*31+c.charCodeAt(0))>>>0; return pal[h%pal.length]; };
+  const ini = (nm) => (nm||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const MAX_SHOWN = 5;
+  const shown = balance.slice(0, MAX_SHOWN);
+  const overflow = balance.length - MAX_SHOWN;
+  const stackHtml = shown.map(u =>
+    `<span class="adm-av-stack-item" style="background:${avC(u.name)}" title="${escHtml(u.name)}">${ini(u.name)}</span>`
+  ).join('') + (overflow > 0 ? `<span class="adm-av-stack-more">+${overflow}</span>` : '');
+
+  const memberOptsHtml = balance.map(u =>
+    `<option value="${escHtml(String(u.user_id||''))}">${escHtml(u.name)}</option>`
+  ).join('');
+
+  wrap.innerHTML = `
+    <div class="adm-hdr">
+      <div class="adm-hdr-left">
+        <div class="adm-hdr-brand">SB</div>
+        <div>
+          <h1 class="adm-hdr-title">Painel da Equipe</h1>
+          <p class="adm-hdr-subtitle">Semana ${weekNum} · ${fmtD(mon)}–${fmtD(sun)} ${thu.getUTCFullYear()}</p>
+        </div>
+      </div>
+      <div class="adm-hdr-right">
+        <div class="adm-av-stack">${stackHtml}</div>
+        <select class="adm-team-select" id="admPanelTeamSel">
+          <option value="">Equipe toda</option>
+          ${memberOptsHtml}
+        </select>
+      </div>
+    </div>`;
+}
+
+// ── ADM v2: saldo de moedas ──────────────────────────────────────────
+function renderSmeBalance(wrap, balance) {
+  if (!balance.length) {
+    wrap.innerHTML = '<p class="sme-empty">Nenhum colaborador encontrado.</p>';
+    return;
+  }
+
+  renderAdmPanelHeader(balance);
+
+  const pal = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22d3a3','#6366f1','#f04444'];
+  const avC = (nm) => { let h=0; for(const c of nm) h=(h*31+c.charCodeAt(0))>>>0; return pal[h%pal.length]; };
+  const ini = (nm) => (nm||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const grandTotal  = balance.reduce((s,u) => s + (u.total_coins||0), 0);
+  const grandWeekly = balance.reduce((s,u) => s + (u.pendentes||0), 0);
+  const maxBal      = Math.max(...balance.map(u => u.total_coins||0), 1);
+
+  const coinSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.5 9.5c0-1.1.9-2 2-2h1.5a1.5 1.5 0 0 1 0 3H11a1.5 1.5 0 0 0 0 3h1.5a1.5 1.5 0 0 1 0 3H11c-1.1 0-2-.9-2-2"/><line x1="12" y1="7" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="17"/></svg>`;
+
+  const cards = balance.map((u, idx) => {
+    const isLeader = (u.total_coins||0) === maxBal && maxBal > 0;
+    const color    = avC(u.name);
+    const av       = ini(u.name);
+    const cargo    = u.cargo || '—';
+    const pend     = u.pendentes || 0;
+    const gainHtml = pend > 0
+      ? `<span class="adm-wallet-gain">+${pend} premiações</span>`
+      : `<span class="adm-wallet-gain empty">sem premiação prevista</span>`;
+
+    return `
+      <div class="adm-wallet-card${isLeader ? ' adm-leader' : ''}">
+        ${isLeader ? '<span class="adm-wallet-star">★</span>' : ''}
+        <div class="adm-wallet-top">
+          <div class="adm-wallet-av" style="background:${color}">${av}</div>
+          <div style="min-width:0">
+            <div class="adm-wallet-name">${escHtml(u.name)}</div>
+            <div class="adm-wallet-cargo">${escHtml(cargo)}</div>
+          </div>
+        </div>
+        <div class="adm-wallet-balance">
+          <span class="adm-wallet-amount">${u.total_coins}</span>
+          <span class="adm-wallet-coin-icon">🪙</span>
+        </div>
+        ${_walletSparkSvg(u.weekly_data, u.user_id || idx)}
+        <div class="adm-wallet-foot">
+          ${gainHtml}
+          <button type="button" class="adm-wallet-extrato" data-uid="${escHtml(String(u.user_id||''))}">Balcão</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="adm-sec">
+      <div class="adm-sec-hdr">
+        <div class="adm-sec-hdr-left">
+          <div class="adm-sec-icon gold">${coinSvg}</div>
+          <span class="adm-sec-title">Saldo de Moedas da Equipe</span>
+        </div>
+        <div class="adm-sec-hdr-right">
+          <div class="adm-sec-chip gold">
+            <span class="adm-sec-chip-label">Em circulação</span>
+            <span class="adm-sec-chip-val">${grandTotal}</span>
+            <span style="font-size:14px">🪙</span>
+          </div>
+          ${grandWeekly > 0 ? `<div class="adm-sec-chip">
+            <span class="adm-sec-chip-label">A distribuir esta semana</span>
+            <span class="adm-sec-chip-val" style="color:#4fd99a">+${grandWeekly}</span>
+          </div>` : ''}
+        </div>
+      </div>
+      <div class="adm-wallet-grid">${cards}</div>
+    </div>`;
+}
+
+// ── SME: edição pós-fechamento (master only) ──────────────────────────
+function renderSmeEditPanel(snapshot, entries, semanaId) {
+  const wrap = document.getElementById('smeEditWrap');
+  if (!wrap || !_isMasterUser) return;
+
+  const rows = entries.map((entry) => {
+    const coins = entry.coins_validadas != null ? entry.coins_validadas : (entry.coins_sugeridas_total || 0);
+    const obs   = entry.observacao_admin || '';
+    return `
+      <div class="sme-edit-row" data-uid="${entry.user_id}">
+        <div class="sme-edit-person">
+          <span class="sme-edit-name">${escHtml(entry.nome)}</span>
+          <span class="sme-edit-cargo">${escHtml(entry.cargo || '')}</span>
+        </div>
+        <div class="sme-edit-fields">
+          <div class="sme-stepper">
+            <button class="sme-step sme-step-dec" data-uid="${entry.user_id}">−</button>
+            <input class="sme-coins-input" type="number" min="0" max="15" value="${coins}" data-uid="${entry.user_id}">
+            <button class="sme-step sme-step-inc" data-uid="${entry.user_id}">+</button>
+          </div>
+          <input class="sme-obs-input" type="text" placeholder="motivo da edição..." value="${escHtml(obs)}" data-uid="${entry.user_id}">
+          <button class="sme-save-btn" data-uid="${entry.user_id}">Salvar</button>
+          <span class="sme-save-msg" data-uid="${entry.user_id}"></span>
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="sme-section">
+      <div class="sme-section-title">Edição pós-fechamento <span class="sme-master-badge">MASTER</span></div>
+      <div class="sme-edit-list">${rows}</div>
+    </div>`;
+
+  wrap.querySelectorAll('.sme-step-dec').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const inp = wrap.querySelector(`.sme-coins-input[data-uid="${btn.dataset.uid}"]`);
+      if (inp) inp.value = Math.max(0, Number(inp.value) - 1);
+    });
+  });
+  wrap.querySelectorAll('.sme-step-inc').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const inp = wrap.querySelector(`.sme-coins-input[data-uid="${btn.dataset.uid}"]`);
+      if (inp) inp.value = Math.min(15, Number(inp.value) + 1);
+    });
+  });
+  wrap.querySelectorAll('.sme-save-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const uid   = btn.dataset.uid;
+      const coins = Number(wrap.querySelector(`.sme-coins-input[data-uid="${uid}"]`)?.value || 0);
+      const obs   = wrap.querySelector(`.sme-obs-input[data-uid="${uid}"]`)?.value || '';
+      const msg   = wrap.querySelector(`.sme-save-msg[data-uid="${uid}"]`);
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      msg.textContent = '';
+      try {
+        const r = await fetch('/api/focus?action=snapshot-edit', {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ semana_id: semanaId, user_id: Number(uid), coins_validadas: coins, observacao_admin: obs }),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'Erro ao salvar');
+        msg.style.color = '#22c55e';
+        msg.textContent = 'Salvo!';
+        // Refresh history panel
+        const snapResp = await fetch(`/api/focus?action=snapshot-get&semana_id=${encodeURIComponent(semanaId)}`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const snapData = await snapResp.json();
+        if (snapData.snapshot) renderSmeHistory(snapData.snapshot);
+        loadSmeBalance();
+      } catch (err) {
+        msg.style.color = '#f04444';
+        msg.textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Salvar';
+      }
+    });
+  });
+}
+
+// ── SME: histórico de edições ─────────────────────────────────────────
+function renderSmeHistory(snapshot) {
+  const wrap = document.getElementById('smeHistoryWrap');
+  if (!wrap || !_isMasterUser) return;
+
+  const hist = snapshot?.historico_edicoes || [];
+  if (!hist.length) {
+    wrap.innerHTML = `<div class="sme-section"><div class="sme-section-title">Histórico de Edições</div><p class="sme-empty">Sem edições registradas.</p></div>`;
+    return;
+  }
+
+  const rows = [...hist].reverse().map((h) => {
+    const dt = h.editado_em ? new Date(h.editado_em).toLocaleString('pt-BR') : '—';
+    return `
+      <div class="sme-hist-row">
+        <div class="sme-hist-meta">
+          <span class="sme-hist-person">${escHtml(h.nome || `#${h.user_id}`)}</span>
+          <span class="sme-hist-by">${escHtml(h.editado_por || '?')} · ${dt}</span>
+        </div>
+        <div class="sme-hist-diff">
+          <span class="sme-hist-de">${h.de ?? '—'}</span>
+          <span class="sme-hist-arrow">→</span>
+          <span class="sme-hist-para">${h.para ?? '—'} 🪙</span>
+          ${h.obs_depois ? `<span class="sme-hist-obs">${escHtml(h.obs_depois)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="sme-section">
+      <div class="sme-section-title">Histórico de Edições</div>
+      <div class="sme-hist-list">${rows}</div>
+    </div>`;
 }
 
 async function loadAdmUsersIfNeeded() {
@@ -3926,7 +4505,7 @@ async function loadAdmUsersIfNeeded() {
   if (!select || select.options.length > 1) return;
   try {
     const data = await api('/api/users');
-    (data.users || []).forEach((u) => {
+    (data.users || []).filter(u => !u.name.toLowerCase().includes('clara')).forEach((u) => {
       const opt = document.createElement('option');
       opt.value = u.id; opt.textContent = u.name;
       select.appendChild(opt);
@@ -4396,7 +4975,7 @@ async function loadRoutinePanel() {
   if (isAdmin) {
     // admins: visão de gestão completa (grid semanal + editar/excluir + histórico)
     renderRoutineShell();
-    await Promise.all([fetchAndRenderRoutines(), fetchAndRenderRoutineHistory()]);
+    await Promise.all([fetchAndRenderRoutines(), fetchAndRenderRoutineHistory(), fetchAndRenderRoutineMemberHistory()]);
   } else {
     // membros (Malu/Zion): mesmo grid, sem Editar/Excluir, feito é imutável
     renderRoutineShell();
@@ -4532,6 +5111,8 @@ function renderMemberRoutineList(routines, date) {
 function renderRoutineShell() {
   const section = document.querySelector('.routine-panel');
   if (!section) return;
+  const _shellUser = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
+  const isAdminShell = _shellUser?.role === 'admin';
   section.innerHTML = `
     <div class="rp-breadcrumb">
       <span class="rp-bc-home">⌂</span>
@@ -4600,8 +5181,41 @@ function renderRoutineShell() {
       </div>
     </div>
 
-    <!-- Admin: add routines (visível apenas para ADMIN_MASTER) -->
-    <div class="rp-admin-section" id="rpAdminSection" style="display:none">
+    <!-- Gráfico histórico mensal por membro -->
+    <div class="rp-history-section rp-member-hist-section" id="rpMemberHistSection" style="display:none">
+      <div class="rp-hist-header">
+        <div class="rp-history-title" id="rpHistTitle">Histórico mensal por membro</div>
+        <div class="rp-hist-filters">
+          <div class="rp-hist-period-btns" id="rpHistPeriodBtns">
+            <button class="rp-hist-period-btn" data-period="day">Diário</button>
+            <button class="rp-hist-period-btn" data-period="week">Semanal</button>
+            <button class="rp-hist-period-btn active" data-period="month">Mensal</button>
+          </div>
+          <select class="rp-filter-sel rp-hist-sel" id="rpHistPeriods">
+            <option value="3">3 meses</option>
+            <option value="6">6 meses</option>
+            <option value="7" selected>7 meses</option>
+            <option value="12">12 meses</option>
+          </select>
+          <select class="rp-filter-sel rp-hist-sel" id="rpHistCompany">
+            <option value="">Todas as empresas</option>
+            <option value="SeuBoné">SeuBoné</option>
+            <option value="Onevo">Onevo</option>
+            <option value="Carbone Educação">Carbone Educação</option>
+          </select>
+        </div>
+      </div>
+      <div class="rp-member-hist-chart-wrap" aria-label="Gráfico de histórico mensal de rotinas por membro">
+        <canvas id="rpMemberHistChart"></canvas>
+        <div class="rp-hist-empty" id="rpMemberHistEmpty" style="display:none">Sem completions registradas no período</div>
+      </div>
+      <div class="rp-member-legend" id="rpMemberLegend"></div>
+      <div class="rp-miss-row" id="rpMissRow"></div>
+    </div>
+
+    ${isAdminShell ? `
+    <!-- Admin: gerenciar rotinas (não renderizado para não-admins) -->
+    <div class="rp-admin-section" id="rpAdminSection">
       <div class="rp-admin-title">Gerenciar Rotinas</div>
       <div class="rp-admin-user-row">
         <label class="rp-filter-label">Responsável:</label>
@@ -4618,11 +5232,12 @@ function renderRoutineShell() {
         </select>
         <select id="rpAddFreq" class="rp-filter-sel" required>
           <option value="" disabled selected>Frequência *</option>
-          <option value="daily">Diária (Seg–Dom)</option>
-          <option value="daily-weekdays">Diária (Dias úteis — Seg a Sex)</option>
+          <option value="daily">Diária (todos os dias)</option>
+          <option value="daily-weekdays">Diária (dias úteis — Seg a Sex)</option>
           <option value="weekly">Semanal (1x/semana)</option>
           <option value="3x_week">3x na semana</option>
           <option value="custom">Personalizado (dias da semana)</option>
+          <option value="biweekly">Quinzenal (2x/mês)</option>
           <option value="monthly">Mensal (dia do mês)</option>
         </select>
         <div id="rpDaySelectorWrap" style="display:none">
@@ -4641,6 +5256,22 @@ function renderRoutineShell() {
           <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:6px 0 4px">Todo dia:</p>
           <input id="rpAddMonthDay" class="rp-add-input" type="number" min="1" max="31" placeholder="Ex: 15" style="width:90px" />
         </div>
+        <div id="rpBiWeeklyAddWrap" style="display:none">
+          <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:6px 0 4px">Dias do mês:</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="rpAddBiDay1" class="rp-add-input" type="number" min="1" max="31" placeholder="Dia 1" style="width:75px" />
+            <span style="color:rgba(255,255,255,0.4);font-size:12px">e</span>
+            <input id="rpAddBiDay2" class="rp-add-input" type="number" min="1" max="31" placeholder="Dia 2" style="width:75px" />
+          </div>
+        </div>
+        <select id="rpAddPoints" class="rp-filter-sel" required>
+          <option value="" disabled selected>Pts *</option>
+          <option value="1">1 pt</option>
+          <option value="2">2 pts</option>
+          <option value="3">3 pts</option>
+          <option value="5">5 pts</option>
+          <option value="8">8 pts</option>
+        </select>
         <button type="submit" class="rp-add-btn">Adicionar</button>
       </form>
 
@@ -4656,6 +5287,7 @@ function renderRoutineShell() {
         <button id="rpCsvImportBtn" class="rp-add-btn" style="display:none">Importar rotinas</button>
       </div>
     </div>
+    ` : ''}
   `;
 
   // Wire week nav
@@ -4716,24 +5348,22 @@ function renderRoutineShell() {
     renderRoutineGrid();
   });
 
-  // Admin section — exclusivo para admin
-  const user = JSON.parse(localStorage.getItem('mktimer_user') || 'null');
-  const isAdmin = user?.role === 'admin';
-  const admSec = document.getElementById('rpAdminSection');
-  if (admSec) admSec.style.display = isAdmin ? '' : 'none';
-
-  if (isAdmin) {
+  // Admin section — só existe no DOM se for admin (renderRoutineShell controla)
+  if (isAdminShell) {
     initRoutineAdminSection();
 
     // Mostrar/ocultar seletor de dias/mês conforme frequência
     document.getElementById('rpAddFreq')?.addEventListener('change', (e) => {
-      const val         = e.target.value;
-      const needsDays   = val === 'weekly' || val === '3x_week' || val === 'custom';
-      const needsMonth  = val === 'monthly';
-      const wrap        = document.getElementById('rpDaySelectorWrap');
-      const monthWrap   = document.getElementById('rpMonthDaySelectorWrap');
-      if (wrap)      wrap.style.display      = needsDays  ? '' : 'none';
-      if (monthWrap) monthWrap.style.display = needsMonth ? '' : 'none';
+      const val          = e.target.value;
+      const needsDays    = val === 'weekly' || val === '3x_week' || val === 'custom';
+      const needsMonth   = val === 'monthly';
+      const needsBiWeekly = val === 'biweekly';
+      const wrap         = document.getElementById('rpDaySelectorWrap');
+      const monthWrap    = document.getElementById('rpMonthDaySelectorWrap');
+      const biWrap       = document.getElementById('rpBiWeeklyAddWrap');
+      if (wrap)      wrap.style.display       = needsDays     ? '' : 'none';
+      if (monthWrap) monthWrap.style.display  = needsMonth    ? '' : 'none';
+      if (biWrap)    biWrap.style.display     = needsBiWeekly ? '' : 'none';
       if (val === '3x_week') {
         document.querySelectorAll('#rpDayCheckboxes input').forEach(i => {
           i.checked = [1, 3, 5].includes(Number(i.value));
@@ -4771,13 +5401,13 @@ async function fetchAndRenderRoutines() {
     const data = await api(`/api/routines?action=week-grid&from=${_routineWeekFrom}&to=${_routineWeekTo}${qs}`);
     _routineData = data;
 
-    // Populate user filter
+    // Populate user filter (exclui Maria Clara do seletor)
     const userSel = document.getElementById('rpFilterUser');
     if (userSel && data.routines) {
       const existingIds = new Set([...userSel.options].map(o => o.value).filter(Boolean));
       const persons = [...new Map(data.routines.map(r => [String(r.userId), r.personName])).entries()];
       persons.forEach(([id, name]) => {
-        if (!existingIds.has(id)) {
+        if (!existingIds.has(id) && !name.toLowerCase().includes('clara')) {
           const opt = document.createElement('option');
           opt.value = id; opt.textContent = name;
           userSel.appendChild(opt);
@@ -4814,7 +5444,8 @@ function renderRoutineGrid() {
     filtered = filtered.filter(r => {
       const days = r.applies_days || [];
       if (!days.length) return true;            // sem restrição de dia → sempre aparece
-      if (r.frequency === 'monthly') return true; // dias do mês, não da semana
+      if (r.frequency === 'monthly') return true;  // dias do mês, não da semana
+      if (r.frequency === 'biweekly') return true; // dias do mês, não da semana
       return days.includes(_routineFilterDay);
     });
   }
@@ -4886,8 +5517,8 @@ function renderRoutineGrid() {
       const status = entry?.status || null;
       const reason = entry?.reason || null;
 
-      // Membros: uma vez marcada como feita, a célula fica bloqueada (sem desfazer)
-      if (!isAdmin && status === ROUTINE_STATUS.DONE) {
+      // Uma vez marcada como feita, a célula fica bloqueada para todos
+      if (status === ROUTINE_STATUS.DONE) {
         return `<td class="rp-td-day">
           <div class="rp-cell-btns">
             <button class="rp-cell-btn rp-cell-done active" disabled title="Concluída — não pode ser alterada">✓</button>
@@ -5042,6 +5673,352 @@ function renderRoutineGrid() {
 }
 
 let _rpHistoryChart = null;
+let _rpMemberHistChart = null;
+let _rpHistPeriod = 'month';
+
+const RP_HIST_COUNT_OPTS = {
+  day:   [{v:7,l:'7 dias'},{v:14,l:'14 dias'},{v:30,l:'30 dias'}],
+  week:  [{v:4,l:'4 sem'},{v:8,l:'8 sem'},{v:12,l:'12 sem'}],
+  month: [{v:3,l:'3 meses'},{v:6,l:'6 meses'},{v:7,l:'7 meses'},{v:12,l:'12 meses'}],
+};
+
+function updateRpHistCountOpts() {
+  const sel = document.getElementById('rpHistPeriods');
+  if (!sel) return;
+  const opts = RP_HIST_COUNT_OPTS[_rpHistPeriod] || RP_HIST_COUNT_OPTS.month;
+  const prev = sel.value;
+  sel.innerHTML = opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+  sel.value = opts.some(o => String(o.v) === prev) ? prev : String(opts[Math.floor(opts.length / 2)].v);
+}
+
+const ROUTINE_MEMBER_CONFIG = [
+  { keys: ['maria luiza mariz', 'malu'],  color: '#F472B6', shortName: 'Malu' },
+  { keys: ['zion bagatoli', 'zion'],      color: '#FB923C', shortName: 'Zion' },
+  { keys: ['gustavo rocha', 'gustavo'],   color: '#34D399', shortName: 'Gustavo' },
+];
+
+function getRpMemberConfig(name) {
+  const key = (name || '').toLowerCase().trim();
+  for (const cfg of ROUTINE_MEMBER_CONFIG) {
+    if (cfg.keys.some(k => key === k || key.includes(k) || k.includes(key))) return cfg;
+  }
+  return null;
+}
+
+async function fetchAndRenderRoutineMemberHistory() {
+  const section = document.getElementById('rpMemberHistSection');
+  if (!section) return;
+
+  // Mostrar seção imediatamente; ocultar só se sem dados reais
+  section.style.display = '';
+
+  // Registrar listeners de filtro uma única vez
+  const _initHistFilters = () => {
+    document.querySelectorAll('#rpHistPeriodBtns .rp-hist-period-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.period === _rpHistPeriod);
+      if (!btn.dataset.rpInit) {
+        btn.dataset.rpInit = '1';
+        btn.addEventListener('click', () => {
+          _rpHistPeriod = btn.dataset.period;
+          document.querySelectorAll('#rpHistPeriodBtns .rp-hist-period-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.period === _rpHistPeriod)
+          );
+          updateRpHistCountOpts();
+          fetchAndRenderRoutineMemberHistory();
+        });
+      }
+    });
+    ['rpHistPeriods', 'rpHistCompany'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.dataset.rpInit) {
+        el.dataset.rpInit = '1';
+        el.addEventListener('change', () => fetchAndRenderRoutineMemberHistory());
+      }
+    });
+    updateRpHistCountOpts();
+  };
+  _initHistFilters();
+
+  const period  = _rpHistPeriod;
+  const company = document.getElementById('rpHistCompany')?.value || '';
+  const nPer    = document.getElementById('rpHistPeriods')?.value || (period === 'day' ? '14' : period === 'week' ? '8' : '7');
+  const apiUrl  = `/api/routines?action=monthly-member-history&period=${period}&periods=${nPer}${company ? `&company=${encodeURIComponent(company)}` : ''}`;
+
+  let data;
+  try {
+    data = await api(apiUrl);
+  } catch (err) {
+    console.error('[member-hist] erro na API:', err);
+    section.style.display = 'none';
+    return;
+  }
+
+  const PERIOD_TITLES = { day: 'Histórico diário por membro', week: 'Histórico semanal por membro', month: 'Histórico mensal por membro' };
+  const titleEl = document.getElementById('rpHistTitle');
+  if (titleEl) titleEl.textContent = PERIOD_TITLES[period] || PERIOD_TITLES.month;
+
+  const months = data.months || [];
+  if (!months.length) { section.style.display = 'none'; return; }
+
+  const emptyEl  = document.getElementById('rpMemberHistEmpty');
+  const canvasEl = document.getElementById('rpMemberHistChart');
+
+  // Filtrar períodos sem completions reais (pct !== null em pelo menos 1 membro)
+  const activeMonths = months.filter(mo => mo.members.some(m => m.pct !== null));
+  if (!activeMonths.length) {
+    if (emptyEl)  emptyEl.style.display  = '';
+    if (canvasEl) canvasEl.style.display = 'none';
+    const legendEl2 = document.getElementById('rpMemberLegend');
+    if (legendEl2) legendEl2.innerHTML = '';
+    if (_rpMemberHistChart) { _rpMemberHistChart.destroy(); _rpMemberHistChart = null; }
+    return;
+  }
+  if (emptyEl)  emptyEl.style.display  = 'none';
+  if (canvasEl) canvasEl.style.display = 'block';
+
+  const FALLBACK_COLORS = ['#F472B6','#FB923C','#818CF8','#34D399','#6366F1','#F59E0B','#10B981','#3B82F6'];
+  const seen = new Map();
+  activeMonths.forEach(mo => mo.members.forEach(m => {
+    if (!seen.has(m.userId)) {
+      const cfg = getRpMemberConfig(m.name);
+      const idx = seen.size;
+      seen.set(m.userId, {
+        userId: m.userId,
+        name: cfg ? cfg.shortName : m.name,
+        color: cfg ? cfg.color : FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
+        _cfgIdx: cfg ? ROUTINE_MEMBER_CONFIG.indexOf(cfg) : 99 + idx,
+      });
+    }
+  }));
+
+  // Ordenar por melhor performance no mês mais recente
+  const lastMonth = activeMonths[activeMonths.length - 1];
+  const members = Array.from(seen.values())
+    .filter(mb => activeMonths.some(mo => mo.members.find(m => m.userId === mb.userId)?.pct !== null))
+    .sort((a, b) => {
+      const pctA = lastMonth?.members.find(m => m.userId === a.userId)?.pct ?? -1;
+      const pctB = lastMonth?.members.find(m => m.userId === b.userId)?.pct ?? -1;
+      return pctB !== pctA ? pctB - pctA : a._cfgIdx - b._cfgIdx;
+    });
+
+  if (!members.length) {
+    if (emptyEl)  emptyEl.style.display  = '';
+    if (canvasEl) canvasEl.style.display = 'none';
+    const legendElEmpty = document.getElementById('rpMemberLegend');
+    if (legendElEmpty) legendElEmpty.innerHTML = '';
+    if (_rpMemberHistChart) { _rpMemberHistChart.destroy(); _rpMemberHistChart = null; }
+    return;
+  }
+
+  const canvas = canvasEl;
+  if (!canvas) return;
+
+  if (_rpMemberHistChart) { _rpMemberHistChart.destroy(); _rpMemberHistChart = null; }
+
+  const labels = activeMonths.map(m => m.label);
+
+  const barDatasets = members.map(mb => {
+    // rawPcts: valores reais da API (null = sem rotina; 0 = rotina existe mas 0 completions; >0 = real)
+    const rawPcts = activeMonths.map(mo => mo.members.find(m => m.userId === mb.userId)?.pct ?? null);
+    // pctArr: 0 → null (sem barra); evita sliver vermelho de 1px e crash de borderRadius
+    const pctArr = rawPcts.map(p => (p !== null && p > 0) ? p : null);
+    return {
+      type: 'bar',
+      label: mb.name,
+      yAxisID: 'y',
+      data: pctArr,
+      backgroundColor: rawPcts.map(p =>
+        (!p || p === 0) ? 'transparent' :
+        p >= 75         ? mb.color      : mb.color + 'BB'),
+      borderColor: rawPcts.map(p =>
+        (!p || p === 0) ? 'transparent' : mb.color),
+      borderWidth: 0,
+      borderRadius: 5,
+      borderSkipped: false,
+      maxBarThickness: period === 'day' ? 18 : period === 'week' ? 22 : 28,
+      barPercentage: 1.0,
+      categoryPercentage: period === 'day' ? 0.72 : 0.82,
+      memberColor: mb.color,
+      _raw: activeMonths.map(mo => mo.members.find(m => m.userId === mb.userId) || {}),
+    };
+  });
+
+  const avgDataset = {
+    type: 'line',
+    label: 'Média do time',
+    yAxisID: 'yRight',
+    data: activeMonths.map(mo => mo.avg),
+    borderColor: '#00E5FF',
+    borderDash: [6, 3],
+    borderWidth: 2,
+    pointBackgroundColor: '#00E5FF',
+    pointBorderColor: '#12121E',
+    pointBorderWidth: 2,
+    pointRadius: 5,
+    pointHoverRadius: 7,
+    fill: false,
+    tension: 0.3,
+    spanGaps: true,
+    order: 0,
+  };
+
+  // Canvas deve ser block para Chart.js medir altura corretamente
+  canvas.style.display = 'block';
+
+  const hasDL = typeof ChartDataLabels !== 'undefined';
+  const dlPlugins = hasDL ? [ChartDataLabels] : [];
+
+  try {
+    _rpMemberHistChart = new Chart(canvas, {
+      type: 'bar',
+      data: { labels, datasets: [...barDatasets, avgDataset] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1E293B',
+            titleColor: '#F1F5F9',
+            bodyColor: '#94A3B8',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              title: items => items[0]?.label ?? '',
+              label(ctx) {
+                if (ctx.dataset.type === 'line') {
+                  return `  Média: ${ctx.parsed.y ?? '—'}%`;
+                }
+                const raw = ctx.dataset._raw?.[ctx.dataIndex];
+                const pct = raw?.pct ?? ctx.parsed.y;
+                const flag = pct < 50 ? ' ⚠' : '';
+                const realInfo = raw?.done > 0
+                  ? `  (${raw.done}/${raw.total})`
+                  : raw?.total > 0 ? `  (0/${raw.total})` : '  (mock)';
+                return `  ${ctx.dataset.label}: ${pct}%${flag}${realInfo}`;
+              },
+              labelColor(ctx) {
+                const c = ctx.dataset.memberColor || '#94A3B8';
+                return { borderColor: c, backgroundColor: c, borderRadius: 3 };
+              },
+            },
+          },
+          ...(hasDL ? {
+            datalabels: {
+              display: ctx => {
+                if (ctx.dataset.type !== 'bar') return false;
+                const actual = ctx.dataset._raw?.[ctx.dataIndex]?.pct;
+                return actual != null && actual >= 5;
+              },
+              anchor: 'end',
+              align: ctx => {
+                const v = ctx.dataset.data[ctx.dataIndex] ?? 0;
+                return v >= 88 ? 'start' : 'end';
+              },
+              offset: ctx => {
+                const v = ctx.dataset.data[ctx.dataIndex] ?? 0;
+                return v >= 88 ? 4 : 2;
+              },
+              formatter: (val, ctx) => {
+                const actual = ctx.dataset._raw?.[ctx.dataIndex]?.pct;
+                return actual != null ? actual + '%' : val + '%';
+              },
+              color: ctx => {
+                const v = ctx.dataset.data[ctx.dataIndex] ?? 0;
+                return v >= 88 ? '#12121E' : '#E2E8F0';
+              },
+              font: { size: 9, weight: '700' },
+              clamp: true,
+            },
+          } : {}),
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: '#94A3B8',
+              font: { size: period === 'day' ? 9 : 11 },
+              maxRotation: period === 'day' ? 45 : 0,
+              minRotation: period === 'day' ? 45 : 0,
+            },
+            border: { color: '#2D3748' },
+          },
+          y: {
+            min: 0,
+            max: 108,
+            position: 'left',
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: '#64748B',
+              stepSize: 20,
+              callback: val => val <= 100 ? val + '%' : '',
+            },
+            border: { display: false },
+          },
+          yRight: {
+            type: 'linear',
+            position: 'right',
+            min: 0,
+            max: 108,
+            grid: { display: false },
+            ticks: { color: '#00E5FF', font: { size: 9 }, stepSize: 20, callback: val => val <= 100 ? val + '%' : '' },
+            border: { display: false },
+          },
+        },
+      },
+      plugins: dlPlugins,
+    });
+  } catch (chartErr) {
+    console.error('[member-hist] erro ao criar chart:', chartErr);
+  }
+
+  requestAnimationFrame(() => { if (_rpMemberHistChart) _rpMemberHistChart.resize(); });
+
+  // Legenda clicável
+  const legendEl = document.getElementById('rpMemberLegend');
+  if (!legendEl) return;
+  legendEl.innerHTML = '';
+
+  members.forEach((mb, idx) => {
+    const item = document.createElement('button');
+    item.className = 'rp-member-legend-item';
+    item.dataset.index = idx;
+    item.innerHTML = `<span class="rp-legend-dot" style="background:${mb.color}"></span><span class="rp-legend-name">${mb.name}</span>`;
+    item.addEventListener('click', () => {
+      if (!_rpMemberHistChart) return;
+      const meta = _rpMemberHistChart.getDatasetMeta(idx);
+      meta.hidden = !meta.hidden;
+      item.classList.toggle('rp-legend-hidden', meta.hidden);
+      _rpMemberHistChart.update();
+    });
+    legendEl.appendChild(item);
+  });
+
+  const avgItem = document.createElement('div');
+  avgItem.className = 'rp-member-legend-item rp-legend-avg';
+  avgItem.innerHTML = `<span class="rp-legend-dash"></span><span class="rp-legend-name">Média do time</span>`;
+  legendEl.appendChild(avgItem);
+
+  // Painel de não-realizados: mostra % que faltou por membro por período
+  const missEl = document.getElementById('rpMissRow');
+  if (missEl) {
+    const missHtml = activeMonths.map(mo => {
+      const chips = members.map(mb => {
+        const raw = mo.members.find(m => m.userId === mb.userId);
+        const pct = raw?.pct ?? null;
+        if (pct === null || pct <= 0 || pct >= 100) return '';
+        const miss = 100 - pct;
+        return `<span class="rp-miss-chip" style="background:${mb.color}18;color:${mb.color};border:1px solid ${mb.color}44">${mb.name}: -${miss}%</span>`;
+      }).filter(Boolean).join('');
+      if (!chips) return '';
+      return `<div class="rp-miss-cell"><div class="rp-miss-label">${mo.label}</div>${chips}</div>`;
+    }).filter(Boolean).join('');
+    missEl.innerHTML = missHtml;
+    missEl.style.display = missHtml ? '' : 'none';
+  }
+}
 
 async function fetchAndRenderRoutineHistory() {
   const section = document.getElementById('rpHistorySection');
@@ -5123,7 +6100,7 @@ async function initRoutineAdminSection() {
 
   try {
     const data = await api('/api/users');
-    (data.users || []).forEach(u => {
+    (data.users || []).filter(u => !u.name.toLowerCase().includes('clara')).forEach(u => {
       const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.name;
       userSel.appendChild(opt);
     });
@@ -5140,8 +6117,8 @@ async function initRoutineAdminSection() {
       const title   = document.getElementById('rpAddTitle')?.value.trim();
       const company = document.getElementById('rpAddCompany')?.value;
       const freqRaw = document.getElementById('rpAddFreq')?.value;
-      const points  = 0;
-      if (!uid || !title || !company || !freqRaw) return;
+      const points  = Number(document.getElementById('rpAddPoints')?.value) || 0;
+      if (!uid || !title || !company || !freqRaw || !points) return;
 
       // Mapeia freq para valores aceitos pelo DB + extrai applies_days
       let frequency   = freqRaw;
@@ -5151,11 +6128,12 @@ async function initRoutineAdminSection() {
         frequency = 'daily';
         applies_days = [1, 2, 3, 4, 5];
       } else if (freqRaw === '3x_week') {
-        frequency = 'weekly';
+        frequency = '3x_week';
         const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
-        applies_days = checked.length ? checked : [1, 3, 5];
+        if (checked.length !== 3) { alert('Para 3x na semana, selecione exatamente 3 dias.'); return; }
+        applies_days = checked;
       } else if (freqRaw === 'custom') {
-        frequency = 'weekly';
+        frequency = 'custom';
         const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
         if (!checked.length) { alert('Selecione ao menos um dia da semana.'); return; }
         applies_days = checked;
@@ -5163,6 +6141,12 @@ async function initRoutineAdminSection() {
         frequency = 'weekly';
         const checked = [...document.querySelectorAll('#rpDayCheckboxes input:checked')].map(i => Number(i.value));
         applies_days = checked.length ? checked : null;
+      } else if (freqRaw === 'biweekly') {
+        frequency = 'biweekly';
+        const d1 = Number(document.getElementById('rpAddBiDay1')?.value);
+        const d2 = Number(document.getElementById('rpAddBiDay2')?.value);
+        if (!d1 || d1 < 1 || d1 > 31 || !d2 || d2 < 1 || d2 > 31) { alert('Informe dois dias do mês válidos (1–31).'); return; }
+        applies_days = [d1, d2].sort((a, b) => a - b);
       } else if (freqRaw === 'monthly') {
         frequency = 'monthly';
         const dom = Number(document.getElementById('rpAddMonthDay')?.value);
@@ -5178,6 +6162,7 @@ async function initRoutineAdminSection() {
         document.getElementById('rpAddTitle').value = '';
         document.getElementById('rpAddCompany').value = '';
         document.getElementById('rpAddFreq').value = '';
+        document.getElementById('rpAddPoints').value = '';
         document.getElementById('rpDaySelectorWrap').style.display = 'none';
         document.getElementById('rpMonthDaySelectorWrap').style.display = 'none';
         document.querySelectorAll('#rpDayCheckboxes input').forEach(i => { i.checked = false; });
@@ -5279,7 +6264,7 @@ function parseCsvRoutines(text) {
     'diaria': 'daily', 'diária': 'daily', 'daily': 'daily',
     'semanal': 'weekly', 'weekly': 'weekly',
     'mensal': 'monthly', 'monthly': 'monthly',
-    '3x': 'weekly', '3x_week': 'weekly',
+    '3x': '3x_week', '3x_week': '3x_week',
   };
   const DOW_MAP = { 'seg':1,'ter':2,'qua':3,'qui':4,'sex':5,'sab':6,'sáb':6,'dom':7 };
 
@@ -5331,12 +6316,43 @@ async function loadAdminRoutineList(userId) {
     const data = await api(`/api/routines?action=list&date=${todayISO()}&userId=${userId}`);
     const routines = data.routines || [];
     if (!routines.length) { list.innerHTML = '<p style="font-size:11px;color:#3a3e5a;padding:6px 0">Nenhuma rotina ainda.</p>'; return; }
+
+    const DOW_NAMES = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    const freqLabel = (r) => {
+      const days = r.applies_days || [];
+      if (r.frequency === 'daily') return days.length === 5 ? 'Diária (úteis)' : days.length ? `Diária (${days.length}d)` : 'Diária';
+      if (r.frequency === '3x_week') return days.length ? `3x (${days.map(d => DOW_NAMES[d] || d).join('/')})` : '3x/sem';
+      if (r.frequency === 'custom') return days.length ? `Custom (${days.map(d => DOW_NAMES[d] || d).join('/')})` : 'Personalizado';
+      if (r.frequency === 'weekly') {
+        if (days.length === 3) return `3x (${days.map(d => DOW_NAMES[d] || d).join('/')})`;
+        if (days.length === 1) return `Semanal (${DOW_NAMES[days[0]] || days[0]})`;
+        if (days.length > 1)  return `${days.length}x (${days.map(d => DOW_NAMES[d] || d).join('/')})`;
+        return 'Semanal';
+      }
+      if (r.frequency === 'biweekly') return days.length >= 2 ? `Quinzenal (dias ${days[0]} e ${days[1]})` : 'Quinzenal';
+      if (r.frequency === 'monthly') return days.length ? `Mensal (dia ${days[0]})` : 'Mensal';
+      return r.frequency || '—';
+    };
+
     list.innerHTML = routines.map(r => `
       <div class="rp-admin-item">
-        <span class="rp-admin-item-name">${escHtml(r.title)}</span>
-        <span class="rp-admin-item-pts">${r.points}p</span>
-        <button class="rp-admin-del" data-del="${r.id}">×</button>
+        <div class="rp-admin-item-info">
+          <span class="rp-admin-item-name">${escHtml(r.title)}</span>
+          <span class="rp-admin-item-freq">${escHtml(freqLabel(r))}</span>
+        </div>
+        <div class="rp-admin-item-actions">
+          <span class="rp-admin-item-pts">${r.points}p</span>
+          <button class="rp-admin-edit" data-id="${r.id}" title="Editar">✎</button>
+          <button class="rp-admin-del" data-del="${r.id}" title="Excluir">×</button>
+        </div>
       </div>`).join('');
+
+    list.querySelectorAll('.rp-admin-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = routines.find(x => String(x.id) === String(btn.dataset.id));
+        if (r) openRoutineEditModal({ ...r, userId });
+      });
+    });
     list.querySelectorAll('.rp-admin-del').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('Remover esta rotina?')) return;
@@ -5567,11 +6583,10 @@ function renderSnapshotValidation(wrap, snapshots) {
   };
   const tierInfo = (pct) => {
     const p = Number(pct) || 0;
-    if (p >= 120) return { color: '#818cf8', bar: '#818cf8', label: '120%+' };
-    if (p >= 100) return { color: '#f6c200', bar: '#f6c200', label: '100%+' };
-    if (p >= 80)  return { color: '#22d3a3', bar: '#22d3a3', label: '≥ 80%' };
-    if (p >= 60)  return { color: '#f59e0b', bar: '#f59e0b', label: '≥ 60%' };
-    return { color: '#f04444', bar: '#f04444', label: '< 60%' };
+    if (p >= 150) return { color: '#8b7cff', bar: '#8b7cff', label: 'Superou', cls: 'tier-superou' };
+    if (p >= 100) return { color: '#3ecf8e', bar: '#3ecf8e', label: 'Bateu',   cls: 'tier-bateu'   };
+    if (p >= 60)  return { color: '#FCC100', bar: '#FCC100', label: 'Quase',   cls: 'tier-quase'   };
+    return         { color: '#ff6b6b', bar: '#ff6b6b', label: 'Abaixo',  cls: 'tier-abaixo'  };
   };
   const initials  = (n) => (n || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const avColor   = (n) => {
@@ -5579,6 +6594,9 @@ function renderSnapshotValidation(wrap, snapshots) {
     let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     return pal[h % pal.length];
   };
+
+  document.getElementById('smeEditWrap')?.replaceChildren();
+  document.getElementById('smeHistoryWrap')?.replaceChildren();
 
   const selectedSemanaId = snapshotResolveSelection();
   snapValidationState.selectedSemanaId = selectedSemanaId;
@@ -5591,6 +6609,8 @@ function renderSnapshotValidation(wrap, snapshots) {
       })();
   const selectedWeek = fmtWeek(selectedSemanaId);
   const selectedStatus = snapshotStatusMeta(selectedSnapshot?.status);
+
+  const isClosed = selectedSnapshot?.status === SNAPSHOT_STATUS.FECHADO;
 
   const calcBtn = `
     <div class="snap-calc-wrap">
@@ -5605,47 +6625,62 @@ function renderSnapshotValidation(wrap, snapshots) {
     </div>`;
 
   const filterBar = `
-    <div class="dfb-bar snap-val-filter-bar">
-      <span class="dfb-label">SEMANA</span>
-      <div class="dfb-pills">
-        <button type="button" class="dfb-pill ${snapValidationState.preset === 'semana' ? 'active' : ''}" data-snap-preset="semana">Esta semana</button>
-        <button type="button" class="dfb-pill ${snapValidationState.preset === 'ultima-semana' ? 'active' : ''}" data-snap-preset="ultima-semana">Última semana</button>
+    <div class="adm-filter-v2" style="margin-bottom:18px">
+      <div class="adm-seg-v2">
+        <button type="button" class="adm-seg-btn ${snapValidationState.preset === 'semana' ? 'active' : ''}" data-snap-preset="semana">Esta semana</button>
+        <button type="button" class="adm-seg-btn ${snapValidationState.preset === 'ultima-semana' ? 'active' : ''}" data-snap-preset="ultima-semana">Última semana</button>
       </div>
-      <button type="button" class="snap-week-picker-btn" id="snapWeekPickerBtn">${IC.clock} Selecionar semana</button>
-      <span class="dfb-period-label">${selectedRange}</span>
+      <button type="button" class="snap-week-picker-btn" id="snapWeekPickerBtn" style="font-size:11px;padding:5px 12px">${IC.clock} Selecionar</button>
+      <span style="font-size:12px;color:rgba(255,255,255,0.35);font-family:'Inter',sans-serif">${selectedRange} · fecha domingo</span>
     </div>`;
+
+  const lockSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+  const calSvg  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
 
   const cards = selectedSnapshot
     ? `
-        <div class="snap-val-card ${selectedSnapshot.status === SNAPSHOT_STATUS.FECHADO ? 'snap-val-card--closed' : ''}" data-semana="${escHtml(selectedSnapshot.semana_id)}">
-          <div class="snap-val-card-top">
-            <div class="snap-val-week-block">
-              <span class="snap-val-week-label">${escHtml(selectedWeek.week)}</span>
-              <span class="snap-val-week-year">${escHtml(selectedWeek.year)}</span>
+        <div class="snap-val-card ${isClosed ? 'snap-val-card--closed' : ''}" data-semana="${escHtml(selectedSnapshot.semana_id)}">
+          <div class="snap-val-card-top" style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:15px;font-weight:800;color:#fff">${escHtml(selectedWeek.week)}</span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.3)">${escHtml(selectedWeek.year)}</span>
+              <span class="fcmt-week-badge ${isClosed ? 'closed' : 'open'}">${isClosed ? `${lockSvg} fechada` : `${calSvg} em aberto`}</span>
             </div>
-            <div class="snap-val-week-meta">
+            <div style="display:flex;align-items:center;gap:8px">
               <button type="button" class="snap-val-date-trigger" id="snapWeekRangeBtn">${selectedRange}</button>
-              <span class="${selectedStatus.cls}">${selectedStatus.icon} ${selectedStatus.label}</span>
             </div>
           </div>
-          <div class="snap-val-entries-wrap">
+          <div class="snap-val-entries-wrap" style="padding:0 18px 12px">
             <div class="snap-val-loading"><span></span><span></span><span></span></div>
           </div>
-          <div class="snap-val-footer">
-            <div class="snap-val-summary"></div>
-            <div class="snap-val-actions">
-              <button class="snap-val-confirm-btn" disabled>${selectedSnapshot.status === SNAPSHOT_STATUS.FECHADO ? `${IC.lock} Semana fechada` : 'Confirmar e Fechar Semana'}</button>
-              <span class="snap-val-msg"></span>
+          <div class="snap-val-footer" style="padding:0 18px 18px">
+            <div class="fcmt-footer">
+              <span class="fcmt-footer-summary">Carregando…</span>
+              <div class="fcmt-footer-actions">
+                <span class="fcmt-val-msg snap-val-msg"></span>
+                <button class="fcmt-draft-btn" id="fcmtDraftBtn" style="display:none">Salvar rascunho</button>
+                <button class="fcmt-confirm-btn snap-val-confirm-btn${isClosed ? ' is-closed' : ''}" disabled>
+                  ${isClosed ? `${lockSvg} Semana fechada` : 'Confirmar fechamento'}
+                </button>
+              </div>
             </div>
           </div>
         </div>`
-    : `<div class="snap-val-empty-state">${IC.clock} Nenhum snapshot calculado para ${escHtml(selectedWeek.week || 'a semana selecionada')}.</div>`;
+    : `<div class="snap-val-empty-state" style="padding:32px;text-align:center;color:rgba(255,255,255,0.3);font-size:13px">${IC.clock} Nenhum snapshot calculado para ${escHtml(selectedWeek.week || 'a semana selecionada')}.</div>`;
+
+  const secIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
 
   wrap.innerHTML = `
-    <div class="snap-validation-section">
-      <div class="snap-val-header">
-        <span class="snap-val-title">${IC.lock} Fechamento Semanal</span>
-        ${calcBtn}
+    <div class="adm-sec" style="margin-top:18px">
+      <div class="adm-sec-hdr">
+        <div class="adm-sec-hdr-left">
+          <div class="adm-sec-icon green">${secIcon}</div>
+          <span class="adm-sec-title">Fechamento Semanal</span>
+        </div>
+        <div class="adm-sec-hdr-right">
+          <button type="button" class="snap-config-metas-btn" style="font-size:11px">Configurar metas</button>
+          ${calcBtn}
+        </div>
       </div>
       ${filterBar}
       ${cards}
@@ -5713,6 +6748,8 @@ function renderSnapshotValidation(wrap, snapshots) {
   wrap.querySelectorAll('.snap-val-card').forEach((card) => {
     const semanaId = card.dataset.semana;
     const isClosed = selectedSnapshot.status === SNAPSHOT_STATUS.FECHADO;
+
+    function loadFcmtCard() {
     fetch(`/api/focus?action=snapshot-get&semana_id=${encodeURIComponent(semanaId)}`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
@@ -5726,86 +6763,144 @@ function renderSnapshotValidation(wrap, snapshots) {
           return;
         }
 
-        const rows = entries.map((entry) => {
-          const pct    = Number(entry.percentual_meta) || 0;
-          const tier   = tierInfo(pct);
-          const barPct = Math.round((Math.min(pct, 120) / 120) * 100);
-          const metaC  = entry.coins_sugeridas_meta   || 0;
-          const rankC  = entry.coins_sugeridas_ranking || 0;
-          const sug    = entry.coins_validadas != null ? entry.coins_validadas : (entry.coins_sugeridas_total || 0);
-          const av     = initials(entry.nome);
-          const avC    = avColor(entry.nome);
+        function updateFcmtTotal(targetCard) {
+          const inputs = targetCard.querySelectorAll('.fcmt-coins-input');
+          const total = Array.from(inputs).reduce((sum, inp) => sum + (Number(inp.value) || 0), 0);
+          const n = inputs.length;
+          const el = targetCard.querySelector('.fcmt-footer-summary');
+          if (el) el.innerHTML = `<strong>${n}</strong> colaboradores · <strong>${total}</strong> moedas a distribuir`;
+        }
+
+        const _fcmtHiddenKey = `fcmt_hidden_${semanaId}`;
+        const _fcmtHidden = new Set(JSON.parse(localStorage.getItem(_fcmtHiddenKey) || '[]').map(String));
+        const visibleEntries = entries.filter(e => !_fcmtHidden.has(String(e.user_id)));
+
+        const rows = visibleEntries.map((entry) => {
+          const pct      = Number(entry.percentual_meta) || 0;
+          const tier     = tierInfo(pct);
+          const barPct   = Math.round((Math.min(pct, 150) / 150) * 100);
+          const metaC    = entry.coins_sugeridas_meta    || 0;
+          const rankC    = entry.coins_sugeridas_ranking || 0;
+          const sug      = entry.coins_validadas != null ? entry.coins_validadas : (entry.coins_sugeridas_total || 0);
+          const av       = initials(entry.nome);
+          const avC      = avColor(entry.nome);
           const lockedAttr = isClosed ? 'disabled' : '';
 
+          const sugChip = (metaC + rankC) > 0
+            ? `<span class="fcmt-sug-chip" title="Meta: ${metaC} · Rank: ${rankC}">${metaC + rankC} sugeridas</span>`
+            : `<span class="fcmt-sug-chip fcmt-sug-zero">sem sugestão</span>`;
+
           return `
-            <div class="snap-entry-row" data-uid="${entry.user_id}">
-              <div class="snap-entry-person">
-                <div class="snap-entry-av" style="background:${avC}">${av}</div>
-                <div>
-                  <div class="snap-entry-name">${escHtml(entry.nome)}</div>
-                  <div class="snap-entry-cargo">${escHtml(entry.cargo || '')}</div>
+            <div class="fcmt-row" data-uid="${entry.user_id}">
+              <div class="fcmt-person">
+                <div class="fcmt-av" style="background:${avC}">${av}</div>
+                <div class="fcmt-person-info">
+                  <div class="fcmt-name">${escHtml(entry.nome)}</div>
+                  <div class="fcmt-cargo">${escHtml(entry.cargo || '')}</div>
                 </div>
               </div>
-              <div class="snap-entry-perf">
-                <div class="snap-entry-pct-row">
-                  <span class="snap-entry-pct" style="color:${tier.color}">${pct}%</span>
-                  <span class="snap-entry-tier" style="color:${tier.color};border-color:${tier.color}40">${tier.label}</span>
+              <div class="fcmt-perf">
+                <div class="fcmt-perf-top">
+                  <span class="fcmt-pct" style="color:${tier.color}">${pct}%</span>
+                  <span class="fcmt-tier ${tier.cls}">${tier.label}</span>
                 </div>
-                <div class="snap-entry-bar-track">
-                  <div class="snap-entry-bar-fill" style="width:${barPct}%;background:${tier.bar}"></div>
+                <div class="fcmt-bar-track">
+                  <div class="fcmt-bar-fill" style="width:${barPct}%;background:${tier.bar}"></div>
                 </div>
-                <div class="snap-entry-sub">${entry.pontos} pts &nbsp;·&nbsp; ${Number(entry.horas_validadas_total).toFixed(1)}h</div>
+                <div class="fcmt-perf-sub">${entry.pontos} pts · ${Number(entry.horas_validadas_total).toFixed(1)}h</div>
               </div>
-              <div class="snap-entry-coins">
-                <div class="snap-coin-chips">
-                  ${metaC > 0 ? `<span class="snap-chip-meta">${metaC} meta</span>` : ''}
-                  ${rankC > 0 ? `<span class="snap-chip-rank">${rankC} rank</span>` : ''}
-                  ${metaC === 0 && rankC === 0 ? `<span class="snap-chip-zero">sem coins</span>` : ''}
-                </div>
-                <div class="snap-stepper">
-                  <button class="snap-step snap-step-dec" data-uid="${entry.user_id}" ${lockedAttr}>−</button>
-                  <input class="snap-coins-input" type="number" min="0" max="10"
+              <div class="fcmt-coins-cell">
+                ${sugChip}
+                <div class="fcmt-stepper">
+                  <button class="fcmt-step fcmt-step-dec" data-uid="${entry.user_id}" ${lockedAttr}>−</button>
+                  <input class="fcmt-coins-input" type="number" min="0" max="99"
                     value="${sug}" data-uid="${entry.user_id}" ${lockedAttr}>
-                  <button class="snap-step snap-step-inc" data-uid="${entry.user_id}" ${lockedAttr}>+</button>
+                  <button class="fcmt-step fcmt-step-inc" data-uid="${entry.user_id}" ${lockedAttr}>+</button>
                 </div>
               </div>
-              <div class="snap-entry-obs">
-                <input class="snap-obs-input" type="text" placeholder="observação..." data-uid="${entry.user_id}" ${lockedAttr}>
+              <div class="fcmt-obs-cell">
+                <input class="fcmt-obs-input" type="text" placeholder="observação…" data-uid="${entry.user_id}" ${lockedAttr}>
               </div>
+              ${!isClosed ? `<button class="fcmt-remove-btn" data-uid="${entry.user_id}" title="Ocultar deste fechamento" type="button">×</button>` : ''}
             </div>`;
         }).join('');
 
-        const totalSug = entries.reduce((sum, entry) => sum + (entry.coins_validadas != null ? entry.coins_validadas : (entry.coins_sugeridas_total || 0)), 0);
-        card.querySelector('.snap-val-summary').innerHTML = `<span class="snap-summary-text">${entries.length} colaboradores &nbsp;·&nbsp; ${totalSug} coins ${isClosed ? 'validadas' : 'sugeridas'} no total</span>`;
+        const hiddenCount = _fcmtHidden.size;
+        const restoreBtn = hiddenCount > 0 && !isClosed
+          ? `<button class="fcmt-restore-link" type="button" data-semana="${semanaId}">${hiddenCount} oculto${hiddenCount>1?'s':''} — restaurar</button>`
+          : '';
 
         entriesWrap.innerHTML = `
-          <div class="snap-entries-head">
+          <div class="fcmt-col-hdr">
             <span>Colaborador</span>
             <span>Performance</span>
-            <span>Coins</span>
+            <span>Moedas</span>
             <span>Observação</span>
           </div>
-          <div class="snap-entries-body">${rows}</div>`;
+          <div class="fcmt-entries">${rows}</div>
+          ${restoreBtn ? `<div style="padding:6px 2px">${restoreBtn}</div>` : ''}`;
 
-        entries.forEach((entry) => {
-          const obsInput = entriesWrap.querySelector(`.snap-obs-input[data-uid="${entry.user_id}"]`);
+        visibleEntries.forEach((entry) => {
+          const obsInput = entriesWrap.querySelector(`.fcmt-obs-input[data-uid="${entry.user_id}"]`);
           if (obsInput) obsInput.value = entry.observacao_admin || '';
         });
 
-        if (isClosed) return;
+        updateFcmtTotal(card);
 
-        entriesWrap.querySelectorAll('.snap-step-dec').forEach(btn => {
+        // × button handler
+        entriesWrap.addEventListener('click', (e) => {
+          const removeBtn = e.target.closest('.fcmt-remove-btn');
+          if (removeBtn) {
+            const uid = removeBtn.dataset.uid;
+            const cur = new Set(JSON.parse(localStorage.getItem(_fcmtHiddenKey) || '[]').map(String));
+            cur.add(uid);
+            localStorage.setItem(_fcmtHiddenKey, JSON.stringify([...cur]));
+            const row = entriesWrap.querySelector(`.fcmt-row[data-uid="${uid}"]`);
+            if (row) row.remove();
+            updateFcmtTotal(card);
+            const n = cur.size;
+            const existing = entriesWrap.querySelector('.fcmt-restore-link');
+            if (existing) { existing.textContent = `${n} oculto${n>1?'s':''} — restaurar`; }
+            else {
+              const div = document.createElement('div');
+              div.style.padding = '6px 2px';
+              div.innerHTML = `<button class="fcmt-restore-link" type="button" data-semana="${semanaId}">${n} oculto${n>1?'s':''} — restaurar</button>`;
+              entriesWrap.appendChild(div);
+            }
+          }
+          const restoreLink = e.target.closest('.fcmt-restore-link');
+          if (restoreLink) {
+            localStorage.removeItem(_fcmtHiddenKey);
+            entriesWrap.closest('.snap-val-card').dispatchEvent(new Event('fcmt-reload'));
+          }
+        });
+
+        if (isClosed) {
+          if (_isMasterUser) {
+            renderSmeEditPanel(d.snapshot, entries, semanaId);
+            renderSmeHistory(d.snapshot);
+          }
+          return;
+        }
+
+        entriesWrap.querySelectorAll('.fcmt-step-dec').forEach(btn => {
           btn.addEventListener('click', () => {
-            const inp = entriesWrap.querySelector(`.snap-coins-input[data-uid="${btn.dataset.uid}"]`);
-            if (inp) inp.value = Math.max(0, Number(inp.value) - 1);
+            const inp = entriesWrap.querySelector(`.fcmt-coins-input[data-uid="${btn.dataset.uid}"]`);
+            if (inp) { inp.value = Math.max(0, Number(inp.value) - 1); updateFcmtTotal(card); }
           });
         });
-        entriesWrap.querySelectorAll('.snap-step-inc').forEach(btn => {
+        entriesWrap.querySelectorAll('.fcmt-step-inc').forEach(btn => {
           btn.addEventListener('click', () => {
-            const inp = entriesWrap.querySelector(`.snap-coins-input[data-uid="${btn.dataset.uid}"]`);
-            if (inp) inp.value = Math.min(10, Number(inp.value) + 1);
+            const inp = entriesWrap.querySelector(`.fcmt-coins-input[data-uid="${btn.dataset.uid}"]`);
+            if (inp) { inp.value = Math.min(99, Number(inp.value) + 1); updateFcmtTotal(card); }
           });
         });
+        entriesWrap.querySelectorAll('.fcmt-coins-input').forEach(inp => {
+          inp.addEventListener('input', () => updateFcmtTotal(card));
+        });
+
+        const draftBtn = card.querySelector('#fcmtDraftBtn');
+        if (draftBtn) draftBtn.style.display = '';
 
         const confirmBtn = card.querySelector('.snap-val-confirm-btn');
         confirmBtn.disabled = false;
@@ -5814,10 +6909,10 @@ function renderSnapshotValidation(wrap, snapshots) {
           confirmBtn.textContent = 'Salvando...';
           const msg = card.querySelector('.snap-val-msg');
 
-          const updates = Array.from(card.querySelectorAll('.snap-coins-input')).map(inp => ({
+          const updates = Array.from(card.querySelectorAll('.fcmt-coins-input')).map(inp => ({
             user_id:          Number(inp.dataset.uid),
             coins_validadas:  Number(inp.value),
-            observacao_admin: card.querySelector(`.snap-obs-input[data-uid="${inp.dataset.uid}"]`)?.value || '',
+            observacao_admin: card.querySelector(`.fcmt-obs-input[data-uid="${inp.dataset.uid}"]`)?.value || '',
           }));
 
           try {
@@ -5828,16 +6923,14 @@ function renderSnapshotValidation(wrap, snapshots) {
             });
             const data = await r.json();
             if (!r.ok) throw new Error(data.error || 'Erro ao validar');
-            msg.style.color = '#22c55e';
-            msg.textContent = `Semana encerrada com sucesso!`;
+            if (msg) { msg.style.color = '#3ecf8e'; msg.textContent = 'Semana encerrada com sucesso!'; }
             confirmBtn.innerHTML = `${IC.lock} Fechado`;
             card.classList.add('snap-val-card--closed');
             setTimeout(() => loadSnapshotValidation(), 1400);
           } catch (err) {
-            msg.style.color = '#f04444';
-            msg.textContent = err.message;
+            if (msg) { msg.style.color = '#ff6b6b'; msg.textContent = err.message; }
             confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Confirmar e Fechar Semana';
+            confirmBtn.textContent = 'Confirmar fechamento';
           }
         });
       })
@@ -5845,6 +6938,10 @@ function renderSnapshotValidation(wrap, snapshots) {
         const entriesWrap = card.querySelector('.snap-val-entries-wrap');
         if (entriesWrap) entriesWrap.innerHTML = `<p class="snap-val-empty" style="color:#f04444">Erro ao carregar entradas.</p>`;
       });
+    } // fim loadFcmtCard
+
+    loadFcmtCard();
+    card.addEventListener('fcmt-reload', loadFcmtCard);
   });
 }
 
@@ -5855,10 +6952,10 @@ function renderSnapshotValidation(wrap, snapshots) {
 const admHistoryState = {
   data: null,
   selectedUserId: null,    // null = equipe toda
-  selectedPeriod: 'mes',   // 'hoje' | 'semana' | 'mes' | 'mes-ant' | '90d' | 'semana-custom'
+  selectedPeriod: '90d',   // 'hoje' | 'semana' | 'mes' | 'mes-ant' | '90d' | 'semana-custom'
   selectedWeek: null,      // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' } quando semana-custom
   metric: 'todos',         // 'todos' | 'pontos' | 'tasks' | 'horas'
-  period: 'mes',           // view: 'mes' | 'semana'
+  period: 'semana',        // view: 'mes' | 'semana'
 };
 
 function weekInputToRange(weekVal) {
@@ -5920,6 +7017,10 @@ function admHistPeriodCutoff() {
       const prev = mo === 1 ? 12 : mo - 1;
       const prevY = mo === 1 ? y - 1 : y;
       return `${prevY}-${String(prev).padStart(2, '0')}-01`;
+    }
+    case '60d': {
+      const d = new Date(nowBRT); d.setUTCDate(d.getUTCDate() - 59);
+      return d.toISOString().slice(0, 10);
     }
     case '90d': {
       const d = new Date(nowBRT); d.setUTCDate(d.getUTCDate() - 89);
@@ -5993,6 +7094,18 @@ async function loadAdmHistory() {
   }
 }
 
+// ── ADM v2: delta % entre dois últimos períodos ──────────────────────
+function admHistDelta(metric) {
+  const src = (admHistoryState.period === 'semana'
+    ? admHistoryState.data?.weeks
+    : admHistoryState.data?.months) || [];
+  if (src.length < 2) return null;
+  const lastVal = Number(src[src.length - 1][metric]) || 0;
+  const prevVal = Number(src[src.length - 2][metric]) || 0;
+  if (prevVal === 0) return null;
+  return Math.round(((lastVal - prevVal) / prevVal) * 100);
+}
+
 function renderAdmHistory(wrap) {
   const hasData    = (admHistoryState.data?.months?.length || 0) > 0;
   const filtered   = admHistFilteredItems();
@@ -6002,8 +7115,29 @@ function renderAdmHistory(wrap) {
   const totalHoras  = filtered.reduce((s, r) => s + (Number(r.total_horas)  || 0), 0);
   const totalPontos = filtered.reduce((s, r) => s + (Number(r.total_pontos) || 0), 0);
 
-  const histIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
+  const histIcon16 = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
 
+  // Delta chips
+  const mkDelta = (pct) => {
+    if (pct === null) return '';
+    const cls  = pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral';
+    const arr  = pct > 0 ? '▲' : pct < 0 ? '▼' : '—';
+    const sign = pct > 0 ? '+' : '';
+    return `<span class="adm-kpi2-delta ${cls}">${arr} ${sign}${pct}%</span>`;
+  };
+
+  const dPontos = admHistDelta('total_pontos');
+  const dTasks  = admHistDelta('total_tasks');
+  const dHoras  = admHistDelta('total_horas');
+
+  // Sparklines dos últimos 8 períodos
+  const _sparkSrc = admHistoryState.data?.[admHistoryState.period === 'semana' ? 'weeks' : 'months'] || [];
+  const _sp8 = _sparkSrc.slice(-8);
+  const kpiSparkPontos = _sbalSparkSvg(_sp8.map(r => ({ v: Number(r.total_pontos)||0 })), 72, 28);
+  const kpiSparkTasks  = _sbalSparkSvg(_sp8.map(r => ({ v: Number(r.total_tasks) ||0 })), 72, 28);
+  const kpiSparkHoras  = _sbalSparkSvg(_sp8.map(r => ({ v: Number(r.total_horas) ||0 })), 72, 28);
+
+  // Member dropdown
   const selectedLabel = admHistoryState.selectedUserId
     ? escHtml(users.find((u) => u.id === admHistoryState.selectedUserId)?.name || 'Equipe toda')
     : 'Equipe toda';
@@ -6011,87 +7145,147 @@ function renderAdmHistory(wrap) {
     `<li class="adm-hmb-item${admHistoryState.selectedUserId === u.id ? ' active' : ''}" data-hmb-val="${u.id}">${escHtml(u.name)}</li>`
   ).join('');
   const memberSelect = users.length ? `
-    <div class="adm-hist-member-wrap">
-      <span class="dfb-label">MEMBRO</span>
-      <div class="adm-hmb-drop" id="admHmbDrop">
-        <button class="adm-hmb-btn" type="button" id="admHmbBtn">
-          <span id="admHmbLabel">${selectedLabel}</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <ul class="adm-hmb-list" id="admHmbList" hidden>
-          <li class="adm-hmb-item${!admHistoryState.selectedUserId ? ' active' : ''}" data-hmb-val="">Equipe toda</li>
-          ${memberOpts}
-        </ul>
-      </div>
+    <div class="adm-hmb-drop" id="admHmbDrop">
+      <button class="adm-hmb-btn" type="button" id="admHmbBtn">
+        <span id="admHmbLabel">${selectedLabel}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <ul class="adm-hmb-list" id="admHmbList" hidden>
+        <li class="adm-hmb-item${!admHistoryState.selectedUserId ? ' active' : ''}" data-hmb-val="">Equipe toda</li>
+        ${memberOpts}
+      </ul>
     </div>` : '';
 
+  // Period pills
   const periodPresets = [
-    { key: 'hoje',          label: 'Hoje' },
-    { key: 'semana',        label: 'Esta semana' },
-    { key: 'mes',           label: 'Este mes' },
-    { key: 'mes-ant',       label: 'Ultimo mes' },
-    { key: '90d',           label: '90 dias' },
-    { key: 'semana-custom', label: 'Selecionar semana' },
+    { key: 'hoje',    label: 'Hoje' },
+    { key: 'semana',  label: 'Esta semana' },
+    { key: 'mes',     label: 'Este mês' },
+    { key: 'mes-ant', label: 'Último mês' },
+    { key: '90d',     label: '90 dias' },
   ];
   const presetPills = periodPresets.map((p) =>
-    `<button type="button" class="dfb-pill ${admHistoryState.selectedPeriod === p.key ? 'active' : ''}" data-hist-period-preset="${p.key}">${p.label}</button>`
+    `<button type="button" class="adm-pill-v2 ${admHistoryState.selectedPeriod === p.key ? 'active' : ''}" data-hist-period-preset="${p.key}">${p.label}</button>`
   ).join('');
+
   const weekPickerHtml = admHistoryState.selectedPeriod === 'semana-custom'
     ? `<input type="week" class="adm-hist-week-input" id="admHistWeekInput" value="${admHistoryState.selectedWeek ? isoDateToWeekInput(admHistoryState.selectedWeek.start) : ''}">`
     : '';
 
-  const metricLabels = { todos: 'Todos', tasks: 'Tasks', pontos: 'Pontos', horas: 'Horas' };
+  // Metric tabs
+  const metricLabels = { todos: 'Todos', tasks: 'Tarefas', pontos: 'Pontos', horas: 'Horas' };
   const metricTabs = ['todos', 'tasks', 'pontos', 'horas'].map((k) =>
-    `<button type="button" class="adm-hist-tab ${admHistoryState.metric === k ? 'active' : ''}" data-hist-metric="${k}">${metricLabels[k]}</button>`
+    `<button type="button" class="adm-tab-v2 ${admHistoryState.metric === k ? 'active' : ''}" data-hist-metric="${k}">${metricLabels[k]}</button>`
   ).join('');
 
-  const viewTabs = ['mes', 'semana'].map((p) => {
-    const lbl = p === 'mes' ? 'Mensal' : 'Semanal';
-    return `<button type="button" class="adm-hist-tab ${admHistoryState.period === p ? 'active' : ''}" data-hist-period="${p}">${lbl}</button>`;
-  }).join('');
+  // Granularity segmented
+  const granLabels = { mes: 'Mensal', semana: 'Semanal' };
+  const granTabs = ['mes', 'semana'].map((p) =>
+    `<button type="button" class="adm-seg-btn ${admHistoryState.period === p ? 'active' : ''}" data-hist-period="${p}">${granLabels[p]}</button>`
+  ).join('');
 
   wrap.innerHTML = `
-    <div class="adm-hist-section">
-      <div class="adm-hist-header">
-        <span class="snap-val-title">${histIcon} Historico Geral</span>
-        ${memberSelect}
+    <div class="adm-sec" style="margin-top:18px">
+      <div class="adm-sec-hdr">
+        <div class="adm-sec-hdr-left">
+          <div class="adm-sec-icon violet">${histIcon16}</div>
+          <span class="adm-sec-title">Histórico Geral</span>
+        </div>
+        <div class="adm-sec-hdr-right">${memberSelect}</div>
       </div>
-      <div class="adm-hist-kpis">
-        <div class="adm-hist-kpi adm-hist-kpi--tasks">
-          <span class="adm-hist-kpi-value">${totalTasks}</span>
-          <span class="adm-hist-kpi-label">Tasks concluidas</span>
+
+      <!-- KPIs v2 -->
+      <div class="adm-kpi2-row">
+        <div class="adm-kpi2">
+          <div class="adm-kpi2-bar" style="background:#8b7cff"></div>
+          <div class="adm-kpi2-body">
+            <div class="adm-kpi2-top">
+              <span class="adm-kpi2-val">${totalPontos}</span>
+              ${mkDelta(dPontos)}
+            </div>
+            <span class="adm-kpi2-lbl">Pontos</span>
+          </div>
+          <div style="padding:12px 14px 10px 0;display:flex;align-items:flex-end">${kpiSparkPontos}</div>
         </div>
-        <div class="adm-hist-kpi adm-hist-kpi--horas">
-          <span class="adm-hist-kpi-value">${totalHoras.toFixed(1)}</span>
-          <span class="adm-hist-kpi-label">Horas registradas</span>
+        <div class="adm-kpi2">
+          <div class="adm-kpi2-bar" style="background:#3ecf8e"></div>
+          <div class="adm-kpi2-body">
+            <div class="adm-kpi2-top">
+              <span class="adm-kpi2-val">${totalTasks}</span>
+              ${mkDelta(dTasks)}
+            </div>
+            <span class="adm-kpi2-lbl">Tarefas</span>
+          </div>
+          <div style="padding:12px 14px 10px 0;display:flex;align-items:flex-end">${kpiSparkTasks}</div>
         </div>
-        <div class="adm-hist-kpi adm-hist-kpi--pontos">
-          <span class="adm-hist-kpi-value">${totalPontos}</span>
-          <span class="adm-hist-kpi-label">Pontos conquistados</span>
+        <div class="adm-kpi2">
+          <div class="adm-kpi2-bar" style="background:#FCC100"></div>
+          <div class="adm-kpi2-body">
+            <div class="adm-kpi2-top">
+              <span class="adm-kpi2-val">${totalHoras.toFixed(1)}h</span>
+              ${mkDelta(dHoras)}
+            </div>
+            <span class="adm-kpi2-lbl">Horas</span>
+          </div>
+          <div style="padding:12px 14px 10px 0;display:flex;align-items:flex-end">${kpiSparkHoras}</div>
         </div>
       </div>
+
+      <!-- Filtros v2 -->
       ${hasData ? `
+      <div class="adm-filter-v2" style="margin-bottom:10px">
+        <div class="adm-pills-v2">${presetPills}${weekPickerHtml}</div>
+      </div>
+      <div class="adm-filter-v2" style="margin-bottom:16px">
+        <div class="adm-tabs-v2">${metricTabs}</div>
+        <div style="flex:1"></div>
+        <div class="adm-seg-v2">${granTabs}</div>
+      </div>
+
+      <!-- Mini KPIs por métrica (último período disponível) -->
+      ${(() => {
+          const last = filtered.length ? filtered[filtered.length - 1] : null;
+          const prev = filtered.length > 1 ? filtered[filtered.length - 2] : null;
+          const mkD = (vCur, vPrv) => {
+            const c = Number(vCur), p = Number(vPrv);
+            if (!prev || p === 0 || isNaN(c) || isNaN(p)) return '';
+            const pct = Math.round(((c - p) / p) * 100);
+            return `<span class="adm-mkpi-delta ${pct >= 0 ? 'up' : 'dn'}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+          };
+          const lPts = last ? Number(last.total_pontos)||0 : 0;
+          const lTsk = last ? Number(last.total_tasks) ||0 : 0;
+          const lHrs = last ? Number(last.total_horas) ||0 : 0;
+          const pPts = prev ? Number(prev.total_pontos)||0 : 0;
+          const pTsk = prev ? Number(prev.total_tasks) ||0 : 0;
+          const pHrs = prev ? Number(prev.total_horas)||0 : 0;
+          const items = [
+            { label:'Pontos',  color:'#8b7cff', display: lPts,              delta: mkD(lPts,pPts), sp:_sbalSparkSvg(filtered.map(r=>({v:Number(r.total_pontos)||0})),110,38,'#8b7cff') },
+            { label:'Tarefas', color:'#3ecf8e', display: lTsk,              delta: mkD(lTsk,pTsk), sp:_sbalSparkSvg(filtered.map(r=>({v:Number(r.total_tasks) ||0})),110,38,'#3ecf8e') },
+            { label:'Horas',   color:'#FCC100', display: lHrs.toFixed(1)+'h', delta: mkD(lHrs,pHrs), sp:_sbalSparkSvg(filtered.map(r=>({v:Number(r.total_horas)||0})),110,38,'#FCC100') },
+          ];
+          return `<div class="adm-mkpi-row">${items.map(m=>`
+            <div class="adm-mkpi-card" style="--mc:${m.color}">
+              <div class="adm-mkpi-hdr">
+                <span class="adm-mkpi-dot"></span>
+                <span class="adm-mkpi-label">${m.label}</span>
+                ${m.delta}
+              </div>
+              <div class="adm-mkpi-val">${m.display}</div>
+              <div class="adm-mkpi-spark">${m.sp}</div>
+            </div>`).join('')}</div>`;
+        })()}
+
+      <!-- Gráfico -->
       <div class="adm-hist-chart-section">
-        <div class="dfb-bar adm-hist-period-filter">
-          <span class="dfb-label">PERIODO</span>
-          <div class="dfb-pills">${presetPills}</div>
-          ${weekPickerHtml}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <div class="adm-hist-metric-tabs" style="margin-bottom:0;">${metricTabs}</div>
-          <span style="width:1px;height:18px;background:rgba(255,255,255,0.08);display:inline-block;"></span>
-          <div class="adm-hist-metric-tabs" style="margin-bottom:0;">${viewTabs}</div>
-        </div>
         <div class="adm-hist-chart-wrap">
           <canvas id="admHistChart"></canvas>
         </div>
-        <div class="adm-hist-byuser-section">
-          <div class="adm-hist-byuser-title">Por Colaborador</div>
-          <div class="adm-hist-chart-wrap" id="admHistByUserWrap" style="height:160px">
-            <canvas id="admHistByUserChart"></canvas>
-          </div>
-        </div>
-      </div>` : '<p class="snap-val-empty">Nenhum snapshot calculado ainda.</p>'}
+      </div>
+
+      <!-- Ranking por colaborador -->
+      <div id="admRankListWrap" class="adm-rank-list">
+        <div class="adm-rank-title">Por Colaborador</div>
+      </div>` : '<p class="snap-val-empty" style="color:rgba(255,255,255,0.3);padding:12px 0">Nenhum snapshot calculado ainda.</p>'}
     </div>`;
 
   const hmbBtn  = wrap.querySelector('#admHmbBtn');
@@ -6146,9 +7340,53 @@ function renderAdmHistory(wrap) {
   });
 
   if (hasData) {
-    renderAdmHistoryChart(filtered);
-    renderAdmHistoryByUserChart(admHistUserTotals());
+    renderAdmRankList(wrap, admHistUserTotals());
+    requestAnimationFrame(() => renderAdmHistoryChart(filtered));
   }
+}
+
+// ── ADM v2: lista ranqueada de colaboradores ─────────────────────────
+function renderAdmRankList(wrap, userTotals) {
+  const listWrap = wrap.querySelector('#admRankListWrap');
+  if (!listWrap || !userTotals.length) return;
+
+  const metric = admHistoryState.metric;
+  const metricColors = { pontos: '#8b7cff', tasks: '#3ecf8e', horas: '#FCC100', todos: '#8b7cff' };
+  const barColor = metricColors[metric] || '#8b7cff';
+
+  const getVal = (r) => {
+    if (metric === 'tasks')  return Number(r.total_tasks)  || 0;
+    if (metric === 'horas')  return Number(r.total_horas)  || 0;
+    return Number(r.total_pontos) || 0;
+  };
+
+  const fmtVal = (v) => metric === 'horas' ? `${v.toFixed(1)}h` : String(v);
+
+  const sorted = [...userTotals].sort((a, b) => getVal(b) - getVal(a));
+  const maxVal = Math.max(...sorted.map(getVal), 1);
+
+  const pal = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22d3a3','#6366f1','#f04444'];
+  const avC = (nm) => { let h=0; for(const c of nm) h=(h*31+c.charCodeAt(0))>>>0; return pal[h%pal.length]; };
+  const ini = (nm) => (nm||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  const rows = sorted.map((r, i) => {
+    const val  = getVal(r);
+    const pct  = Math.round((val / maxVal) * 100);
+    const name = r.user_name || r.name || '—';
+    const isLeader = i === 0 && val > 0;
+    return `
+      <div class="adm-rank-row">
+        <span class="adm-rank-num">${i + 1}</span>
+        <div class="adm-rank-av" style="background:${avC(name)}">${ini(name)}</div>
+        <span class="adm-rank-name">${escHtml(name)}</span>
+        <div class="adm-rank-bar-wrap">
+          <div class="adm-rank-bar-fill${isLeader ? ' leader' : ''}" style="width:${pct}%;background:${barColor};${isLeader ? `filter:drop-shadow(0 0 6px ${barColor}88)` : ''}"></div>
+        </div>
+        <span class="adm-rank-val">${fmtVal(val)}</span>
+      </div>`;
+  }).join('');
+
+  listWrap.innerHTML = `<div class="adm-rank-title">Por Colaborador</div>${rows}`;
 }
 
 function admHistUserTotals() {
@@ -6266,14 +7504,21 @@ function renderAdmHistoryChart(filtered) {
   const hasDL     = typeof ChartDataLabels !== 'undefined';
   const dlPlugins = hasDL ? [ChartDataLabels] : [];
   const DL        = { anchor: 'end', align: 'top', font: { size: 10, weight: '700', family: 'Inter' } };
-  const xScale    = { grid: { color: '#1a1e2e', drawBorder: false }, ticks: { color: '#8e98a7', font: { size: 11 } }, border: { display: false } };
-  const MBT       = 48;
+  // ADM v2 palette
+  const C_VIOLET = '#8b7cff';
+  const C_GREEN  = '#3ecf8e';
+  const C_GOLD   = '#FCC100';
+  const xScale   = {
+    grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+    ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 11, family: 'Inter' } },
+    border: { display: false },
+  };
+  const MBT = 48;
 
   const { metric } = admHistoryState;
   let datasets, scales;
 
   if (metric === 'todos') {
-    // Normaliza cada métrica para 0-100% do próprio máximo → mesmo eixo, sem colisão de escala
     const maxPts   = Math.max(...pontos, 1);
     const maxTasks = Math.max(...tasks,  1);
     const maxHoras = Math.max(...horas,  1);
@@ -6284,55 +7529,68 @@ function renderAdmHistoryChart(filtered) {
     const rawPts = pontos, rawTasks = tasks, rawHoras = horas;
     datasets = [
       { label: 'Pontos', data: ptsN, type: 'bar', maxBarThickness: MBT, yAxisID: 'yNorm',
-        backgroundColor: pontos.map(v => v > 0 ? '#2d3554cc' : '#191d2b'),
-        borderColor:     pontos.map(v => v > 0 ? '#4a5580'   : '#1e2235'),
-        borderWidth: 1, borderRadius: 4, datalabels: { display: false } },
-      { label: 'Tasks', data: tasksN, type: 'line', yAxisID: 'yNorm',
-        borderColor: '#3dba6f', backgroundColor: 'rgba(61,186,111,0.10)',
-        pointBackgroundColor: '#3dba6f', pointBorderColor: '#0f1117',
-        pointRadius: 5, pointHoverRadius: 8, pointBorderWidth: 2,
-        borderWidth: 2.5, tension: 0.35, spanGaps: true, fill: false,
+        backgroundColor: pontos.map(v => v > 0 ? 'rgba(139,124,255,0.38)' : 'rgba(139,124,255,0.05)'),
+        borderColor:     pontos.map(v => v > 0 ? C_VIOLET : 'rgba(139,124,255,0.1)'),
+        borderWidth: 1, borderRadius: 5, datalabels: { display: false } },
+      { label: 'Tarefas', data: tasksN, type: 'line', yAxisID: 'yNorm',
+        borderColor: C_GREEN,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart; const {ctx: cx, chartArea} = chart;
+          if (!chartArea) return 'rgba(62,207,142,0.1)';
+          const g = cx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0, 'rgba(62,207,142,0.22)'); g.addColorStop(1, 'rgba(62,207,142,0)');
+          return g;
+        },
+        pointBackgroundColor: C_GREEN, pointBorderColor: '#121212',
+        pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 2,
+        borderWidth: 2.5, cubicInterpolationMode: 'monotone', spanGaps: true, fill: 'origin',
         datalabels: { display: false } },
       { label: 'Horas', data: horasN, type: 'line', yAxisID: 'yNorm',
-        borderColor: '#e8b844', backgroundColor: 'rgba(232,184,68,0.10)',
-        pointBackgroundColor: '#e8b844', pointBorderColor: '#0f1117',
-        pointRadius: 5, pointHoverRadius: 8, pointBorderWidth: 2,
-        borderWidth: 2.5, tension: 0.35, spanGaps: true, fill: false,
+        borderColor: C_GOLD,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart; const {ctx: cx, chartArea} = chart;
+          if (!chartArea) return 'rgba(252,193,0,0.1)';
+          const g = cx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0, 'rgba(252,193,0,0.2)'); g.addColorStop(1, 'rgba(252,193,0,0)');
+          return g;
+        },
+        pointBackgroundColor: C_GOLD, pointBorderColor: '#121212',
+        pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 2,
+        borderWidth: 2.5, cubicInterpolationMode: 'monotone', spanGaps: true, fill: 'origin',
         datalabels: { display: false } },
     ];
-    scales = {
-      x: xScale,
-      yNorm: { display: false, min: 0, max: 115, position: 'left' },
-    };
-
-    // Captura closures para o tooltip mostrar valores reais
+    scales = { x: xScale, yNorm: { display: false, min: 0, max: 115, position: 'left' } };
     const _rawPts = rawPts, _rawTasks = rawTasks, _rawHoras = rawHoras;
     Object.assign(admHistoryState, { _rawPts, _rawTasks, _rawHoras });
+
   } else if (metric === 'tasks') {
-    const bg  = tasks.map(v => v > 0 ? '#2d3554' : '#191d2b');
-    const brd = tasks.map(v => v > 0 ? '#4a5580' : '#1e2235');
-    datasets = [{ label: 'Tasks', data: tasks, type: 'bar', maxBarThickness: MBT,
-      backgroundColor: bg, borderColor: brd, borderWidth: 1, borderRadius: 4,
-      datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } }];
+    datasets = [{ label: 'Tarefas', data: tasks, type: 'bar', maxBarThickness: MBT,
+      backgroundColor: tasks.map(v => v > 0 ? 'rgba(62,207,142,0.2)' : 'transparent'),
+      borderColor: tasks.map(v => v > 0 ? C_GREEN : 'transparent'),
+      borderWidth: 1, borderRadius: 6,
+      datalabels: { ...DL, color: C_GREEN, formatter: v => v > 0 ? v : '' } }];
     scales = { x: xScale, y: { display: false, min: 0 } };
+
   } else if (metric === 'horas') {
-    const bg  = horas.map(v => v > 0 ? '#e8b84428' : 'transparent');
-    const brd = horas.map(v => v > 0 ? '#e8b844'   : 'transparent');
     datasets = [{ label: 'Horas', data: horas, type: 'bar', maxBarThickness: MBT,
-      backgroundColor: bg, borderColor: brd, borderWidth: 2, borderRadius: 4,
-      datalabels: { ...DL, color: '#e8b844', formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } }];
+      backgroundColor: horas.map(v => v > 0 ? 'rgba(252,193,0,0.2)' : 'transparent'),
+      borderColor: horas.map(v => v > 0 ? C_GOLD : 'transparent'),
+      borderWidth: 1, borderRadius: 6,
+      datalabels: { ...DL, color: C_GOLD, formatter: v => v > 0 ? v.toFixed(1) + 'h' : '' } }];
     scales = { x: xScale, y: { display: false, min: 0 } };
+
   } else {
-    const ptsBg  = pontos.map(v => v > 0 ? '#2d3554' : '#191d2b');
-    const ptsBrd = pontos.map(v => v > 0 ? '#4a5580' : '#1e2235');
     datasets = [
       { label: 'Pontos', data: pontos, type: 'bar', maxBarThickness: MBT,
-        backgroundColor: ptsBg, borderColor: ptsBrd, borderWidth: 1, borderRadius: 4,
-        datalabels: { ...DL, color: '#c8d0e7', formatter: v => v > 0 ? v : '' } },
-      { label: 'Pontos (linha)', data: pontos.map(v => v > 0 ? v : null), type: 'line',
-        borderColor: '#3dba6f', backgroundColor: 'transparent',
-        pointBackgroundColor: '#3dba6f', pointRadius: 5, pointHoverRadius: 7,
-        tension: 0.35, spanGaps: false, datalabels: { display: false } },
+        backgroundColor: pontos.map(v => v > 0 ? 'rgba(139,124,255,0.22)' : 'transparent'),
+        borderColor: pontos.map(v => v > 0 ? C_VIOLET : 'transparent'),
+        borderWidth: 1, borderRadius: 6,
+        datalabels: { ...DL, color: C_VIOLET, formatter: v => v > 0 ? v : '' } },
+      { label: 'Linha', data: pontos.map(v => v > 0 ? v : null), type: 'line',
+        borderColor: C_VIOLET, backgroundColor: 'transparent',
+        pointBackgroundColor: C_VIOLET, pointBorderColor: '#121212',
+        pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 2,
+        borderWidth: 2.5, cubicInterpolationMode: 'monotone', spanGaps: false, datalabels: { display: false } },
     ];
     scales = { x: xScale, y: { display: false, min: 0 } };
   }
@@ -6344,19 +7602,20 @@ function renderAdmHistoryChart(filtered) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeInOutQuart' },
       layout: { padding: { top: 30 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#8e98a7', font: { size: 11, family: 'Inter' }, boxWidth: 10, boxHeight: 10 } },
+        legend: { labels: { color: 'rgba(255,255,255,0.35)', font: { size: 11, family: 'Inter' }, boxWidth: 10, boxHeight: 10 } },
         tooltip: {
-          backgroundColor: '#1c1e32', titleColor: '#c8d0e7', bodyColor: '#8892b4',
-          borderColor: '#252840', borderWidth: 1,
+          backgroundColor: '#1a1a1a', titleColor: 'rgba(255,255,255,0.7)', bodyColor: 'rgba(255,255,255,0.5)',
+          borderColor: '#262626', borderWidth: 1,
           callbacks: metric === 'todos' ? {
             label: (ctx) => {
               const i = ctx.dataIndex;
               const s = admHistoryState;
-              if (ctx.dataset.label === 'Tasks')  return ` Tasks: ${(s._rawTasks||[])[i] ?? ctx.raw}`;
-              if (ctx.dataset.label === 'Horas')  return ` Horas: ${Number((s._rawHoras||[])[i] ?? ctx.raw).toFixed(1)}h`;
+              if (ctx.dataset.label === 'Tarefas') return ` Tarefas: ${(s._rawTasks||[])[i] ?? ctx.raw}`;
+              if (ctx.dataset.label === 'Horas')   return ` Horas: ${Number((s._rawHoras||[])[i] ?? ctx.raw).toFixed(1)}h`;
               return ` Pontos: ${(s._rawPts||[])[i] ?? ctx.raw}`;
             },
           } : {},
@@ -6372,6 +7631,13 @@ function renderAdmHistoryChart(filtered) {
 let _adrDate = new Date(Date.now() - 3*3600000).toISOString().slice(0,10);
 let _adrFilter = null;
 let _adrData = null;
+
+// Labels do brief atual (usados no form de resposta e no modal de edição ADM)
+let _dailyLabels = {
+  q1: 'O que fechei ontem?',
+  q2: 'O que estou tocando hoje?',
+  q3: 'Tem algum bloqueio?',
+};
 
 async function loadAdmDailyResponses(date) {
   const wrap = document.getElementById('admDailyResponsesWrap');
@@ -6416,24 +7682,55 @@ function adrSetFilter(id) {
 function renderAdrGrid() {
   const grid = document.getElementById('adrGrid');
   if (!grid || !_adrData) return;
-  let members = _adrData.members || [];
+
+  // Botão "Cobrar pendentes" acima do grid
+  const allMembers = _adrData.members || [];
+  const pendingCount = allMembers.filter(m => !m.responded).length;
+  const cobrarHtml = pendingCount > 0
+    ? `<div class="adr-cobrar-wrap"><button class="adr-cobrar-btn" id="adrCobrarBtn">Cobrar pendentes (${pendingCount})</button></div>`
+    : '';
+
+  let members = allMembers;
   if (_adrFilter !== null) members = members.filter(m => m.id === _adrFilter);
-  if (!members.length) { grid.innerHTML = '<p style="color:#5a6280;font-size:13px">Nenhum membro.</p>'; return; }
-  grid.innerHTML = members.map(m => `
-    <div class="adr-card ${m.responded?'responded':'pending'}">
+  if (!members.length) { grid.innerHTML = cobrarHtml + '<p style="color:#5a6280;font-size:13px">Nenhum membro.</p>'; return; }
+
+  const brief = _adrData.brief;
+  const q1l = escHtml(brief?.q1_label || _dailyLabels.q1);
+  const q2l = escHtml(brief?.q2_label || _dailyLabels.q2);
+  const q3l = escHtml(brief?.q3_label || _dailyLabels.q3);
+
+  grid.innerHTML = cobrarHtml + members.map(m => {
+    const existing = JSON.stringify({ q1: m.q1, q2: m.q2, q3: m.q3 }).replace(/"/g, '&quot;');
+    return `
+    <div class="adr-card ${m.responded ? 'responded' : 'pending'}">
       <div class="adr-card-header">
         <div>
           <div class="adr-name">${escHtml(m.name)}</div>
-          <div class="adr-cargo">${escHtml(m.cargo||'')}</div>
+          <div class="adr-cargo">${escHtml(m.cargo || '')}</div>
         </div>
-        <span class="adr-badge ${m.responded?'ok':'no'}">${m.responded?'Respondeu':'Pendente'}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="adr-badge ${m.responded ? 'ok' : 'no'}">${m.responded ? 'Respondeu' : 'Pendente'}</span>
+          <button class="adr-edit-btn" data-uid="${m.id}" data-name="${escHtml(m.name)}" data-existing="${existing}">Editar</button>
+        </div>
       </div>
       ${m.responded ? `
-        <div class="adr-qa"><span class="adr-ql">Fechei ontem:</span><span class="adr-qv">${escHtml(m.q1||'—')}</span></div>
-        <div class="adr-qa"><span class="adr-ql">Tocando hoje:</span><span class="adr-qv">${escHtml(m.q2||'—')}</span></div>
-        <div class="adr-qa"><span class="adr-ql">Bloqueio:</span><span class="adr-qv">${escHtml(m.q3||'Nenhum')}</span></div>
+        <div class="adr-qa"><span class="adr-ql">${q1l}:</span><span class="adr-qv">${escHtml(m.q1 || '—')}</span></div>
+        <div class="adr-qa"><span class="adr-ql">${q2l}:</span><span class="adr-qv">${escHtml(m.q2 || '—')}</span></div>
+        <div class="adr-qa"><span class="adr-ql">${q3l}:</span><span class="adr-qv">${escHtml(m.q3 || 'Nenhum')}</span></div>
       ` : '<p class="adr-empty">Ainda não respondeu.</p>'}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  // Botão cobrar
+  document.getElementById('adrCobrarBtn')?.addEventListener('click', () => cobrarPendentesWhatsApp(_adrDate));
+
+  // Botões editar
+  grid.querySelectorAll('.adr-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const existing = JSON.parse(btn.dataset.existing.replace(/&quot;/g, '"'));
+      openAdrEditModal(Number(btn.dataset.uid), btn.dataset.name, existing);
+    });
+  });
 }
 
 function hideLoadingOverlay() {
@@ -6441,6 +7738,185 @@ function hideLoadingOverlay() {
   if (appShell) appShell.style.visibility = '';
   const loading = document.getElementById('app-loading');
   if (loading) { loading.style.opacity = '0'; setTimeout(() => loading.remove(), 300); }
+}
+
+// ── Daily ADM: notificação WhatsApp — toda a equipe ───────────────────────
+async function notifyDailyWhatsApp(date) {
+  const btn = document.getElementById('admDailyNotifyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    await api('/api/focus?action=daily-notify', {
+      method: 'POST',
+      body: JSON.stringify({ date: date || _adrDate }),
+    });
+    if (btn) {
+      btn.textContent = 'Enviado ✓';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Notificar equipe via WhatsApp'; }, 3000);
+    }
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = 'Tentar novamente'; }
+  }
+}
+
+// ── Daily ADM: cobrar pendentes via WhatsApp ──────────────────────────────
+async function cobrarPendentesWhatsApp(date) {
+  const btn = document.getElementById('adrCobrarBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+  try {
+    const result = await api('/api/focus?action=daily-notify', {
+      method: 'POST',
+      body: JSON.stringify({ date: date || _adrDate, pending_only: true }),
+    });
+    if (btn) {
+      btn.textContent = result.sent ? `Cobrado ✓ (${result.count})` : 'Todos responderam';
+      setTimeout(() => { btn.disabled = false; btn.textContent = `Cobrar pendentes`; }, 3000);
+    }
+  } catch {
+    if (btn) { btn.disabled = false; btn.textContent = 'Tentar novamente'; }
+  }
+}
+
+// ── Daily ADM: modal de edição de resposta de membro ─────────────────────
+function initAdrEditModal() {
+  if (document.getElementById('adrEditOverlay')) return;
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div class="rp-edit-overlay" id="adrEditOverlay" style="display:none">
+      <div class="rp-edit-modal">
+        <h3 class="rp-edit-modal-title">Editar resposta — <span id="adrEditName"></span></h3>
+        <div class="rp-edit-field">
+          <label class="rp-edit-label" id="adrEditQ1Label">Pergunta 1</label>
+          <textarea id="adrEditQ1" class="rp-edit-input" rows="2" style="resize:vertical"></textarea>
+        </div>
+        <div class="rp-edit-field">
+          <label class="rp-edit-label" id="adrEditQ2Label">Pergunta 2</label>
+          <textarea id="adrEditQ2" class="rp-edit-input" rows="2" style="resize:vertical"></textarea>
+        </div>
+        <div class="rp-edit-field">
+          <label class="rp-edit-label" id="adrEditQ3Label">Pergunta 3</label>
+          <textarea id="adrEditQ3" class="rp-edit-input" rows="2" style="resize:vertical"></textarea>
+        </div>
+        <div class="rp-edit-actions">
+          <button class="rp-edit-cancel" id="adrEditCancel">Cancelar</button>
+          <button class="rp-edit-save"   id="adrEditSave">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(div.firstElementChild);
+  document.getElementById('adrEditCancel').addEventListener('click', () => {
+    document.getElementById('adrEditOverlay').style.display = 'none';
+  });
+  document.getElementById('adrEditOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'adrEditOverlay') document.getElementById('adrEditOverlay').style.display = 'none';
+  });
+}
+
+function openAdrEditModal(userId, name, existing) {
+  initAdrEditModal();
+  const brief = _adrData?.brief;
+  document.getElementById('adrEditQ1Label').textContent = brief?.q1_label || _dailyLabels.q1;
+  document.getElementById('adrEditQ2Label').textContent = brief?.q2_label || _dailyLabels.q2;
+  document.getElementById('adrEditQ3Label').textContent = brief?.q3_label || _dailyLabels.q3;
+  document.getElementById('adrEditName').textContent = name;
+  document.getElementById('adrEditQ1').value = existing?.q1 || '';
+  document.getElementById('adrEditQ2').value = existing?.q2 || '';
+  document.getElementById('adrEditQ3').value = existing?.q3 || '';
+  document.getElementById('adrEditOverlay').style.display = 'flex';
+
+  const saveBtn = document.getElementById('adrEditSave');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Salvar';
+  saveBtn.onclick = async () => {
+    saveBtn.disabled = true; saveBtn.textContent = 'Salvando…';
+    try {
+      await api(`/api/focus?action=daily-response-edit&userId=${userId}&date=${_adrDate}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          q1: document.getElementById('adrEditQ1').value.trim(),
+          q2: document.getElementById('adrEditQ2').value.trim(),
+          q3: document.getElementById('adrEditQ3').value.trim(),
+        }),
+      });
+      document.getElementById('adrEditOverlay').style.display = 'none';
+      await loadAdmDailyResponses(_adrDate);
+    } catch (err) {
+      alert(`Erro ao salvar: ${err.message}`);
+      saveBtn.disabled = false; saveBtn.textContent = 'Salvar';
+    }
+  };
+}
+
+// ── Daily ADM: formulário de publicação do brief (admin) ──────────────────
+async function renderAdmDailyPublishForm() {
+  const wrap = document.getElementById('admDailyPublishWrap');
+  if (!wrap) return;
+
+  // Carrega brief do dia para pré-preencher
+  const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  let existing = null;
+  try {
+    const r = await api('/api/focus?action=daily-brief');
+    existing = r?.brief || null;
+  } catch {}
+
+  const contentVal  = existing?.content   || '';
+  const dateVal     = existing?.brief_date || today;
+  const q1Val       = existing?.q1_label  || 'O que fechei ontem?';
+  const q2Val       = existing?.q2_label  || 'O que estou tocando hoje?';
+  const q3Val       = existing?.q3_label  || 'Tem algum bloqueio?';
+
+  wrap.innerHTML = `
+    <div class="adp-card">
+      <div class="adp-header">
+        <span class="adp-title">Publicar Daily</span>
+        <label class="adp-date-label">Data <input type="date" id="adpDate" class="adr-date-input" value="${dateVal}" /></label>
+      </div>
+      <textarea id="adpContent" class="adp-content-ta" rows="4" placeholder="Conteúdo do brief para a equipe... (suporta **negrito**)">${escHtml(contentVal)}</textarea>
+      <details class="adp-q-details">
+        <summary class="adp-q-summary">Personalizar perguntas</summary>
+        <div class="adp-q-fields">
+          <label class="adp-q-label">Pergunta 1 <input type="text" id="adpQ1" class="adp-q-input" value="${escHtml(q1Val)}" maxlength="120" /></label>
+          <label class="adp-q-label">Pergunta 2 <input type="text" id="adpQ2" class="adp-q-input" value="${escHtml(q2Val)}" maxlength="120" /></label>
+          <label class="adp-q-label">Pergunta 3 <input type="text" id="adpQ3" class="adp-q-input" value="${escHtml(q3Val)}" maxlength="120" /></label>
+        </div>
+      </details>
+      <div class="adp-actions">
+        <button id="adpPublishBtn" class="adp-btn-publish">Publicar Daily</button>
+        <button id="admDailyNotifyBtn" class="adp-btn-notify">Notificar equipe via WhatsApp</button>
+      </div>
+      <p id="adpMsg" class="adp-msg"></p>
+    </div>`;
+
+  document.getElementById('adpPublishBtn').addEventListener('click', async () => {
+    const btn     = document.getElementById('adpPublishBtn');
+    const content = document.getElementById('adpContent').value.trim();
+    const date    = document.getElementById('adpDate').value;
+    const q1      = document.getElementById('adpQ1').value.trim();
+    const q2      = document.getElementById('adpQ2').value.trim();
+    const q3      = document.getElementById('adpQ3').value.trim();
+    const msgEl   = document.getElementById('adpMsg');
+    if (!content) { msgEl.textContent = 'O conteúdo do brief é obrigatório.'; return; }
+    btn.disabled = true; btn.textContent = 'Publicando…';
+    try {
+      await api('/api/focus?action=daily-brief-admin', {
+        method: 'POST',
+        body: JSON.stringify({ content, brief_date: date, q1_label: q1 || null, q2_label: q2 || null, q3_label: q3 || null }),
+      });
+      msgEl.textContent = 'Brief publicado com sucesso!';
+      msgEl.style.color = '#22d3a3';
+      await loadDailyBrief();
+      await loadAdmDailyResponses(_adrDate);
+    } catch (err) {
+      msgEl.textContent = `Erro: ${err.message}`;
+      msgEl.style.color = '#e05252';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Publicar Daily';
+    }
+  });
+
+  document.getElementById('admDailyNotifyBtn').addEventListener('click', () => {
+    notifyDailyWhatsApp(document.getElementById('adpDate').value);
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────

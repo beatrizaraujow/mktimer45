@@ -543,10 +543,12 @@ module.exports = async function handler(req, res) {
               const applyDays = r.applies_days;
               let applies = false;
               const dom2 = Number(d.slice(8, 10));
-              if (freq === 'daily')   applies = !applyDays || applyDays.includes(dow2);
-              if (freq === 'weekly')  applies = !applyDays || applyDays.includes(dow2);
-              if (freq === 'biweekly') applies = Array.isArray(applyDays) && applyDays.includes(dom2);
-              if (freq === 'monthly') applies = !applyDays || applyDays.length === 0 || applyDays.includes(dom2);
+              if (freq === 'daily')                        applies = !applyDays || applyDays.includes(dow2);
+              if (freq === 'daily-weekdays')               applies = dow2 >= 1 && dow2 <= 5;
+              if (freq === 'weekly')                       applies = !applyDays || applyDays.includes(dow2);
+              if (freq === '3x_week' || freq === 'custom') applies = !applyDays || applyDays.includes(dow2);
+              if (freq === 'biweekly')                     applies = Array.isArray(applyDays) && applyDays.includes(dom2);
+              if (freq === 'monthly')                      applies = !applyDays || applyDays.length === 0 || applyDays.includes(dom2);
               if (!applies) continue;
               total++;
               if (doneSet.has(`${r.id}_${d}`)) done++;
