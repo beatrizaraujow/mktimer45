@@ -354,6 +354,36 @@ module.exports = async function handler(req, res) {
     return json(res, 200, { ok: true, brief: rows[0] });
   }
 
+  // cron-daily-notify: bypass com CRON_SECRET (Vercel Cron não usa JWT)
+  if (action === 'cron-daily-notify' && req.method === 'GET') {
+    const cronSecret = (process.env.CRON_SECRET || '').trim();
+    const authHeader = (req.headers['authorization'] || '').trim();
+    const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
+    if (!isCron) {
+      const authCheck = requireAuth(req, res);
+      if (!authCheck) return;
+      if (authCheck.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+    }
+    const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const [, mo, dy] = today.split('-');
+    const { rows: briefRows } = await db.query(
+      `SELECT content FROM daily_briefs WHERE brief_date = $1::date LIMIT 1`, [today]
+    ).catch(() => ({ rows: [] }));
+    if (!briefRows.length) {
+      console.log(`[cron-daily-notify] sem brief para ${today}`);
+      return json(res, 200, { ok: true, sent: false, reason: 'no_brief' });
+    }
+    const { sendWhatsApp } = require('../_lib/whatsappSend');
+    try {
+      await sendWhatsApp(`☀️ Daily de ${dy}/${mo} publicada!\nAcesse o MKT Hub e registre sua daily de hoje.`);
+      console.log(`[cron-daily-notify] WhatsApp enviado para ${today}`);
+      return json(res, 200, { ok: true, sent: true, date: today });
+    } catch (e) {
+      console.error('[cron-daily-notify]', e.message);
+      return json(res, 500, { error: e.message });
+    }
+  }
+
   const auth = requireAuth(req, res);
   if (!auth) return;
 
@@ -2173,38 +2203,92 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Usuários baseados em rotinas (daily_points_goal = 0): Zion, Malu, Gustavo
+    // Para esses, pts e tasks vêm de routine_completions; horas de time_entries
+    const routineBasedUids = snapDbUsers
+      .filter(u => Number(u.daily_points_goal) === 0)
+      .map(u => Number(u.id));
+    const routineSnapData = new Map(); // uid → { pts, tasks, horas }
+    if (routineBasedUids.length > 0) {
+      try {
+        const rcRes = await db.query(
+          `SELECT rc.user_id,
+                  COALESCE(SUM(ur.points), 0)::int AS pts,
+                  COUNT(rc.id)::int AS tasks
+           FROM routine_completions rc
+           JOIN user_routines ur ON ur.id = rc.routine_id
+           WHERE rc.user_id = ANY($1::int[])
+             AND rc.completed_date >= $2 AND rc.completed_date <= $3
+             AND rc.status = 'done'
+           GROUP BY rc.user_id`,
+          [routineBasedUids, snapWeekStart, snapWeekEnd]
+        );
+        for (const r of rcRes.rows) {
+          routineSnapData.set(Number(r.user_id), { pts: Number(r.pts), tasks: Number(r.tasks), horas: 0 });
+        }
+        const teRes = await db.query(
+          `SELECT user_id, COALESCE(SUM(hours), 0)::float AS horas
+           FROM time_entries
+           WHERE user_id = ANY($1::int[])
+             AND work_date >= $2 AND work_date <= $3
+           GROUP BY user_id`,
+          [routineBasedUids, snapWeekStart, snapWeekEnd]
+        ).catch(() => ({ rows: [] }));
+        for (const r of teRes.rows) {
+          const uid2 = Number(r.user_id);
+          const ex = routineSnapData.get(uid2) || { pts: 0, tasks: 0, horas: 0 };
+          ex.horas = Number(r.horas);
+          routineSnapData.set(uid2, ex);
+        }
+      } catch (_) { /* routine tables not yet migrated */ }
+    }
+
     const snapEntries = snapDbUsers.map(user => {
-      const uid = Number(user.id), meta100 = (Number(user.daily_points_goal)||26)*5;
-      const meta120 = Number(user.weekly_pts_120) || Math.round(meta100 * 1.2);
-      const uTasks  = snapTasksByUid.get(uid) || [];
-      const pts = uTasks.reduce((s, t) => s + extractPtsSnap(t), 0);
-      const dH = {};
-      for (const t of uTasks) {
-        const cm = Number(t.date_done || t.date_closed || 0);
-        const dk = cm > 0 ? new Date(cm - 3*3600000).toISOString().slice(0,10) : snapWeekStart;
-        const h = Number(t.time_spent||0)/3600000; if (h<=0) continue;
-        if (!dH[dk]) dH[dk] = { total:0, porEmpresa:{} };
-        const rem = Math.max(0, SNAP_CAP - dH[dk].total), applied = Math.min(h, rem);
-        dH[dk].total += applied;
-        const emp = resolveEmpresa(t);
-        dH[dk].porEmpresa[emp] = (dH[dk].porEmpresa[emp]||0) + applied;
-      }
-      const hpe = { 'SeuBoné':0,'Onevo':0,'Carbone':0,'Não classificado':0 };
-      let ht = 0;
-      for (const {total, porEmpresa} of Object.values(dH)) {
-        ht += total;
-        for (const [e,h] of Object.entries(porEmpresa)) hpe[e] = (hpe[e]||0) + h;
-      }
-      const horasTotal = parseFloat(ht.toFixed(2));
-      const pctMeta = meta100 > 0 ? parseFloat(((pts/meta100)*100).toFixed(2)) : 0;
+      const uid = Number(user.id);
+      const isRoutineBased = Number(user.daily_points_goal) === 0;
+      const meta100 = isRoutineBased ? 0 : (Number(user.daily_points_goal) || 26) * 5;
+      const meta120 = isRoutineBased ? 0 : (Number(user.weekly_pts_120) || Math.round(meta100 * 1.2));
       const cargoLc = (user.cargo||'').toLowerCase();
       const isCB = cargoLc.includes('storymaker')||cargoLc.includes('ugc')||cargoLc.includes('publisher');
+
+      let pts, tasksCount, horasTotal, hpe;
+      if (isRoutineBased) {
+        const rd = routineSnapData.get(uid) || { pts: 0, tasks: 0, horas: 0 };
+        pts = rd.pts;
+        tasksCount = rd.tasks;
+        horasTotal = parseFloat(rd.horas.toFixed(2));
+        hpe = { 'SeuBoné':0,'Onevo':0,'Carbone':0,'Não classificado':0 };
+      } else {
+        const uTasks = snapTasksByUid.get(uid) || [];
+        pts = uTasks.reduce((s, t) => s + extractPtsSnap(t), 0);
+        const dH = {};
+        for (const t of uTasks) {
+          const cm = Number(t.date_done || t.date_closed || 0);
+          const dk = cm > 0 ? new Date(cm - 3*3600000).toISOString().slice(0,10) : snapWeekStart;
+          const h = Number(t.time_spent||0)/3600000; if (h<=0) continue;
+          if (!dH[dk]) dH[dk] = { total:0, porEmpresa:{} };
+          const rem = Math.max(0, SNAP_CAP - dH[dk].total), applied = Math.min(h, rem);
+          dH[dk].total += applied;
+          const emp = resolveEmpresa(t);
+          dH[dk].porEmpresa[emp] = (dH[dk].porEmpresa[emp]||0) + applied;
+        }
+        hpe = { 'SeuBoné':0,'Onevo':0,'Carbone':0,'Não classificado':0 };
+        let ht = 0;
+        for (const {total, porEmpresa} of Object.values(dH)) {
+          ht += total;
+          for (const [e,h] of Object.entries(porEmpresa)) hpe[e] = (hpe[e]||0) + h;
+        }
+        horasTotal = parseFloat(ht.toFixed(2));
+        tasksCount = uTasks.length;
+      }
+
+      const pctMeta = meta100 > 0 ? parseFloat(((pts/meta100)*100).toFixed(2)) : 0;
       const coef = isCB
         ? parseFloat(((horasTotal/16)*0.30).toFixed(2))
         : parseFloat(((meta100>0?pts/meta100:0)*0.50 + (horasTotal/16)*0.15).toFixed(2));
       return { user_id:uid, nome:user.name, cargo:user.cargo||'', isCB, pontos:pts, meta_100:meta100, meta_120:meta120,
                percentual_meta:pctMeta, horas_validadas_total:horasTotal, horas_por_empresa:hpe,
-               tasks_concluidas:uTasks.length, coeficiente:coef,
+               tasks_concluidas:tasksCount, coeficiente:coef,
                coins_sugeridas_meta: isCB
                  ? calcCoinsCB(cargoLc, pts, meta100)
                  : calcCoinsMeta(pts,meta100,meta120),
@@ -2336,17 +2420,113 @@ module.exports = async function handler(req, res) {
 
   // ── daily-brief GET (autenticado) ─────────────────────────────────────────
   if (action === 'daily-brief' && req.method === 'GET') {
+    // Garante que as colunas de label existam (idempotente)
+    await db.query(
+      `ALTER TABLE daily_briefs
+         ADD COLUMN IF NOT EXISTS q1_label TEXT,
+         ADD COLUMN IF NOT EXISTS q2_label TEXT,
+         ADD COLUMN IF NOT EXISTS q3_label TEXT`
+    ).catch(() => {});
     const { rows } = await db.query(
-      `SELECT id, content, brief_date::text AS brief_date, created_at
+      `SELECT id, content, brief_date::text AS brief_date, created_at,
+              COALESCE(q1_label, 'O que fechei ontem?')        AS q1_label,
+              COALESCE(q2_label, 'O que estou tocando hoje?')  AS q2_label,
+              COALESCE(q3_label, 'Tem algum bloqueio?')        AS q3_label
        FROM daily_briefs ORDER BY brief_date DESC LIMIT 1`
     ).catch(() => ({ rows: [] }));
     return json(res, 200, { brief: rows[0] || null });
+  }
+
+  // ── daily-brief-admin POST (admin UI — JWT auth) ──────────────────────────
+  if (action === 'daily-brief-admin' && req.method === 'POST') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+    const { content, brief_date, q1_label, q2_label, q3_label } = req.body || {};
+    if (!content?.trim()) return json(res, 400, { error: 'content required.' });
+    const dateVal = brief_date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    // Garante que as colunas de label existam antes do INSERT
+    await db.query(
+      `ALTER TABLE daily_briefs
+         ADD COLUMN IF NOT EXISTS q1_label TEXT,
+         ADD COLUMN IF NOT EXISTS q2_label TEXT,
+         ADD COLUMN IF NOT EXISTS q3_label TEXT`
+    );
+    const { rows } = await db.query(
+      `INSERT INTO daily_briefs (content, brief_date, q1_label, q2_label, q3_label)
+       VALUES ($1, $2::date, $3, $4, $5)
+       ON CONFLICT (brief_date) DO UPDATE SET
+         content   = EXCLUDED.content,
+         q1_label  = COALESCE(EXCLUDED.q1_label, daily_briefs.q1_label),
+         q2_label  = COALESCE(EXCLUDED.q2_label, daily_briefs.q2_label),
+         q3_label  = COALESCE(EXCLUDED.q3_label, daily_briefs.q3_label),
+         created_at = NOW()
+       RETURNING id, brief_date::text AS brief_date`,
+      [content.trim(), dateVal,
+       q1_label?.trim() || null, q2_label?.trim() || null, q3_label?.trim() || null]
+    );
+    return json(res, 200, { ok: true, brief: rows[0] });
+  }
+
+  // ── daily-notify POST (admin: dispara WhatsApp para equipe ou pendentes) ───
+  if (action === 'daily-notify' && req.method === 'POST') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+    const { sendWhatsApp } = require('../_lib/whatsappSend');
+    const date = req.body?.date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const [, mo, dy] = date.split('-');
+    const dateLabel = `${dy}/${mo}`;
+
+    if (req.body?.pending_only) {
+      const { rows: pending } = await db.query(
+        `SELECT u.name FROM users u
+         LEFT JOIN daily_responses dr ON dr.user_id = u.id AND dr.brief_date = $1::date
+         WHERE u.active = TRUE AND dr.id IS NULL
+         ORDER BY u.name`,
+        [date]
+      ).catch(() => ({ rows: [] }));
+      if (!pending.length) return json(res, 200, { ok: true, sent: false, reason: 'all_done' });
+      const names = pending.map(r => `• ${r.name}`).join('\n');
+      await sendWhatsApp(`⏰ Daily de ${dateLabel} — ainda não responderam:\n\n${names}\n\nAcesse o MKT Hub!`);
+      return json(res, 200, { ok: true, sent: true, count: pending.length });
+    }
+
+    const message = req.body?.message?.trim() ||
+      `☀️ Daily de ${dateLabel} publicada!\nAcesse o MKT Hub e registre sua daily de hoje.`;
+    await sendWhatsApp(message);
+    return json(res, 200, { ok: true, sent: true });
+  }
+
+  // ── daily-response-edit PATCH (admin: edita resposta de qualquer membro) ──
+  if (action === 'daily-response-edit' && req.method === 'PATCH') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+    const targetUid = parseInt(req.query.userId, 10);
+    const date = (req.query.date || '').trim();
+    if (!targetUid || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return json(res, 400, { error: 'userId and date (YYYY-MM-DD) required.' });
+    }
+    const { q1, q2, q3 } = req.body || {};
+    await db.query(
+      `INSERT INTO daily_responses (user_id, brief_date, q1, q2, q3)
+       VALUES ($1, $2::date, $3, $4, $5)
+       ON CONFLICT (user_id, brief_date) DO UPDATE
+         SET q1 = EXCLUDED.q1, q2 = EXCLUDED.q2, q3 = EXCLUDED.q3, updated_at = NOW()`,
+      [targetUid, date, q1?.trim() || null, q2?.trim() || null, q3?.trim() || null]
+    );
+    return json(res, 200, { ok: true });
   }
 
   // ── daily-response POST (salva resposta do usuário logado) ────────────────
   if (action === 'daily-response' && req.method === 'POST') {
     const { q1, q2, q3 } = req.body || {};
     const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    // Bloqueia reenvio para não-admins após primeiro preenchimento
+    if (auth.role !== 'admin') {
+      const { rows: already } = await db.query(
+        `SELECT id FROM daily_responses WHERE user_id = $1 AND brief_date = $2::date AND q1 IS NOT NULL`,
+        [auth.sub, today]
+      ).catch(() => ({ rows: [] }));
+      if (already.length > 0) {
+        return json(res, 403, { error: 'Resposta já enviada. Edição disponível apenas para administradores.' });
+      }
+    }
     const { rows } = await db.query(
       `INSERT INTO daily_responses (user_id, brief_date, q1, q2, q3)
        VALUES ($1, $2::date, $3, $4, $5)
@@ -2375,16 +2555,32 @@ module.exports = async function handler(req, res) {
     const date = req.query.date || new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
     const { rows: members } = await db.query(
       `SELECT id, name, COALESCE(cargo,'') AS cargo
-       FROM users WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE ORDER BY name`
+       FROM users WHERE active = TRUE ORDER BY name`
     );
     const { rows: responses } = await db.query(
       `SELECT dr.user_id, dr.q1, dr.q2, dr.q3, dr.updated_at::text AS updated_at
        FROM daily_responses dr WHERE dr.brief_date = $1::date`,
       [date]
     ).catch(() => ({ rows: [] }));
+    // Garante que as colunas de label existam antes do SELECT (idempotente)
+    await db.query(
+      `ALTER TABLE daily_briefs
+         ADD COLUMN IF NOT EXISTS q1_label TEXT,
+         ADD COLUMN IF NOT EXISTS q2_label TEXT,
+         ADD COLUMN IF NOT EXISTS q3_label TEXT`
+    ).catch(() => {});
+    const { rows: briefRows } = await db.query(
+      `SELECT content, brief_date::text AS brief_date,
+              COALESCE(q1_label, 'O que fechei ontem?')        AS q1_label,
+              COALESCE(q2_label, 'O que estou tocando hoje?')  AS q2_label,
+              COALESCE(q3_label, 'Tem algum bloqueio?')        AS q3_label
+       FROM daily_briefs WHERE brief_date = $1::date LIMIT 1`,
+      [date]
+    ).catch(() => ({ rows: [] }));
     const respMap = new Map(responses.map(r => [Number(r.user_id), r]));
     return json(res, 200, {
       date,
+      brief: briefRows[0] || null,
       members: members.map(m => ({
         id: m.id, name: m.name, cargo: m.cargo,
         responded: respMap.has(Number(m.id)),

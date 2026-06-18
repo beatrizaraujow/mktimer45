@@ -1,13 +1,64 @@
 const db = require('../_lib/db');
 const { requireAuth } = require('../_lib/auth');
 const { json, methodNotAllowed } = require('../_lib/http');
+const { getIncompleteRoutines } = require('../_lib/routineAlarm');
+const { sendWhatsApp } = require('../_lib/whatsappSend');
+
 
 module.exports = async function handler(req, res) {
   try {
+    const action = (req.query.action || '').toString();
+
+    // ── GET ?action=alarm-check — Vercel cron (CRON_SECRET) ou admin manual ──
+    if (req.method === 'GET' && action === 'alarm-check') {
+      const cronSecret = (process.env.CRON_SECRET || '').trim();
+      const authHeader = (req.headers['authorization'] || '').trim();
+      const isCron     = cronSecret && authHeader === `Bearer ${cronSecret}`;
+
+      if (!isCron) {
+        const authCheck = requireAuth(req, res);
+        if (!authCheck) return;
+        if (authCheck.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      }
+
+      // Data a verificar: parâmetro ?date= ou ontem (BRT = UTC-3)
+      const dateParam = (req.query.date || '').trim();
+      let checkDate;
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        checkDate = dateParam;
+      } else {
+        const yesterday = new Date(Date.now() - 3 * 3600000 - 86400000);
+        checkDate = yesterday.toISOString().slice(0, 10);
+      }
+
+      try {
+        const incompletes = await getIncompleteRoutines(checkDate);
+
+        if (!incompletes.length) {
+          return json(res, 200, { sent: false, reason: 'all_done', date: checkDate });
+        }
+
+        const [, mo, dy] = checkDate.split('-');
+        const dateLabel  = `${dy}/${mo}`;
+
+        const lines = incompletes.map(u =>
+          `👤 ${u.name}\n${u.routines.map(t => `- ${t}`).join('\n')}`
+        ).join('\n\n');
+
+        const message = `⚠️ Rotinas incompletas de ontem (${dateLabel}):\n\n${lines}`;
+
+        await sendWhatsApp(message);
+
+        console.log(`[alarm-check] enviado para ${checkDate}: ${incompletes.length} pessoa(s)`);
+        return json(res, 200, { sent: true, date: checkDate, incompletes });
+      } catch (e) {
+        console.error('[alarm-check]', e.message);
+        return json(res, 500, { error: e.message });
+      }
+    }
+
     const auth = requireAuth(req, res);
     if (!auth) return;
-
-    const action = (req.query.action || '').toString();
 
     // GET ?action=week-grid&from=YYYY-MM-DD&to=YYYY-MM-DD[&userId=X]
     if (req.method === 'GET' && action === 'week-grid') {
@@ -93,8 +144,15 @@ module.exports = async function handler(req, res) {
             let applies = false;
             if (r.frequency === 'daily') {
               applies = !r.applies_days || r.applies_days.length === 0 || r.applies_days.includes(dow);
+            } else if (r.frequency === 'daily-weekdays') {
+              applies = dow >= 1 && dow <= 5;
             } else if (r.frequency === 'weekly') {
               applies = !r.applies_days || r.applies_days.includes(dow);
+            } else if (r.frequency === '3x_week' || r.frequency === 'custom') {
+              applies = !r.applies_days || r.applies_days.includes(dow);
+            } else if (r.frequency === 'biweekly') {
+              const dom = Number(d.slice(8, 10));
+              applies = Array.isArray(r.applies_days) && r.applies_days.includes(dom);
             } else if (r.frequency === 'monthly') {
               const dom = Number(d.slice(8, 10));
               applies = !r.applies_days || r.applies_days.length === 0 || r.applies_days.includes(dom);
@@ -181,15 +239,20 @@ module.exports = async function handler(req, res) {
           const freq = r.frequency || 'daily';
           const days = r.applies_days; // int[] or null
           if (freq === 'daily') {
-            // all days OR weekdays only
-            if (!days) return true;
+            if (!days || !days.length) return true;
             return days.includes(dow);
           }
-          if (freq === 'weekly') {
+          if (freq === 'daily-weekdays') {
+            return dow >= 1 && dow <= 5;
+          }
+          if (freq === 'weekly' || freq === '3x_week' || freq === 'custom') {
             return !days || days.includes(dow);
           }
+          if (freq === 'biweekly') {
+            return Array.isArray(days) && days.includes(dayOfMonth);
+          }
           if (freq === 'monthly') {
-            return !days || days.includes(dayOfMonth);
+            return !days || !days.length || days.includes(dayOfMonth);
           }
           return true;
         });
@@ -214,6 +277,7 @@ module.exports = async function handler(req, res) {
       try {
         const result = await db.query(
           `SELECT ur.id, ur.title, ur.description, ur.points, ur.sort_order,
+                  ur.frequency, ur.applies_days, ur.company,
                   (SELECT COUNT(*) FROM routine_completions rc
                    WHERE rc.routine_id = ur.id AND rc.completed_date = $2) > 0 AS done_today
            FROM user_routines ur
@@ -253,6 +317,144 @@ module.exports = async function handler(req, res) {
         return json(res, 200, { days: result.rows, totalPts });
       } catch (e) {
         if (e.code === '42P01') return json(res, 200, { days: [], totalPts: 0 });
+        throw e;
+      }
+    }
+
+    // GET ?action=monthly-member-history&months=N[&company=X]  (admin only)
+    // Returns last N months with per-member done/total/pct — real data only
+    if (req.method === 'GET' && action === 'monthly-member-history') {
+      if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const periodType = ['day','week','month'].includes(req.query.period) ? req.query.period : 'month';
+      const maxN = periodType === 'day' ? 90 : periodType === 'week' ? 26 : 12;
+      const defaultN = periodType === 'day' ? 14 : periodType === 'week' ? 8 : 7;
+      const nPeriods = Math.min(Math.max(parseInt(req.query.periods || req.query.months || defaultN, 10), 1), maxN);
+      const targetCompany = (req.query.company || '').trim() || null;
+
+      try {
+        const usersRes = await db.query(
+          `SELECT id, name FROM users
+           WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE
+           ORDER BY name`
+        );
+        const users = usersRes.rows.map(r => ({ id: Number(r.id), name: r.name }));
+        if (!users.length) return json(res, 200, { months: [] });
+
+        const colCheck = await db.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_name = 'user_routines'
+             AND column_name IN ('frequency','applies_days')`
+        );
+        const cols = new Set(colCheck.rows.map(r => r.column_name));
+        const frequencyCol = cols.has('frequency')    ? 'ur.frequency'    : "'daily'::text AS frequency";
+        const appliesDCol  = cols.has('applies_days') ? 'ur.applies_days' : 'NULL::int[] AS applies_days';
+
+        // Build period ranges based on periodType
+        const now = new Date();
+        const PT_MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const periodRanges = [];
+
+        if (periodType === 'month') {
+          for (let i = nPeriods - 1; i >= 0; i--) {
+            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+            const y = d.getUTCFullYear(), m = d.getUTCMonth();
+            const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+            const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
+            const to   = `${y}-${String(m+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+            periodRanges.push({ from, to, label: `${PT_MONTHS[m]} ${String(y).slice(2)}` });
+          }
+        } else if (periodType === 'week') {
+          const dow = now.getUTCDay() || 7;
+          const thisMon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow + 1));
+          for (let i = nPeriods - 1; i >= 0; i--) {
+            const mon = new Date(thisMon); mon.setUTCDate(thisMon.getUTCDate() - i * 7);
+            const sun = new Date(mon);     sun.setUTCDate(mon.getUTCDate() + 6);
+            const from = mon.toISOString().slice(0, 10);
+            const to   = sun.toISOString().slice(0, 10);
+            const [, mo, dy] = from.split('-');
+            periodRanges.push({ from, to, label: `${dy}/${mo}` });
+          }
+        } else {
+          const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+          for (let i = nPeriods - 1; i >= 0; i--) {
+            const d = new Date(today); d.setUTCDate(today.getUTCDate() - i);
+            const dateStr = d.toISOString().slice(0, 10);
+            const [, mo, dy] = dateStr.split('-');
+            periodRanges.push({ from: dateStr, to: dateStr, label: `${dy}/${mo}` });
+          }
+        }
+
+        const globalFrom = periodRanges[0].from;
+        const globalTo   = periodRanges[periodRanges.length - 1].to;
+        const allUids    = users.map(u => u.id);
+
+        const routinesRes = await db.query(
+          `SELECT ur.id, ur.user_id, ur.company, ${frequencyCol}, ${appliesDCol}
+           FROM user_routines ur
+           WHERE ur.user_id = ANY($1::int[]) AND ur.active = TRUE
+             AND ($2::text IS NULL OR ur.company = $2)`,
+          [allUids, targetCompany]
+        );
+
+        const compRes = await db.query(
+          `SELECT rc.routine_id, rc.completed_date::text AS date
+           FROM routine_completions rc
+           JOIN user_routines ur ON ur.id = rc.routine_id
+           WHERE ur.user_id = ANY($1::int[])
+             AND rc.completed_date >= $2 AND rc.completed_date <= $3
+             AND rc.status = 'done'`,
+          [allUids, globalFrom, globalTo]
+        );
+        const doneSet = new Set(compRes.rows.map(r => `${r.routine_id}_${r.date}`));
+
+        const result = periodRanges.map(({ from, to, label }, periodIdx) => {
+          const dates = [];
+          const cur = new Date(`${from}T00:00:00Z`);
+          const end = new Date(`${to}T00:00:00Z`);
+          while (cur <= end) {
+            dates.push(cur.toISOString().slice(0, 10));
+            cur.setUTCDate(cur.getUTCDate() + 1);
+          }
+
+          const memberData = users.map(u => {
+            const userRoutines = routinesRes.rows.filter(r => Number(r.user_id) === u.id);
+            let total = 0, done = 0;
+            for (const r of userRoutines) {
+              for (const d of dates) {
+                const dow = new Date(`${d}T00:00:00Z`).getUTCDay() || 7;
+                const freq = r.frequency || 'daily';
+                const applyDays = r.applies_days;
+                const dom = Number(d.slice(8, 10));
+                let applies = false;
+                if (freq === 'daily')              applies = !applyDays || applyDays.includes(dow);
+                else if (freq === 'daily-weekdays') applies = dow >= 1 && dow <= 5;
+                else if (freq === 'weekly')         applies = !applyDays || applyDays.includes(dow);
+                else if (freq === '3x_week')        applies = !applyDays || applyDays.includes(dow);
+                else if (freq === 'custom')         applies = !applyDays || applyDays.includes(dow);
+                else if (freq === 'biweekly')       applies = Array.isArray(applyDays) && applyDays.includes(dom);
+                else if (freq === 'monthly')        applies = !applyDays || applyDays.length === 0 || applyDays.includes(dom);
+                if (!applies) continue;
+                total++;
+                if (doneSet.has(`${r.id}_${d}`)) done++;
+              }
+            }
+            // Apenas dado real: sem mock. null = sem rotinas no período (sem barra).
+            const pct = total > 0
+              ? (done > 0 ? Math.round((done / total) * 100) : 0)
+              : null;
+            return { userId: u.id, name: u.name, done, total, pct };
+          });
+
+          // avg: conta todos os pct não-nulos (inclui 0% para mostrar realidade)
+          const validPcts = memberData.map(m => m.pct).filter(p => p !== null);
+          const avg = validPcts.length ? Math.round(validPcts.reduce((a, b) => a + b, 0) / validPcts.length) : null;
+
+          return { label, from, to, members: memberData, avg };
+        });
+
+        return json(res, 200, { months: result });
+      } catch (e) {
+        if (e.code === '42P01') return json(res, 200, { months: [] });
         throw e;
       }
     }
@@ -343,6 +545,7 @@ module.exports = async function handler(req, res) {
               const dom2 = Number(d.slice(8, 10));
               if (freq === 'daily')   applies = !applyDays || applyDays.includes(dow2);
               if (freq === 'weekly')  applies = !applyDays || applyDays.includes(dow2);
+              if (freq === 'biweekly') applies = Array.isArray(applyDays) && applyDays.includes(dom2);
               if (freq === 'monthly') applies = !applyDays || applyDays.length === 0 || applyDays.includes(dom2);
               if (!applies) continue;
               total++;
@@ -401,7 +604,7 @@ module.exports = async function handler(req, res) {
              active      = COALESCE($9, active)
            WHERE id = $1`,
           [rid, title?.trim() || null, observation?.trim() || null, company?.trim() || null,
-           frequency || null, Array.isArray(applies_days) ? applies_days : null,
+           frequency || null, Array.isArray(applies_days) && applies_days.length ? applies_days : null,
            points ? Number(points) : null, sort_order != null ? Number(sort_order) : null,
            active != null ? Boolean(active) : null,
            userId ? Number(userId) : null]
@@ -436,15 +639,12 @@ module.exports = async function handler(req, res) {
         }
 
         if (reqStatus === 'remove') {
-          // Membros não podem desfazer rotinas já concluídas
-          if (auth.role !== 'admin') {
-            const existing = await db.query(
-              `SELECT status FROM routine_completions WHERE routine_id = $1 AND completed_date = $2`,
-              [rid, date]
-            );
-            if (existing.rows[0]?.status === 'done') {
-              return json(res, 403, { error: 'Não é possível desfazer uma rotina já concluída.' });
-            }
+          const existing = await db.query(
+            `SELECT status FROM routine_completions WHERE routine_id = $1 AND completed_date = $2`,
+            [rid, date]
+          );
+          if (existing.rows[0]?.status === 'done') {
+            return json(res, 403, { error: 'Rotinas concluídas não podem ser desfeitas.' });
           }
           await db.query(
             `DELETE FROM routine_completions WHERE routine_id = $1 AND completed_date = $2`,
@@ -525,9 +725,10 @@ module.exports = async function handler(req, res) {
             const freq = r.frequency || 'daily';
             const days = r.applies_days;
             let applies = false;
-            if (freq === 'daily')   applies = !days || days.includes(dow);
-            if (freq === 'weekly')  applies = !days || days.includes(dow);
-            if (freq === 'monthly') applies = !days || days.includes(dom);
+            if (freq === 'daily')    applies = !days || days.includes(dow);
+            if (freq === 'weekly')   applies = !days || days.includes(dow);
+            if (freq === 'biweekly') applies = Array.isArray(days) && days.includes(dom);
+            if (freq === 'monthly')  applies = !days || days.includes(dom);
             if (!applies) continue;
 
             const key = `${r.id}_${d}`;
