@@ -606,7 +606,7 @@ module.exports = async function handler(req, res) {
           [rid, title?.trim() || null, observation?.trim() || null, company?.trim() || null,
            frequency || null, Array.isArray(applies_days) && applies_days.length ? applies_days : null,
            points ? Number(points) : null, sort_order != null ? Number(sort_order) : null,
-           active != null ? Boolean(active) : null,
+           typeof active === 'boolean' ? active : null,
            userId ? Number(userId) : null]
         );
         return json(res, 200, { ok: true });
