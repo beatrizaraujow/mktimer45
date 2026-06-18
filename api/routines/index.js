@@ -388,26 +388,42 @@ module.exports = async function handler(req, res) {
         const globalTo   = periodRanges[periodRanges.length - 1].to;
         const allUids    = users.map(u => u.id);
 
+        // Include active routines + inactive routines with completions in the range
         const routinesRes = await db.query(
           `SELECT ur.id, ur.user_id, ur.company, ${frequencyCol}, ${appliesDCol}
            FROM user_routines ur
-           WHERE ur.user_id = ANY($1::int[]) AND ur.active = TRUE
-             AND ($2::text IS NULL OR ur.company = $2)`,
-          [allUids, targetCompany]
+           WHERE ur.user_id = ANY($1::int[])
+             AND ($2::text IS NULL OR ur.company = $2)
+             AND (
+               ur.active = TRUE
+               OR ur.id IN (
+                 SELECT DISTINCT routine_id FROM routine_completions
+                 WHERE completed_date >= $3 AND completed_date <= $4
+               )
+             )`,
+          [allUids, targetCompany, globalFrom, globalTo]
         );
 
         const compRes = await db.query(
-          `SELECT rc.routine_id, rc.completed_date::text AS date
+          `SELECT rc.routine_id, rc.completed_date::text AS date, rc.status
            FROM routine_completions rc
            JOIN user_routines ur ON ur.id = rc.routine_id
            WHERE ur.user_id = ANY($1::int[])
-             AND rc.completed_date >= $2 AND rc.completed_date <= $3
-             AND rc.status = 'done'`,
+             AND rc.completed_date >= $2 AND rc.completed_date <= $3`,
           [allUids, globalFrom, globalTo]
         );
-        const doneSet = new Set(compRes.rows.map(r => `${r.routine_id}_${r.date}`));
+        const doneSet = new Set();
+        const engagedDates = new Map(); // routineId -> Set<date>
+        for (const row of compRes.rows) {
+          if (row.status === 'done') doneSet.add(`${row.routine_id}_${row.date}`);
+          if (!engagedDates.has(row.routine_id)) engagedDates.set(row.routine_id, new Set());
+          engagedDates.get(row.routine_id).add(row.date);
+        }
+
+        const currentPeriodFrom = periodRanges[periodRanges.length - 1].from;
 
         const result = periodRanges.map(({ from, to, label }, periodIdx) => {
+          const isCurrentPeriod = from === currentPeriodFrom;
           const dates = [];
           const cur = new Date(`${from}T00:00:00Z`);
           const end = new Date(`${to}T00:00:00Z`);
@@ -420,6 +436,11 @@ module.exports = async function handler(req, res) {
             const userRoutines = routinesRes.rows.filter(r => Number(r.user_id) === u.id);
             let total = 0, done = 0;
             for (const r of userRoutines) {
+              // Historical periods: only count routines the user engaged with in that period
+              if (!isCurrentPeriod) {
+                const rDates = engagedDates.get(r.id);
+                if (!rDates || !dates.some(d => rDates.has(d))) continue;
+              }
               for (const d of dates) {
                 const dow = new Date(`${d}T00:00:00Z`).getUTCDay() || 7;
                 const freq = r.frequency || 'daily';
@@ -506,27 +527,42 @@ module.exports = async function handler(req, res) {
         const frequencyCol  = cols.has('frequency')   ? 'ur.frequency'    : "'daily'::text AS frequency";
         const appliesDCol   = cols.has('applies_days')? 'ur.applies_days' : 'NULL::int[] AS applies_days';
 
+        // Include active routines + inactive routines that have completions in the range
         const routinesRes = await db.query(
           `SELECT ur.id, ur.user_id, ${frequencyCol}, ${appliesDCol}
            FROM user_routines ur
-           WHERE ur.user_id = ANY($1::int[]) AND ur.active = TRUE`,
-          [targetUids]
+           WHERE ur.user_id = ANY($1::int[]) AND (
+             ur.active = TRUE
+             OR ur.id IN (
+               SELECT DISTINCT routine_id FROM routine_completions
+               WHERE completed_date >= $2 AND completed_date <= $3
+             )
+           )`,
+          [targetUids, globalFrom, globalTo]
         );
 
-        // Get all completions (status=done only) in range
+        // Get all completions (done + skip) in range
         const compRes = await db.query(
-          `SELECT rc.routine_id, rc.completed_date::text AS date
+          `SELECT rc.routine_id, rc.completed_date::text AS date, rc.status
            FROM routine_completions rc
            JOIN user_routines ur ON ur.id = rc.routine_id
            WHERE ur.user_id = ANY($1::int[])
-             AND rc.completed_date >= $2 AND rc.completed_date <= $3
-             AND rc.status = 'done'`,
+             AND rc.completed_date >= $2 AND rc.completed_date <= $3`,
           [targetUids, globalFrom, globalTo]
         );
-        const doneSet = new Set(compRes.rows.map(r => `${r.routine_id}_${r.date}`));
+        const doneSet = new Set();
+        const engagedDates = new Map(); // routineId -> Set<date> (any completion)
+        for (const row of compRes.rows) {
+          if (row.status === 'done') doneSet.add(`${row.routine_id}_${row.date}`);
+          if (!engagedDates.has(row.routine_id)) engagedDates.set(row.routine_id, new Set());
+          engagedDates.get(row.routine_id).add(row.date);
+        }
+
+        const currentWeekFrom = weekRanges[weekRanges.length - 1].from;
 
         // For each week, compute applicable slots and done slots
         const result = weekRanges.map(({ from, to }) => {
+          const isCurrentWeek = from === currentWeekFrom;
           const dates = [];
           const cur = new Date(`${from}T00:00:00Z`);
           const end = new Date(`${to}T00:00:00Z`);
@@ -537,6 +573,11 @@ module.exports = async function handler(req, res) {
 
           let total = 0, done = 0;
           for (const r of routinesRes.rows) {
+            // Historical weeks: only count routines the user actually engaged with that week
+            if (!isCurrentWeek) {
+              const rDates = engagedDates.get(r.id);
+              if (!rDates || !dates.some(d => rDates.has(d))) continue;
+            }
             for (const d of dates) {
               const dow2 = new Date(`${d}T00:00:00Z`).getUTCDay() || 7;
               const freq = r.frequency || 'daily';
