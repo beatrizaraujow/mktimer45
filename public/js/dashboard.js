@@ -1379,6 +1379,7 @@ function initSidebarPanels() {
         if (wrap) wrap.style.display = '';
         loadAdmDailyResponses();
         renderAdmDailyPublishForm();
+        loadDailyGateAdm();
       }
     }
     if (panelName === 'calendario')   renderCalendarTasks();
@@ -1669,7 +1670,122 @@ async function init() {
   initMobileNav();
 
   hideLoadingOverlay();
-  await refreshAll();
+  await Promise.all([refreshAll(), checkDailyGate()]);
+}
+
+// ── Daily Gate ─────────────────────────────────────────────────────────
+
+function _brazilHour() {
+  return (new Date().getUTCHours() - 3 + 24) % 24;
+}
+
+async function checkDailyGate() {
+  if (!userProfile || userProfile.role === 'admin') return;
+  try {
+    const { answered } = await api('/api/focus?action=daily-gate-status');
+    if (!answered) showDailyGate();
+  } catch (_) {
+    // falha silenciosa — não bloqueia por erro de rede
+  }
+}
+
+function showDailyGate() {
+  const overlay = document.getElementById('dailyGateOverlay');
+  if (!overlay) return;
+  overlay.style.display = '';
+
+  const brazilNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const [y, m, d] = brazilNow.toISOString().slice(0, 10).split('-');
+  document.getElementById('dgDate').textContent = `${d}/${m}/${y}`;
+
+  overlay.querySelectorAll('input[name="dgBlocker"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('dgBlockerDetail').style.display =
+        radio.value === 'yes' ? '' : 'none';
+    });
+  });
+
+  document.getElementById('dgForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn     = document.getElementById('dgSubmitBtn');
+    const errorEl       = document.getElementById('dgError');
+    const yesterday     = document.getElementById('dgYesterday').value.trim();
+    const today         = document.getElementById('dgToday').value.trim();
+    const blockerRadio  = overlay.querySelector('input[name="dgBlocker"]:checked');
+    const blocker       = blockerRadio?.value === 'yes';
+    const blockerDetail = document.getElementById('dgBlockerDetail').value.trim();
+
+    errorEl.style.display = 'none';
+    submitBtn.disabled    = true;
+    submitBtn.textContent = 'Enviando…';
+    try {
+      await api('/api/focus?action=daily-gate-submit', {
+        method: 'POST',
+        body: JSON.stringify({ answers: { yesterday, today, blocker, blockerDetail } }),
+      });
+      overlay.style.display = 'none';
+    } catch (err) {
+      errorEl.textContent   = err.message || 'Erro ao enviar. Tente novamente.';
+      errorEl.style.display = '';
+      submitBtn.disabled    = false;
+      submitBtn.textContent = 'Enviar daily';
+    }
+  });
+}
+
+// Admin — painel de respostas Daily Gate
+let _dgAdmDate = null;
+async function loadDailyGateAdm(date) {
+  const wrap = document.getElementById('dgAdmWrap');
+  const grid = document.getElementById('dgAdmGrid');
+  if (!wrap || !grid) return;
+  wrap.style.display = '';
+
+  if (!_dgAdmDate) {
+    _dgAdmDate = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const input = document.getElementById('dgAdmDate');
+    if (input) {
+      input.value = _dgAdmDate;
+      input.addEventListener('change', e => loadDailyGateAdm(e.target.value));
+    }
+  }
+  if (date) _dgAdmDate = date;
+
+  grid.innerHTML = '<p style="color:#5a6280;font-size:13px;padding:8px 0">Carregando…</p>';
+  try {
+    const { responses, pending } = await api(`/api/focus?action=daily-gate-list&date=${_dgAdmDate}`);
+    let html = '';
+
+    if (pending.length) {
+      html += `<p style="font-size:12px;font-weight:600;color:#f87171;margin:0 0 8px">Pendentes (${pending.length})</p>
+               <div class="dg-pending-chips">
+                 ${pending.map(u => `<span class="dg-pending-chip">${u.name}</span>`).join('')}
+               </div>`;
+    }
+
+    if (responses.length) {
+      html += responses.map(r => {
+        const time    = (r.submitted_at || '').slice(11, 16);
+        const blocker = r.answers.blocker
+          ? `<div class="dg-adm-blocker"><strong>Impedimento:</strong> ${r.answers.blockerDetail || '—'}</div>` : '';
+        return `<div class="dg-adm-card">
+          <div class="dg-adm-card-header">
+            <span class="dg-adm-name">${r.name}</span>
+            <span class="dg-adm-time">${time}</span>
+          </div>
+          <p class="dg-adm-line"><strong>Ontem:</strong> ${r.answers.yesterday}</p>
+          <p class="dg-adm-line"><strong>Hoje:</strong> ${r.answers.today}</p>
+          ${blocker}
+        </div>`;
+      }).join('');
+    } else if (!pending.length) {
+      html = '<p style="color:#5a6280;font-size:13px;padding:8px 0">Nenhuma resposta ainda.</p>';
+    }
+
+    grid.innerHTML = html;
+  } catch (err) {
+    grid.innerHTML = `<p style="color:#f87171;font-size:13px">${err.message}</p>`;
+  }
 }
 
 function initMobileNav() {
@@ -3366,6 +3482,65 @@ function renderPtsTable() {
             ['Taxa UGC > 20% na semana', 20],
             ['Taxa UGC > 25% na semana', 30],
             ['Taxa UGC > 30% na semana', 40],
+          ],
+        },
+      ],
+    },
+    {
+      role: 'Analista de Marketing',
+      members: ['Gustavo'],
+      color: '#34d399',
+      groups: [
+        {
+          label: 'Conteúdo & Copy',
+          items: [
+            ['Planejamento semanal de conteúdo — Carbone Educação', 8],
+            ['Planejamento semanal de conteúdo — Carbone Club', 8],
+            ['Roteiro de podcast (tema + perguntas completo)', 5],
+            ['Roteiro de vídeo institucional', 8],
+            ['Briefing de material para time de criação (por briefing)', 2],
+            ['Copy / legenda para post', 1],
+            ['Roteiro de entrevista / depoimento de evento', 3],
+            ['Roteiro de hotseat', 3],
+          ],
+        },
+        {
+          label: 'Gestão de Podcast',
+          items: [
+            ['Organização completa de episódio (convite + confirmação + roteiro + live)', 6],
+            ['Confirmação de convidado com 7+ dias de antecedência', 2],
+            ['Upload de episódio no YouTube (editado + descrição + thumb)', 3],
+          ],
+        },
+        {
+          label: 'Gestão de Eventos',
+          items: [
+            ['Criação de checklist de evento — novo modelo (uma vez por tipo)', 10],
+            ['Checklist 100% executado — Class / Academy Class', 10],
+            ['Checklist 100% executado — Conselho', 5],
+            ['Checklist 100% executado — In Company', 6],
+            ['Checklist 100% executado — Summit', 20],
+            ['Coleta de vídeos institucionais de patrocinadores', 2],
+            ['Plano de audiovisual de evento (TVs, LEDs, telão)', 4],
+            ['Coleta e organização de conteúdo pós-evento', 3],
+            ['Upload de apresentações do Class no YouTube', 3],
+          ],
+        },
+        {
+          label: 'Assessoria de Imprensa',
+          items: [
+            ['Envio semanal de sugestões de pauta (toda segunda)', 3],
+            ['Check-in semanal do que saiu + lançamento na planilha (toda sexta)', 2],
+          ],
+        },
+        {
+          label: 'Gestão Operacional',
+          items: [
+            ['Identidade visual briefada e aprovada com Pedro', 4],
+            ['Solicitação e confirmação de storymaker freelancer', 2],
+            ['Alinhamento de conteúdo de patrocinadores com Josué', 2],
+            ['Confirmação de layouts com Pedro', 1],
+            ['Criação da planilha de acompanhamento (blog + assessoria) — uma vez', 8],
           ],
         },
       ],
