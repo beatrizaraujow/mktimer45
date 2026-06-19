@@ -830,8 +830,9 @@ module.exports = async function handler(req, res) {
 
     // Conclusões de rotina da semana (para isRoutineBased — Gustavo/Malu/Zion)
     let routinePtsMap = new Map();
-    let routineExpTodayByUid = {}; // pts esperados de rotina para HOJE (meta diária)
-    let routineExpWeekByUid  = {}; // pts esperados de rotina para a SEMANA (meta semanal)
+    let routineExpTodayByUid  = {}; // pts esperados de rotina para HOJE (meta diária)
+    let routineExpWeekByUid   = {}; // pts esperados de rotina para a SEMANA (meta semanal)
+    let routineCountWeekByUid = {}; // slots esperados de rotina para a SEMANA (contagem)
     try {
       const [routinePtsRes, routineConfigRes] = await Promise.all([
         db.query(
@@ -873,7 +874,10 @@ module.exports = async function handler(req, res) {
           if (freq === 'daily')        applies = !days.length || days.includes(dow);
           else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
           else if (freq === 'monthly') applies = !days.length || days.includes(dom);
-          if (applies) routineExpWeekByUid[uid] = (routineExpWeekByUid[uid] || 0) + pts;
+          if (applies) {
+            routineExpWeekByUid[uid]   = (routineExpWeekByUid[uid]   || 0) + pts;
+            routineCountWeekByUid[uid] = (routineCountWeekByUid[uid] || 0) + 1;
+          }
         }
       }
     } catch { /* table may not exist yet */ }
@@ -920,13 +924,27 @@ module.exports = async function handler(req, res) {
         ? Math.round((ptsToday_eff / effectiveDailyGoal) * 100)
         : (totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0);
 
-      // Coeficiente — Regras do Sistema (PDF)
-      // Grupo Pontos:   pts/meta×50 + done/total×35 + horas/16h×15
-      // isRoutineBased: rotinaPts/meta×70 + horas/16h×30
-      const _ptsRate  = effectiveWeeklyGoal > 0 ? ptsSemana / effectiveWeeklyGoal : 0;
-      const _taskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
-      const _horaRate = horas / 16;
-      const coef = Math.round((_ptsRate * 0.50 + _taskRate * 0.35 + _horaRate * 0.15) * 100);
+      // Coeficiente COR v2
+      // Tipo A (sem rotina): meta×55% + tasks×30% + horas×15%
+      // Tipo B (com rotina): rotina×40% + tasks×30% + meta×15% + horas×15%
+      const _routineTotal = routineCountWeekByUid[uid] || 0;
+      const _routineDone  = routineData.routine_done;
+      const _hasRoutine   = _routineTotal > 0;
+
+      const _metaScore = effectiveWeeklyGoal > 0 ? ptsSemana / effectiveWeeklyGoal : 0;
+      const _taskScore = totalSemana > 0 ? Math.min(doneSemana / totalSemana, 1.0) : 0;
+      const _horaScore = Math.min(horas / 40, 1.0);
+      const _rotScore  = _hasRoutine ? Math.min(_routineDone / _routineTotal, 1.0) : 0;
+
+      const _rawScore = _hasRoutine
+        ? _rotScore * 0.40 + _metaScore * 0.15 + _taskScore * 0.30 + _horaScore * 0.15
+        : _metaScore * 0.55 + _taskScore * 0.30 + _horaScore * 0.15;
+
+      // Penalidade: tasks sem pontuação (único campo disponível no DB)
+      const _missingPenalty = Math.min(
+        (tasksPerUser.get(uid) || []).filter(t => !t.points).length, 10
+      );
+      const coef = Math.round(Math.max(0, _rawScore * 100 - _missingPenalty));
 
       const metaStatus = ptsSemana >= weeklyGoal120 ? 'above_120'
                        : ptsSemana >= effectiveWeeklyGoal ? 'above_100'
@@ -1478,14 +1496,43 @@ module.exports = async function handler(req, res) {
       const weekLabel = `Sem ${weekNum}`;
       // Usa horas ClickUp se disponíveis; fallback para banco local
       const horasEfetivas = horasCuTotal > 0 ? horasCuTotal : horas;
-      // Coeficiente — Regras do Sistema (PDF)
-      // Grupo Pontos:   pts/meta×50% + done/total×35% + horas/ref×15%
-      // horasRef: sempre semanal (16h) — KPI não varia com o filtro de data ativo
-      const _cuTaskRate = totalSemana > 0 ? doneSemana / totalSemana : 0;
-      const horasRef    = 16;
-      const _cuHoraRate = horasEfetivas / horasRef; // sem cap — pode ultrapassar 100%
-      const _cuPtsRate  = metaForPeriod > 0 ? ptsParaBarra / metaForPeriod : 0;
-      const coef        = Math.round((_cuPtsRate * 0.50 + _cuTaskRate * 0.35 + _cuHoraRate * 0.15) * 100);
+
+      // Coeficiente COR v2
+      // Tipo A (sem rotina): meta×55% + tasks×30% + horas×15%
+      // Tipo B (com rotina): rotina×40% + tasks×30% + meta×15% + horas×15%
+      const _cuHasRoutine = routineTotal > 0;
+      const _cuMetaScore  = metaForPeriod > 0 ? ptsParaBarra / metaForPeriod : 0;
+      const _cuTaskScore  = totalSemana > 0 ? Math.min(doneSemana / totalSemana, 1.0) : 0;
+      const _cuHoraScore  = Math.min(horasEfetivas / 40, 1.0);
+      const _cuRotScore   = _cuHasRoutine ? Math.min(routineDone / routineTotal, 1.0) : 0;
+
+      const _cuRaw = _cuHasRoutine
+        ? _cuRotScore * 0.40 + _cuMetaScore * 0.15 + _cuTaskScore * 0.30 + _cuHoraScore * 0.15
+        : _cuMetaScore * 0.55 + _cuTaskScore * 0.30 + _cuHoraScore * 0.15;
+
+      // Melhorias adicionais
+      const atrasadasCount = tasks.filter(t => {
+        if (cuTaskDone(t)) return false;
+        const dueDateMs = Number(t.due_date || 0);
+        if (!dueDateMs) return false;
+        return new Date(dueDateMs).toISOString().slice(0, 10) < todayStr;
+      }).length;
+      const _cuEmpresasDone = new Set(
+        tasks.filter(t => cuTaskDone(t))
+             .map(t => resolveEmpresa(t))
+             .filter(e => e && e !== 'Não classificado')
+      );
+      const clientDiversityBonus = _cuEmpresasDone.size >= 3 ? 6
+        : _cuEmpresasDone.size >= 2 ? 3
+        : 0;
+
+      let _cuAdjPct = _cuRaw * 100;
+      _cuAdjPct -= Math.min(missingFieldsCount * 1, 10);
+      _cuAdjPct -= Math.min(atrasadasCount * 2, 15);
+      _cuAdjPct  = Math.max(0, _cuAdjPct);
+      _cuAdjPct += clientDiversityBonus;
+
+      const coef = Math.round(_cuAdjPct);
 
       let horasH = Math.floor(horasEfetivas);
       let horasM = Math.round((horasEfetivas - horasH) * 60);

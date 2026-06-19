@@ -2597,7 +2597,7 @@ function renderMemberCard(member) {
       <div class="mc-stat-sep"></div>
       <div class="mc-stat">
         <span class="mc-stat-val" style="color:${weekPctColor(member.coef)}">${member.coef}%</span>
-        <span class="mc-stat-lbl" title="Coeficiente da semana atual">Coef. semana</span>
+        <span class="mc-stat-lbl" title="COR v2 — meta + tasks + horas (+ rotina se atribuída). Penaliza tasks sem pts e atrasadas.">Coef. semana</span>
       </div>
     </div>
 
@@ -2771,7 +2771,7 @@ function renderRankingFromMembers(members, weekOffset) {
       <div class="rk-header">
         <div>
           <div class="rk-title">${IC.trophy} Ranking Semanal</div>
-          <div class="rk-subtitle">${periodLabel} · Ordenado por % meta · Pódio para coef ≥ 100%</div>
+          <div class="rk-subtitle">${periodLabel} · COR v2 · Sem rotina: meta 55% + tasks 30% + horas 15% · Com rotina: rotina 40% + tasks 30% + meta 15% + horas 15%</div>
         </div>
         <div class="rk-header-right">
           <div class="rk-week-nav">
