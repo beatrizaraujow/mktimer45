@@ -8057,7 +8057,6 @@ async function renderAdmDailyPublishForm() {
       </details>
       <div class="adp-actions">
         <button id="adpPublishBtn" class="adp-btn-publish">Publicar Daily</button>
-        <button id="admDailyNotifyBtn" class="adp-btn-notify">Notificar equipe via WhatsApp</button>
       </div>
       <p id="adpMsg" class="adp-msg"></p>
     </div>`;
