@@ -69,12 +69,8 @@ module.exports = async function handler(req, res) {
       const mo = String(today.getUTCMonth() + 1).padStart(2, '0');
 
       const ficticios = [
-        { name: 'Anny Beatriz',    routines: ['Postagem no Instagram', 'Revisão de conteúdo semanal'] },
-        { name: 'Gustavo Rocha',   routines: ['Envio de relatório de tráfego'] },
-        { name: 'Klenis Baez',     routines: ['Atualização do CRM', 'Follow-up de leads'] },
+        { name: 'Gustavo Rocha',   routines: ['Envio de relatório de tráfego', 'Revisão de pauta semanal'] },
         { name: 'Maria Luiza',     routines: ['Resposta de comentários', 'Planejamento de pauta'] },
-        { name: 'Samuel Melo',     routines: ['Check de métricas de anúncios'] },
-        { name: 'Thiago',          routines: ['Alinhamento com cliente', 'Envio de proposta pendente'] },
         { name: 'Zion Bagatoli',   routines: ['Revisão de briefing', 'Aprovação de arte'] },
       ];
 
