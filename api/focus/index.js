@@ -2589,6 +2589,80 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // ── Daily Gate ────────────────────────────────────────────────────────
+  function brazilDateDG() {
+    return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+
+  // GET ?action=daily-gate-status
+  if (req.method === 'GET' && action === 'daily-gate-status') {
+    try {
+      const today = brazilDateDG();
+      const r = await db.query(
+        `SELECT id FROM daily_responses WHERE user_id = $1 AND response_date = $2`,
+        [auth.sub, today]
+      );
+      return json(res, 200, { answered: r.rowCount > 0, date: today });
+    } catch (e) {
+      if (e.code === '42P01') return json(res, 200, { answered: false, date: brazilDateDG() });
+      throw e;
+    }
+  }
+
+  // POST ?action=daily-gate-submit
+  if (req.method === 'POST' && action === 'daily-gate-submit') {
+    const { answers } = req.body || {};
+    const yesterday    = String(answers?.yesterday    || '').trim();
+    const todayTxt     = String(answers?.today        || '').trim();
+    const blocker      = Boolean(answers?.blocker);
+    const blockerDetail = String(answers?.blockerDetail || '').trim();
+    if (!yesterday || !todayTxt) {
+      return json(res, 400, { error: 'Preencha "O que fez ontem" e "O que fará hoje".' });
+    }
+    if (blocker && !blockerDetail) {
+      return json(res, 400, { error: 'Descreva o impedimento.' });
+    }
+    try {
+      const dateStr = brazilDateDG();
+      await db.query(
+        `INSERT INTO daily_responses (user_id, response_date, answers)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, response_date)
+         DO UPDATE SET answers = $3, submitted_at = NOW()`,
+        [auth.sub, dateStr, JSON.stringify({ yesterday, today: todayTxt, blocker, blockerDetail })]
+      );
+      return json(res, 200, { ok: true });
+    } catch (e) {
+      if (e.code === '42P01') return json(res, 500, { error: 'Tabela daily_responses não encontrada. Execute a migration.' });
+      throw e;
+    }
+  }
+
+  // GET ?action=daily-gate-list&date=YYYY-MM-DD  (admin only)
+  if (req.method === 'GET' && action === 'daily-gate-list') {
+    if (auth.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+    const date = (req.query.date || '').trim() || brazilDateDG();
+    try {
+      const [usersRes, respRes] = await Promise.all([
+        db.query(`SELECT id, name FROM users WHERE active = TRUE AND role != 'admin' ORDER BY name`),
+        db.query(
+          `SELECT dr.user_id, u.name, dr.answers, dr.submitted_at::text AS submitted_at
+           FROM daily_responses dr
+           JOIN users u ON u.id = dr.user_id
+           WHERE dr.response_date = $1
+           ORDER BY dr.submitted_at`,
+          [date]
+        ),
+      ]);
+      const respondedIds = new Set(respRes.rows.map(r => Number(r.user_id)));
+      const pending      = usersRes.rows.filter(u => !respondedIds.has(Number(u.id)));
+      return json(res, 200, { date, responses: respRes.rows, pending });
+    } catch (e) {
+      if (e.code === '42P01') return json(res, 200, { date, responses: [], pending: [] });
+      throw e;
+    }
+  }
+
   return methodNotAllowed(res, ['GET', 'POST', 'PATCH']);
   } catch (err) {
     console.error('[focus] error:', err.message, err.stack);

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/Favicon/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
@@ -20,6 +20,15 @@
     </div>
 
     <div class="app-shell" style="visibility:hidden">
+
+      <!-- ── Mobile top bar (visible only on ≤480px) ───────────────── -->
+      <div class="mobile-topbar" id="mobileTopbar">
+        <button type="button" class="hamburger-btn" id="hamburgerBtn" aria-label="Abrir menu" aria-expanded="false" aria-controls="mainNav">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="mobile-topbar-title">MKT Hub</span>
+      </div>
+      <div class="nav-overlay" id="navOverlay" aria-hidden="true"></div>
 
       <!-- ── Top Navigation ──────────────────────────────────────────── -->
       <nav class="top-nav" id="mainNav">
@@ -39,7 +48,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Histórico</span>
           </button>
-          <button type="button" class="nav-tab" data-panel="daily-adm" id="dailyAdmNavTab" role="tab" style="display:none">
+          <button type="button" class="nav-tab" data-panel="daily-adm" id="dailyAdmNavTab" role="tab">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             <span>Daily</span>
           </button>
@@ -434,6 +443,7 @@
             </div>
           </div>
 
+          <div id="ucCoinsWrap"></div>
           <div id="histWeeklyWrap"><p style="padding:24px;color:#5a6280;font-size:13px">Carregando histórico...</p></div>
 
         </section>
@@ -520,8 +530,11 @@
               </div>
             </div>
           </div>
+          <!-- Publicar brief (admin) -->
+          <div id="admDailyPublishWrap" style="padding:0 24px 8px"></div>
+
           <!-- Respostas da equipe (ADM) -->
-          <div id="admDailyResponsesWrap" style="padding:0 24px 24px">
+          <div id="admDailyResponsesWrap" style="padding:0 24px 24px; display:none">
             <div class="adr-header">
               <h3 class="adr-title">Respostas da Equipe</h3>
               <input type="date" id="adrDateInput" class="adr-date-input" />
@@ -529,12 +542,25 @@
             <div class="adr-person-bar" id="adrPersonBar"></div>
             <div id="adrGrid" class="adr-grid"></div>
           </div>
+
+          <!-- Daily Gate — respostas do standup matinal (ADM) -->
+          <div id="dgAdmWrap" style="padding:0 24px 32px;display:none">
+            <div class="adr-header" style="margin-bottom:16px">
+              <h3 class="adr-title">Daily de Hoje — Standup</h3>
+              <input type="date" id="dgAdmDate" class="adr-date-input" />
+            </div>
+            <div id="dgAdmGrid"></div>
+          </div>
         </section>
 
         <!-- ── Versão ADM ─────────────────────────────────────────────── -->
         <section class="adm-panel" data-lockable="true" data-panel-view="adm" hidden>
+          <div id="admPanelHdr"></div>
+          <div id="smeBalanceWrap"></div>
           <div id="admHistoryWrap"></div>
           <div id="snapValidationWrap"></div>
+          <div id="smeEditWrap"></div>
+          <div id="smeHistoryWrap"></div>
         </section>
 
       </main>
@@ -757,6 +783,41 @@
         <div class="snap-week-list" id="snapWeekList"></div>
       </div>
     </dialog>
+
+    <!-- Daily Gate — overlay bloqueante (não-admins, a partir das 9h) -->
+    <div id="dailyGateOverlay" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.92);overflow-y:auto">
+      <div class="dg-wrap">
+        <div class="dg-modal">
+          <div class="dg-header">
+            <span class="dg-sun">☀️</span>
+            <div>
+              <h2 class="dg-title">Daily — <span id="dgDate"></span></h2>
+              <p class="dg-sub">Preencha antes de começar o dia</p>
+            </div>
+          </div>
+          <form id="dgForm" class="dg-form">
+            <div class="dg-field">
+              <label class="dg-label" for="dgYesterday">O que você fez ontem?</label>
+              <textarea id="dgYesterday" class="dg-textarea" rows="3" placeholder="Descreva as principais atividades de ontem…" required></textarea>
+            </div>
+            <div class="dg-field">
+              <label class="dg-label" for="dgToday">O que vai fazer hoje?</label>
+              <textarea id="dgToday" class="dg-textarea" rows="3" placeholder="Descreva o plano para hoje…" required></textarea>
+            </div>
+            <div class="dg-field">
+              <label class="dg-label">Tem algum impedimento?</label>
+              <div class="dg-radio-row">
+                <label class="dg-radio-label"><input type="radio" name="dgBlocker" value="no" checked /> Não</label>
+                <label class="dg-radio-label"><input type="radio" name="dgBlocker" value="yes" /> Sim</label>
+              </div>
+              <textarea id="dgBlockerDetail" class="dg-textarea" rows="2" placeholder="Descreva o impedimento…" style="display:none;margin-top:8px"></textarea>
+            </div>
+            <p id="dgError" class="dg-error" style="display:none"></p>
+            <button type="submit" id="dgSubmitBtn" class="btn btn-accent dg-submit">Enviar daily</button>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>

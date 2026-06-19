@@ -2,19 +2,25 @@
 -- daily_points_goal × 5 = meta semanal 100%
 --
 -- Grupo Pontos:
---   Samuel : meta 100% = 130 pts/sem → 26/dia
---   Thiago : meta 100% =  80 pts/sem → 16/dia
---   Klenio : meta 100% =  80 pts/sem → 16/dia
---   Bia    : meta 100% =  30 pts/sem →  6/dia  (120% = 50 pts/sem)
+--   Samuel : meta 100% = 130 pts/sem → 26/dia  | 120% = 156 pts/sem
+--   Thiago : meta 100% =  80 pts/sem → 16/dia  | 120% =  96 pts/sem
+--   Klenio : meta 100% =  80 pts/sem → 16/dia  | 120% =  96 pts/sem
+--   Bia    : meta 100% =  50 pts/sem → 10/dia  | 120% =  60 pts/sem
+--   Anny   : meta 100% =  60 pts/sem → 12/dia  | 120% =  70 pts/sem
 --
--- Grupo Conclusão (isCompletionBased — sem componente de pontos no coef):
---   Malu   : Storymaker — meta por conclusão de tasks/rotina
---   Zion   : Publisher/UGC — meta por conclusão de tasks/rotina
---   (daily_points_goal = 0 para não poluir cálculos; fórmula tem guard weeklyGoal > 0)
+-- Grupo Pontos (fixo):
+--   Gustavo : meta 100% = 55 pts/sem → 11/dia  | 120% = 66 pts/sem
+--
+-- Grupo Rotinas (isRoutineBased — meta = soma dos pontos esperados das rotinas ativas na semana):
+--   Malu    : Storymaker — meta dinâmica por rotinas preenchidas
+--   Zion    : Publisher/UGC — meta dinâmica por rotinas preenchidas
+--   (daily_points_goal = 0 sinaliza "meta vem das rotinas"; pts = routine_completions.points)
 
-UPDATE users SET daily_points_goal = 26 WHERE LOWER(name) LIKE '%samuel%';
-UPDATE users SET daily_points_goal = 16 WHERE LOWER(name) LIKE '%thiago%';
-UPDATE users SET daily_points_goal = 16 WHERE LOWER(name) LIKE '%klenio%';
-UPDATE users SET daily_points_goal =  6 WHERE LOWER(name) LIKE '%bia%';
-UPDATE users SET daily_points_goal =  0 WHERE LOWER(name) LIKE '%malu%' OR LOWER(name) LIKE '%luiza%';
-UPDATE users SET daily_points_goal =  0 WHERE LOWER(name) LIKE '%zion%';
+UPDATE users SET daily_points_goal = 26, weekly_pts_120 = 156 WHERE LOWER(name) LIKE '%samuel%';
+UPDATE users SET daily_points_goal = 16, weekly_pts_120 =  96 WHERE LOWER(name) LIKE '%thiago%';
+UPDATE users SET daily_points_goal = 16, weekly_pts_120 =  96 WHERE LOWER(name) LIKE '%klenio%';
+UPDATE users SET daily_points_goal = 10, weekly_pts_120 =  60 WHERE LOWER(name) LIKE '%bia%';
+UPDATE users SET daily_points_goal = 12, weekly_pts_120 =  70 WHERE LOWER(name) LIKE '%anny%';
+UPDATE users SET daily_points_goal =  0, weekly_pts_120 =   0 WHERE LOWER(name) LIKE '%malu%' OR LOWER(name) LIKE '%luiza%';
+UPDATE users SET daily_points_goal =  0, weekly_pts_120 =   0 WHERE LOWER(name) LIKE '%zion%';
+UPDATE users SET daily_points_goal = 11, weekly_pts_120 =  66 WHERE LOWER(name) LIKE '%gustavo%';

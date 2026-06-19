@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   }
 
   const result = await db.query(
-    `SELECT id, name, role, must_change_password, COALESCE(cargo, '') AS cargo, COALESCE(clickup_email, '') AS email
+    `SELECT id, name, role, must_change_password, COALESCE(cargo, '') AS cargo, COALESCE(clickup_email, '') AS email, COALESCE(is_master, FALSE) AS is_master
      FROM users
      WHERE id = $1
      LIMIT 1`,
@@ -33,5 +33,6 @@ module.exports = async function handler(req, res) {
     cargo: user.cargo,
     email: user.email,
     mustChangePassword: user.must_change_password,
+    is_master: user.is_master === true,
   });
 };

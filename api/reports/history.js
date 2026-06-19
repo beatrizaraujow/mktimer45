@@ -16,9 +16,10 @@ function computeExpectedRoutinePts(routines, weekStart) {
       const dow = d.getUTCDay() || 7; // 1=Seg..7=Dom
       const dom = d.getUTCDate();
       let applies = false;
-      if (freq === 'daily')        applies = !days.length || days.includes(dow);
-      else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
-      else if (freq === 'monthly') applies = !days.length || days.includes(dom);
+      if (freq === 'daily')         applies = !days.length || days.includes(dow);
+      else if (freq === 'weekly')   applies = !days.length || days.includes(dow);
+      else if (freq === 'biweekly') applies = days.length > 0 && days.includes(dom);
+      else if (freq === 'monthly')  applies = !days.length || days.includes(dom);
       if (applies) total += pts;
     }
   }
@@ -197,26 +198,32 @@ module.exports = async function handler(req, res) {
       } catch (_) { /* user_routines ainda não migrado — routine-based users ficam com meta 0 */ }
     }
 
-    // Coins logic — escala 0–6 (máximo = 6):
-    //   0 coins → < 20%
-    //   1 coin  → ≥ 20%
-    //   2 coins → ≥ 40%
-    //   3 coins → ≥ 60%
-    //   4 coins → ≥ 80%
-    //   5 coins → ≥ 100% (meta atingida)
-    //   6 coins → ≥ 120% (bônus)
-    function calcCoins(pts, meta100, meta120) {
-      if (pts >= meta120)        return 6;
-      if (pts >= meta100)        return 5;
-      if (pts >= meta100 * 0.80) return 4;
-      if (pts >= meta100 * 0.60) return 3;
-      if (pts >= meta100 * 0.40) return 2;
-      if (pts >= meta100 * 0.20) return 1;
+    // Coin rules 2026 — por tipo de usuário:
+    //   Grupo Pontos (Samuel/Thiago/Klenio/Bia): 0 <100%, 3 =100%, 5 =120%
+    //   Malu (Storymaker): 3 rotina 100% + bônus extras (+1 ≥15pts, +2 ≥25pts)
+    //   Zion (UGC/Publisher): 3 rotina+UGC 100% + 2 extras ≥50pts
+    //   Ranking (não-isCB, apenas ≥100%): +3/+2/+1 por semana
+    function calcCoinsBase(cargoLc, pts, weeklyGoal, meta120, extraPts) {
+      if (weeklyGoal <= 0) return 0;
+      if (cargoLc.includes('storymaker')) {
+        const base  = pts >= weeklyGoal ? 3 : 0;
+        const bonus = extraPts >= 25 ? 2 : extraPts >= 15 ? 1 : 0;
+        return base + bonus;
+      }
+      if (cargoLc.includes('ugc') || cargoLc.includes('publisher')) {
+        const base  = pts >= weeklyGoal ? 3 : 0;
+        const extra = extraPts >= 50 ? 2 : 0;
+        return base + extra;
+      }
+      // Grupo Pontos
+      if (pts >= meta120)    return 5;
+      if (pts >= weeklyGoal) return 3;
       return 0;
     }
 
     const usersWithWeeks = users.map(user => {
       const isRoutineBased = Number(user.daily_points_goal) === 0;
+      const cargoLc        = (user.cargo || '').toLowerCase();
       const dailyGoal      = isRoutineBased ? 0 : (Number(user.daily_points_goal) || 26);
       const fixedWeekly    = dailyGoal * 5;
       const fixedMeta120   = Number(user.weekly_pts_120) || Math.round(fixedWeekly * 1.2);
@@ -240,11 +247,13 @@ module.exports = async function handler(req, res) {
         const meta120 = isRoutineBased
           ? Math.round(weeklyGoal * 1.2)
           : fixedMeta120;
+        // extraPts: tarefas de focus_tasks além da rotina (usado para bônus Malu/Zion)
+        const extraPts = isRoutineBased ? (ptsData.pts || 0) : 0;
 
         const percentualMeta   = weeklyGoal > 0 ? Math.round((pts / weeklyGoal) * 100) : 0;
         const metaStatus       = pts >= meta120 ? 'above_120' : pts >= weeklyGoal ? 'above_100' : 'below_100';
         const pct              = percentualMeta;
-        const coins            = weeklyGoal > 0 ? calcCoins(pts, weeklyGoal, meta120) : 0;
+        const coins            = weeklyGoal > 0 ? calcCoinsBase(cargoLc, pts, weeklyGoal, meta120, extraPts) : 0;
         const faltouPara100    = Math.max(0, weeklyGoal - pts);
         const faltouPara120    = Math.max(0, meta120 - pts);
 
@@ -269,6 +278,26 @@ module.exports = async function handler(req, res) {
         weeks: weekData,
       };
     });
+
+    // Ranking coins por semana: não-isCB com pct ≥ 100%, excluindo semana ao vivo
+    for (let wi = 0; wi < weeks.length; wi++) {
+      const eligible = usersWithWeeks
+        .filter(u => {
+          const cl  = (u.cargo || '').toLowerCase();
+          const isCB = cl.includes('storymaker') || cl.includes('ugc') || cl.includes('publisher');
+          const w   = u.weeks[wi];
+          return !isCB && w && w.pct >= 100 && !w.isLive;
+        })
+        .sort((a, b) => b.weeks[wi].pts - a.weeks[wi].pts);
+
+      eligible.forEach((u, rank) => {
+        if (rank > 2) return;
+        const rankCoins = 3 - rank; // 1st→3, 2nd→2, 3rd→1
+        u.weeks[wi].coins       += rankCoins;
+        u.weeks[wi].rankingPos   = rank + 1;
+        u.weeks[wi].rankingCoins = rankCoins;
+      });
+    }
 
     const weekLabels = weeks.map((ws, i) => {
       const weekEndObj = new Date(`${ws}T00:00:00Z`);
