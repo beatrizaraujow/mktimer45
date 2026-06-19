@@ -5693,8 +5693,8 @@ dialog {
   padding: 7px 14px;
   border-radius: 8px;
   border: 1.5px solid transparent;
-  background: #f5c200;
-  color: #222222;
+  background: #f5c200 !important;
+  color: #222222 !important;
   font-size: 12px;
   font-weight: 600;
   font-family: 'Inter', sans-serif;
@@ -5705,7 +5705,7 @@ dialog {
 
 .td-sync-btn:hover {
   filter: brightness(1.08);
-  color: #222222;
+  color: #222222 !important;
 }
 
 .td-sync-btn:disabled {
