@@ -57,11 +57,16 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // ── GET ?action=alarm-test — disparo manual com dados fictícios (admin only) ──
+    // ── GET ?action=alarm-test — disparo manual com dados fictícios ──
     if (req.method === 'GET' && action === 'alarm-test') {
-      const authCheck = requireAuth(req, res);
-      if (!authCheck) return;
-      if (authCheck.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      const cronSecret = (process.env.CRON_SECRET || '').trim();
+      const authHeader = (req.headers['authorization'] || '').trim();
+      const isCron     = cronSecret && authHeader === `Bearer ${cronSecret}`;
+      if (!isCron) {
+        const authCheck = requireAuth(req, res);
+        if (!authCheck) return;
+        if (authCheck.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+      }
 
       const TEST_PHONE = '5584996534162';
       const today = new Date(Date.now() - 3 * 3600000);
