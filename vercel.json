@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/routines?action=alarm-check",
-      "schedule": "0 11 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/focus?action=cron-daily-notify",
