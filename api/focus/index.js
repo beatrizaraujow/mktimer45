@@ -1796,23 +1796,34 @@ module.exports = async function handler(req, res) {
     const fromMs = new Date(`${from}T00:00:00-03:00`).getTime();
     const toMs   = new Date(`${to}T23:59:59-03:00`).getTime();
 
-    // Busca tasks do ClickUp com paginação — sem filtro de data server-side pois
+    // Busca tasks do ClickUp em paralelo com timeout de 5s por página
     // date_done pode ser null em tasks com status "done" customizado (ex: "Concluído")
-    const allCuTasks = [];
-    const MAX_PAGES = 5;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const r = await fetchClickUp(
-        `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
-        token
+    const CU_HIST_URL = (page) =>
+      `https://api.clickup.com/api/v2/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`;
+    const fetchPageHist = (page) =>
+      Promise.race([
+        fetchClickUp(CU_HIST_URL(page), token)
+          .then(r => r.ok ? r.json() : { tasks: [], last_page: true })
+          .catch(() => ({ tasks: [], last_page: true })),
+        new Promise(resolve =>
+          setTimeout(() => resolve({ tasks: [], last_page: true }), 5000)
+        ),
+      ]);
+
+    // Primeira página para checar se há mais
+    const firstPageHist = await fetchPageHist(0);
+    if (!firstPageHist.tasks.length && !firstPageHist.last_page) {
+      return json(res, 502, { error: 'ClickUp não retornou tasks.' });
+    }
+    const allCuTasks = [...(firstPageHist.tasks || [])];
+    if (!firstPageHist.last_page && firstPageHist.tasks.length >= 100) {
+      const extraHist = await Promise.all(
+        Array.from({ length: 4 }, (_, i) => fetchPageHist(i + 1))
       );
-      if (!r.ok) {
-        if (page === 0) return json(res, 502, { error: `ClickUp ${r.status}` });
-        break;
+      for (const body of extraHist) {
+        allCuTasks.push(...(body.tasks || []));
+        if (body.last_page || (body.tasks || []).length < 100) break;
       }
-      const body = await r.json();
-      const pageTasks = body.tasks || [];
-      allCuTasks.push(...pageTasks);
-      if (body.last_page || pageTasks.length < 100) break;
     }
 
     // Filtra client-side: concluídas E dentro do período
