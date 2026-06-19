@@ -6130,8 +6130,8 @@ dialog {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   column-gap: 10px;
-  row-gap: 6px;
-  align-items: start;
+  row-gap: 10px;
+  align-items: stretch;
 }
 
 .td-grid.td-grid-full {
@@ -6148,6 +6148,7 @@ dialog {
   flex-direction: column;
   gap: 0;
   overflow: hidden;
+  min-height: 340px;
 }
 
 /* Header: name + role + status dot */
@@ -6345,7 +6346,10 @@ dialog {
   flex-direction: column;
   gap: 4px;
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
 
 .mc-task {
