@@ -5435,7 +5435,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* Buttons */
-button:not(.nav-tab):not(.nav-avatar):not(.nav-logout):not(.tm-chip):not(.tm-btn-primary):not(.tm-btn-ghost):not(.daily-add-btn):not(.tc-toggle):not(.tc-add):not(.tc-edit):not(.tc-btn-save):not(.tc-btn-cancel):not(.wpd-confirm):not(.wpd-nav):not(.wpd-reset-btn):not(.cal-day):not(.tm-cal-nav):not(.tm-cal-cell):not(.rank-cal-btn):not(.rank-period-pill):not(.hist-filter-btn):not(.adm-filter-btn):not(.adm-month-btn):not(.adm-metric-tab):not(.adm-preset-btn):not(.adm-btn-export):not(.custom-range-footer button) {
+button:not(.nav-tab):not(.nav-avatar):not(.nav-logout):not(.tm-chip):not(.tm-btn-primary):not(.tm-btn-ghost):not(.daily-add-btn):not(.tc-toggle):not(.tc-add):not(.tc-edit):not(.tc-btn-save):not(.tc-btn-cancel):not(.wpd-confirm):not(.wpd-nav):not(.wpd-reset-btn):not(.cal-day):not(.tm-cal-nav):not(.tm-cal-cell):not(.rank-cal-btn):not(.rank-period-pill):not(.hist-filter-btn):not(.adm-filter-btn):not(.adm-month-btn):not(.adm-metric-tab):not(.adm-preset-btn):not(.adm-btn-export):not(.custom-range-footer button):not(.dbr-submit):not(.adp-btn-publish):not(.sme-save-btn):not(.snap-val-confirm-btn) {
   background: var(--btn-bg);
   box-shadow: none;
 }
