@@ -45,7 +45,11 @@ module.exports = async function handler(req, res) {
           `👤 ${u.name}\n${u.routines.map(t => `- ${t}`).join('\n')}`
         ).join('\n\n');
 
-        const message = `⚠️ Rotinas incompletas de ontem (${dateLabel}):\n\n${lines}`;
+        const message =
+          `*MKT Hub* ⚡\n` +
+          `⚠️ Rotinas incompletas de ${dateLabel}:\n\n` +
+          `${lines}\n\n` +
+          `_Acesse o MKT Hub para registrar._`;
 
         await sendWhatsApp(message);
 
@@ -84,7 +88,9 @@ module.exports = async function handler(req, res) {
       ).join('\n\n');
 
       const message =
-        `🧪 *[TESTE]* Rotinas incompletas de ontem (${dy}/${mo}):\n\n${lines}\n\n` +
+        `*MKT Hub* ⚡\n` +
+        `🧪 *[TESTE]* Rotinas incompletas de ${dy}/${mo}:\n\n` +
+        `${lines}\n\n` +
         `_Esta é uma mensagem de teste com dados fictícios._`;
 
       try {
