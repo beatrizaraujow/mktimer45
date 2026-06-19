@@ -57,6 +57,44 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // ── GET ?action=alarm-test — disparo manual com dados fictícios (admin only) ──
+    if (req.method === 'GET' && action === 'alarm-test') {
+      const authCheck = requireAuth(req, res);
+      if (!authCheck) return;
+      if (authCheck.role !== 'admin') return json(res, 403, { error: 'Admin only.' });
+
+      const TEST_PHONE = '5584996534162';
+      const today = new Date(Date.now() - 3 * 3600000);
+      const dy = String(today.getUTCDate()).padStart(2, '0');
+      const mo = String(today.getUTCMonth() + 1).padStart(2, '0');
+
+      const ficticios = [
+        { name: 'Anny Beatriz',    routines: ['Postagem no Instagram', 'Revisão de conteúdo semanal'] },
+        { name: 'Gustavo Rocha',   routines: ['Envio de relatório de tráfego'] },
+        { name: 'Klenis Baez',     routines: ['Atualização do CRM', 'Follow-up de leads'] },
+        { name: 'Maria Luiza',     routines: ['Resposta de comentários', 'Planejamento de pauta'] },
+        { name: 'Samuel Melo',     routines: ['Check de métricas de anúncios'] },
+        { name: 'Thiago',          routines: ['Alinhamento com cliente', 'Envio de proposta pendente'] },
+        { name: 'Zion Bagatoli',   routines: ['Revisão de briefing', 'Aprovação de arte'] },
+      ];
+
+      const lines = ficticios.map(u =>
+        `👤 ${u.name}\n${u.routines.map(t => `  - ${t}`).join('\n')}`
+      ).join('\n\n');
+
+      const message =
+        `🧪 *[TESTE]* Rotinas incompletas de ontem (${dy}/${mo}):\n\n${lines}\n\n` +
+        `_Esta é uma mensagem de teste com dados fictícios._`;
+
+      try {
+        await sendWhatsApp(message, TEST_PHONE);
+        return json(res, 200, { sent: true, phone: TEST_PHONE, members: ficticios.length });
+      } catch (e) {
+        console.error('[alarm-test]', e.message);
+        return json(res, 500, { error: e.message });
+      }
+    }
+
     const auth = requireAuth(req, res);
     if (!auth) return;
 

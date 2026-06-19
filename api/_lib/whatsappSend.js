@@ -1,11 +1,11 @@
 // Envia mensagem de texto via Z-API.
 // Variáveis necessárias: ZAPI_INSTANCE, ZAPI_TOKEN, ALARM_WHATSAPP_NUMBER
 // Opcional: ZAPI_CLIENT_TOKEN (segurança extra, recomendado pelo Z-API)
-async function sendWhatsApp(text) {
+async function sendWhatsApp(text, phoneOverride) {
   const instance     = (process.env.ZAPI_INSTANCE      || '').trim();
   const token        = (process.env.ZAPI_TOKEN         || '').trim();
   const clientToken  = (process.env.ZAPI_CLIENT_TOKEN  || '').trim();
-  const number       = (process.env.ALARM_WHATSAPP_NUMBER || '').trim();
+  const number       = phoneOverride || (process.env.ALARM_WHATSAPP_NUMBER || '').trim();
 
   if (!instance || !token || !number) {
     throw new Error(
