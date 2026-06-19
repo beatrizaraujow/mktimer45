@@ -73,29 +73,43 @@ module.exports = async function handler(req, res) {
       }
 
       const TEST_PHONE = '5584996534162';
-      const today = new Date(Date.now() - 3 * 3600000);
-      const dy = String(today.getUTCDate()).padStart(2, '0');
-      const mo = String(today.getUTCMonth() + 1).padStart(2, '0');
+      const useReal = req.query.real === '1';
 
-      const ficticios = [
-        { name: 'Gustavo Rocha',   routines: ['Envio de relatório de tráfego', 'Revisão de pauta semanal'] },
-        { name: 'Maria Luiza',     routines: ['Resposta de comentários', 'Planejamento de pauta'] },
-        { name: 'Zion Bagatoli',   routines: ['Revisão de briefing', 'Aprovação de arte'] },
-      ];
+      const yesterday = new Date(Date.now() - 3 * 3600000 - 86400000);
+      const checkDate = yesterday.toISOString().slice(0, 10);
+      const [, mo, dy] = checkDate.split('-');
 
-      const lines = ficticios.map(u =>
+      let members, label;
+
+      if (useReal) {
+        members = await getIncompleteRoutines(checkDate);
+        label = '';
+      } else {
+        members = [
+          { name: 'Gustavo Rocha', routines: ['Envio de relatório de tráfego', 'Revisão de pauta semanal'] },
+          { name: 'Maria Luiza',   routines: ['Resposta de comentários', 'Planejamento de pauta'] },
+          { name: 'Zion Bagatoli', routines: ['Revisão de briefing', 'Aprovação de arte'] },
+        ];
+        label = '🧪 *[TESTE]* ';
+      }
+
+      if (!members.length) {
+        return json(res, 200, { sent: false, reason: 'all_done', date: checkDate });
+      }
+
+      const lines = members.map(u =>
         `👤 ${u.name}\n${u.routines.map(t => `  - ${t}`).join('\n')}`
       ).join('\n\n');
 
       const message =
         `*MKT Hub* ⚡\n` +
-        `🧪 *[TESTE]* Rotinas incompletas de ${dy}/${mo}:\n\n` +
+        `${label}Rotinas incompletas de ${dy}/${mo}:\n\n` +
         `${lines}\n\n` +
-        `_Esta é uma mensagem de teste com dados fictícios._`;
+        (useReal ? `_Acesse o MKT Hub para registrar._` : `_Dados fictícios._`);
 
       try {
         await sendWhatsApp(message, TEST_PHONE);
-        return json(res, 200, { sent: true, phone: TEST_PHONE, members: ficticios.length });
+        return json(res, 200, { sent: true, phone: TEST_PHONE, members: members.length, real: useReal });
       } catch (e) {
         console.error('[alarm-test]', e.message);
         return json(res, 500, { error: e.message });
