@@ -266,7 +266,7 @@ function calcCoinsMeta(pts, meta100, meta120) {
   return 0;
 }
 
-function calcCoinsCB(cargoLc, pts, meta100) {
+function calcCoinsCB(cargoLc, pts, meta100, extraPts) {
   // Malu (Storymaker): base 3 rotina + bonus extras do ClickUp
   if (cargoLc.includes('storymaker')) {
     const bonus = pts >= 25 ? 2 : pts >= 15 ? 1 : 0;
@@ -274,8 +274,9 @@ function calcCoinsCB(cargoLc, pts, meta100) {
   }
   // Zion (Publisher/UGC): rotina+UGC=3, extras ≥50pts=+2
   if (cargoLc.includes('ugc') || cargoLc.includes('publisher')) {
-    const base  = meta100 > 0 && pts >= meta100 ? 3 : 1; // rotina(1)+UGC(2) ou só rotina
-    const extra = pts >= 50 ? 2 : 0;
+    const base  = meta100 > 0 && pts >= meta100 ? 3 : 1;
+    const ep    = extraPts !== undefined ? extraPts : pts;
+    const extra = ep >= 50 ? 2 : 0;
     return Math.min(base + extra, 5);
   }
   return 0;
@@ -1271,6 +1272,33 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Computa pts esperados para a semana COMPLETA (weekStart..weekStart+6, seg–dom)
+    // Usado como meta exibida no label "meta X pts · semana" — homogêneo com dailyGoal*5 de outros usuários
+    const routineExpFullWeekByUid = {};
+    {
+      const _rfStart = new Date(`${weekStart}T00:00:00Z`);
+      const _rfEnd   = new Date(_rfStart);
+      _rfEnd.setUTCDate(_rfEnd.getUTCDate() + 6);
+      for (const r of (routineConfigRes.rows || [])) {
+        const uid  = Number(r.user_id);
+        const freq = r.frequency || 'daily';
+        const days = r.applies_days || [];
+        const pts  = Number(r.points) || 1;
+        if (!routineExpFullWeekByUid[uid]) routineExpFullWeekByUid[uid] = 0;
+        let cur = new Date(_rfStart);
+        while (cur <= _rfEnd) {
+          const dow = cur.getUTCDay() || 7;
+          const dom = cur.getUTCDate();
+          let applies = false;
+          if (freq === 'daily')        applies = !days.length || days.includes(dow);
+          else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
+          else if (freq === 'monthly') applies = !days.length || days.includes(dom);
+          if (applies) routineExpFullWeekByUid[uid] += pts;
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+      }
+    }
+
     // Build lookup maps: ClickUp user ID (primário) > email > nome
     const userByClickupId = new Map();
     const userByEmail     = new Map();
@@ -1341,6 +1369,32 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Horas reais do ClickUp (Time Entries API) para usuários routine-based (Zion/Malu/Gustavo)
+    // Mais preciso que time_spent em tarefas — captura todo tempo rastreado, independente da task
+    const cuTeamId = (process.env.CLICKUP_TEAM_ID || '9013450208').trim();
+    const cuTimeHorasMap = new Map(); // uid → horas
+    {
+      const routineUsers = usersRes.rows.filter(u =>
+        Number(u.daily_points_goal) === 0 && u.clickup_user_id
+      );
+      if (routineUsers.length > 0) {
+        const startMs = new Date(`${effectiveWeekStart}T00:00:00Z`).getTime();
+        const endMs   = new Date(`${effectiveTo}T23:59:59Z`).getTime();
+        await Promise.all(routineUsers.map(async u => {
+          try {
+            const r = await fetchClickUp(
+              `https://api.clickup.com/api/v2/team/${cuTeamId}/time_entries?start_date=${startMs}&end_date=${endMs}&assignee=${u.clickup_user_id}`,
+              token
+            );
+            if (!r.ok) return;
+            const body = await r.json();
+            const totalMs = (body.data || []).reduce((s, e) => s + Number(e.duration || 0), 0);
+            if (totalMs > 0) cuTimeHorasMap.set(Number(u.id), parseFloat((totalMs / 3600000).toFixed(2)));
+          } catch (_) {}
+        }));
+      }
+    }
+
     // Número de dias úteis (seg-sex) no período efetivo — sem clamp superior para períodos multi-semana
     let periodWeekdays = 0;
     {
@@ -1371,7 +1425,7 @@ module.exports = async function handler(req, res) {
       const isRoutineBased = Number(user.daily_points_goal) === 0;
       const dailyGoal    = isRoutineBased ? 0 : Number(user.daily_points_goal);
       const weeklyGoal   = isRoutineBased
-        ? (routineExpPtsByUid[uid] || 0)
+        ? (routineExpFullWeekByUid[uid] || 0)
         : dailyGoal * 5;
       const weeklyGoal120 = isRoutineBased
         ? Math.round(weeklyGoal * 1.2)
@@ -1430,22 +1484,26 @@ module.exports = async function handler(req, res) {
         return ms > 0 ? ms / 3600000 : 0;
       };
 
-      const ptsCuDone    = getPeriodPoints(tasks, weekStart, todayStr);     // semana — para coef
-      const ptsCuPeriod  = getPeriodPoints(tasks, periodFrom, periodTo);   // período ativo — para display
-      const ptsSemana    = ptsCuPeriod;
-      const ptsToday     = ptsCuDone;
-      const ptsParaBarra = ptsCuDone;
+      const ptsCuDone    = getPeriodPoints(tasks, weekStart, todayStr);     // semana — pts ClickUp
+      const ptsCuPeriod  = getPeriodPoints(tasks, periodFrom, periodTo);   // período — pts ClickUp
+      // Routine-based (Zion/Malu/Gustavo):
+      //   ptsSemana = rotinas + ClickUp (total do trabalho — exibição no header)
+      //   ptsParaBarra = apenas rotinas (para % da meta e coef — fontes homogêneas)
+      const ptsSemana    = isRoutineBased ? (routinePts + ptsCuPeriod) : ptsCuPeriod;
+      const ptsToday     = isRoutineBased ? routinePts : ptsCuDone;
+      const ptsParaBarra = isRoutineBased ? routinePts : ptsCuDone;
       const metaForPeriod    = weeklyGoal;
       const ratio120         = weeklyGoal > 0 ? weeklyGoal120 / weeklyGoal : 1.2;
       const metaForPeriod120 = weeklyGoal120;
 
-      // Horas via time_spent — done | doing | revision no período, cap 16h/dia
+      // Horas via time_spent — done | doing | revision | approval | publish no período, cap 16h/dia
       // Tasks sem time_spent são ignoradas (h <= 0 continua o guard abaixo)
       const HORA_CAP_DIA = 16;
       const horasTasks = tasks.filter(t => {
         if (!isTaskInPeriod(t, periodFrom, periodTo)) return false;
         const cat = cuTaskStatusCat(t);
-        return cuTaskDone(t) || cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION;
+        return cuTaskDone(t) || cat === STATUS_CAT.DOING || cat === STATUS_CAT.REVISION
+          || cat === STATUS_CAT.APPROVAL || cat === STATUS_CAT.PUBLISH;
       });
       const dayHoras = {};
       for (const t of horasTasks) {
@@ -1494,8 +1552,12 @@ module.exports = async function handler(req, res) {
                        : 'below_100';
 
       const weekLabel = `Sem ${weekNum}`;
-      // Usa horas ClickUp se disponíveis; fallback para banco local
-      const horasEfetivas = horasCuTotal > 0 ? horasCuTotal : horas;
+      // Routine-based (Zion/Malu/Gustavo): fonte correta é time_entries do banco
+      // time_spent das tasks do ClickUp pode ter poucos minutos → não deve sobrescrever
+      // Demais: time_spent das tasks → fallback banco local
+      const horasEfetivas = isRoutineBased
+        ? (horas > 0 ? horas : (cuTimeHorasMap.get(uid) || horasCuTotal))
+        : (horasCuTotal > 0 ? horasCuTotal : horas);
 
       // Coeficiente COR v2
       // Tipo A (sem rotina): meta×55% + tasks×30% + horas×15%
@@ -2301,11 +2363,68 @@ module.exports = async function handler(req, res) {
       } catch (_) { /* routine tables not yet migrated */ }
     }
 
+    // pts esperados de rotina no período do snapshot (meta real de isRoutineBased — Zion/Malu/Gustavo)
+    const routineExpSnapByUid = {};
+    const extraPtsSnapByUid   = {};
+    if (routineBasedUids.length > 0) {
+      try {
+        const rConfRes = await db.query(
+          `SELECT user_id, frequency, applies_days, points
+           FROM user_routines WHERE user_id = ANY($1::int[]) AND active = TRUE`,
+          [routineBasedUids]
+        );
+        const rByUser = new Map();
+        for (const r of rConfRes.rows) {
+          const uid = Number(r.user_id);
+          if (!rByUser.has(uid)) rByUser.set(uid, []);
+          rByUser.get(uid).push(r);
+        }
+        for (const uid of routineBasedUids) {
+          const routines = rByUser.get(uid) || [];
+          const ws = new Date(`${snapWeekStart}T00:00:00Z`);
+          const we = new Date(`${snapWeekEnd}T00:00:00Z`);
+          let total = 0;
+          for (const r of routines) {
+            const rpts = Number(r.points) || 1;
+            const days = Array.isArray(r.applies_days) ? r.applies_days : [];
+            const freq = r.frequency || 'daily';
+            for (let d = new Date(ws); d <= we; d.setUTCDate(d.getUTCDate() + 1)) {
+              const dow = d.getUTCDay() || 7;
+              const dom = d.getUTCDate();
+              let applies = false;
+              if (freq === 'daily')        applies = !days.length || days.includes(dow);
+              else if (freq === 'weekly')  applies = !days.length || days.includes(dow);
+              else if (freq === 'monthly') applies = !days.length || days.includes(dom);
+              if (applies) total += rpts;
+            }
+          }
+          routineExpSnapByUid[uid] = total;
+        }
+      } catch (_) {}
+      // focus_tasks extras (bônus ≥50pts para Zion/Publisher)
+      try {
+        const ftRes = await db.query(
+          `SELECT user_id, COALESCE(SUM(points), 0)::int AS extra_pts
+           FROM focus_tasks
+           WHERE user_id = ANY($1::int[]) AND is_done = TRUE
+             AND COALESCE(completed_at, created_at)::date >= $2
+             AND COALESCE(completed_at, created_at)::date <= $3
+           GROUP BY user_id`,
+          [routineBasedUids, snapWeekStart, snapWeekEnd]
+        );
+        for (const r of ftRes.rows) extraPtsSnapByUid[Number(r.user_id)] = Number(r.extra_pts);
+      } catch (_) {}
+    }
+
     const snapEntries = snapDbUsers.map(user => {
       const uid = Number(user.id);
       const isRoutineBased = Number(user.daily_points_goal) === 0;
-      const meta100 = isRoutineBased ? 0 : (Number(user.daily_points_goal) || 26) * 5;
-      const meta120 = isRoutineBased ? 0 : (Number(user.weekly_pts_120) || Math.round(meta100 * 1.2));
+      const meta100 = isRoutineBased
+        ? (routineExpSnapByUid[uid] || 0)
+        : (Number(user.daily_points_goal) || 26) * 5;
+      const meta120 = isRoutineBased
+        ? Math.round((routineExpSnapByUid[uid] || 0) * 1.2)
+        : (Number(user.weekly_pts_120) || Math.round(meta100 * 1.2));
       const cargoLc = (user.cargo||'').toLowerCase();
       const isCB = cargoLc.includes('storymaker')||cargoLc.includes('ugc')||cargoLc.includes('publisher');
 
@@ -2348,7 +2467,7 @@ module.exports = async function handler(req, res) {
                percentual_meta:pctMeta, horas_validadas_total:horasTotal, horas_por_empresa:hpe,
                tasks_concluidas:tasksCount, coeficiente:coef,
                coins_sugeridas_meta: isCB
-                 ? calcCoinsCB(cargoLc, pts, meta100)
+                 ? calcCoinsCB(cargoLc, pts, meta100, isRoutineBased ? (extraPtsSnapByUid[uid] || 0) : undefined)
                  : calcCoinsMeta(pts,meta100,meta120),
                coins_sugeridas_ranking:0, coins_sugeridas_total:0, posicao_ranking:0 };
     });

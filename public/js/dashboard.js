@@ -657,6 +657,7 @@ function renderCalendar(consistency) {
     grid.appendChild(empty);
   }
 
+  const todayYmd = todayISO();
   for (let day = 1; day <= daysInMonth; day++) {
     const mm = String(month).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
@@ -667,6 +668,7 @@ function renderCalendar(consistency) {
     let cellClass = `cal-day${isSelected ? ' selected' : ''}`;
     if (!isSelected && consistStatus === 'full') cellClass += ' cal-full';
     else if (!isSelected && consistStatus === 'partial') cellClass += ' cal-partial';
+    if (isoDate === todayYmd) cellClass += ' today';
 
     const cell = document.createElement('button');
     cell.type = 'button';
@@ -859,19 +861,35 @@ function renderTaskCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const weekDayLabels = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
+  const todayYmdTask = todayISO();
+  // prev-month trailing days
+  const prevDaysInMonth = new Date(year, month, 0).getDate();
+  const prevYear  = month === 0 ? year - 1 : year;
+  const prevMonth = month === 0 ? 11 : month - 1;
+  // next-month leading days
+  const totalCells = firstDay + daysInMonth;
+  const nextCells  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  const nextYear   = month === 11 ? year + 1 : year;
+  const nextMonth  = month === 11 ? 0 : month + 1;
+
   let html = `<div class="tm-cal">
     <div class="tm-cal-header">
-      <button type="button" class="tm-cal-nav" data-cal-nav="prev">‹</button>
       <span class="tm-cal-month">${CAL_MONTH_NAMES[month]} ${year}</span>
-      <button type="button" class="tm-cal-nav" data-cal-nav="next">›</button>
+      <div class="tm-cal-nav-btns">
+        <button type="button" class="tm-cal-nav" data-cal-nav="prev">‹</button>
+        <button type="button" class="tm-cal-nav" data-cal-nav="next">›</button>
+      </div>
     </div>
     <div class="tm-cal-grid">`;
 
   for (const wd of weekDayLabels) {
     html += `<span class="tm-cal-cell wday-label">${wd}</span>`;
   }
-  for (let i = 0; i < firstDay; i++) {
-    html += `<span class="tm-cal-cell empty"></span>`;
+  // trailing days of previous month
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = prevDaysInMonth - i;
+    const ymd = `${prevYear}-${pad(prevMonth + 1)}-${pad(d)}`;
+    html += `<button type="button" class="tm-cal-cell outside" data-ymd="${ymd}" disabled>${d}</button>`;
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const ymd = `${year}-${pad(month + 1)}-${pad(d)}`;
@@ -879,21 +897,27 @@ function renderTaskCalendar() {
     if (ymd === taskCalStart) cls += ' range-start';
     if (ymd === taskCalEnd) cls += ' range-end';
     if (taskCalStart && taskCalEnd && ymd > taskCalStart && ymd < taskCalEnd) cls += ' in-range';
+    if (ymd === todayYmdTask) cls += ' today';
     html += `<button type="button" class="${cls}" data-ymd="${ymd}">${d}</button>`;
+  }
+  // leading days of next month
+  for (let d = 1; d <= nextCells; d++) {
+    const ymd = `${nextYear}-${pad(nextMonth + 1)}-${pad(d)}`;
+    html += `<button type="button" class="tm-cal-cell outside" data-ymd="${ymd}" disabled>${d}</button>`;
   }
 
   html += `</div>`;
 
   if (taskCalStart) {
-    html += `<div class="tm-cal-readout">`;
-    html += `<span class="tm-cal-pill">${fmtCalDate(taskCalStart)}</span>`;
+    let dateLabel = fmtCalDate(taskCalStart);
     if (taskCalEnd && taskCalEnd !== taskCalStart) {
       const days = calcTaskDuration(taskCalStart, taskCalEnd);
-      html += `<span class="tm-cal-arrow">→</span>`;
-      html += `<span class="tm-cal-pill">${fmtCalDate(taskCalEnd)}</span>`;
-      html += `<span class="tm-cal-dur">${days} ${days === 1 ? 'dia' : 'dias'}</span>`;
+      dateLabel += ` → ${fmtCalDate(taskCalEnd)} · ${days} ${days === 1 ? 'dia' : 'dias'}`;
     }
-    html += `</div>`;
+    html += `<div class="tm-cal-readout">
+      <span class="tm-cal-readout-label">Selecionado</span>
+      <span class="tm-cal-readout-date">${dateLabel}</span>
+    </div>`;
   }
 
   html += `</div>`;
@@ -1450,7 +1474,7 @@ function initDailyPanel() {
 function renderWpdCalendar() {
   const { year, month } = wpdCursor;
   document.getElementById('wpdYear').textContent = year;
-  document.getElementById('wpdMonth').textContent = CAL_MONTH_NAMES[month];
+  document.getElementById('wpdMonth').textContent = `${CAL_MONTH_NAMES[month]} ${year}`;
 
   const grid = document.getElementById('wpdGrid');
   grid.innerHTML = '';
@@ -1464,6 +1488,22 @@ function renderWpdCalendar() {
     grid.appendChild(empty);
   }
 
+  const todayYmdWpd = todayISO();
+  const prevDaysWpd = new Date(year, month, 0).getDate();
+  const prevYearWpd  = month === 0 ? year - 1 : year;
+  const prevMonthWpd = month === 0 ? 11 : month - 1;
+
+  // Trailing days from previous month
+  for (let i = firstDow - 1; i >= 0; i--) {
+    const d = prevDaysWpd - i;
+    const outer = document.createElement('button');
+    outer.type = 'button';
+    outer.className = 'wpd-cell wpd-outside';
+    outer.textContent = d;
+    outer.disabled = true;
+    grid.appendChild(outer);
+  }
+
   for (let d = 1; d <= daysInMonth; d++) {
     const ymd = `${year}-${pad(month + 1)}-${pad(d)}`;
     let cls = 'wpd-cell';
@@ -1472,6 +1512,7 @@ function renderWpdCalendar() {
       else if (ymd === wpdSelectedWeek.end)                                      cls += ' wpd-range-end';
       else if (ymd > wpdSelectedWeek.start && ymd < wpdSelectedWeek.end)        cls += ' wpd-in-range';
     }
+    if (ymd === todayYmdWpd) cls += ' wpd-today';
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1490,12 +1531,26 @@ function renderWpdCalendar() {
     grid.appendChild(btn);
   }
 
+  // Leading days of next month
+  const totalWpd = firstDow + daysInMonth;
+  const nextCellsWpd = totalWpd % 7 === 0 ? 0 : 7 - (totalWpd % 7);
+  const nextYearWpd  = month === 11 ? year + 1 : year;
+  const nextMonthWpd = month === 11 ? 0 : month + 1;
+  for (let d = 1; d <= nextCellsWpd; d++) {
+    const outer = document.createElement('button');
+    outer.type = 'button';
+    outer.className = 'wpd-cell wpd-outside';
+    outer.textContent = d;
+    outer.disabled = true;
+    grid.appendChild(outer);
+  }
+
   const labelEl = document.getElementById('wpdPeriodLabel');
   const confirmBtn = document.getElementById('wpdConfirm');
   const resetBtn = document.getElementById('wpdResetScore');
 
   if (!wpdSelectedWeek) {
-    if (labelEl) labelEl.innerHTML = 'Selecione uma semana';
+    if (labelEl) { labelEl.textContent = 'Selecione uma semana'; labelEl.classList.remove('has-value'); }
     if (confirmBtn) confirmBtn.disabled = true;
     if (resetBtn) resetBtn.disabled = true;
     return;
@@ -1505,10 +1560,10 @@ function renderWpdCalendar() {
   const [, em, ed] = wpdSelectedWeek.end.split('-').map(Number);
   const sameMon = sm === em;
   const periodText = sameMon
-    ? `${sd} - ${ed} de ${CAL_MONTH_NAMES[sm - 1]}`
-    : `${sd} de ${CAL_MONTH_NAMES[sm - 1]} - ${ed} de ${CAL_MONTH_NAMES[em - 1]}`;
+    ? `${sd} – ${ed} de ${CAL_MONTH_NAMES[sm - 1]}`
+    : `${sd} de ${CAL_MONTH_NAMES[sm - 1]} – ${ed} de ${CAL_MONTH_NAMES[em - 1]}`;
 
-  if (labelEl) labelEl.innerHTML = `Período: <strong>${periodText}</strong>`;
+  if (labelEl) { labelEl.textContent = periodText; labelEl.classList.add('has-value'); }
   if (confirmBtn) confirmBtn.disabled = false;
   if (resetBtn) resetBtn.disabled = false;
 }
@@ -1613,6 +1668,21 @@ async function init() {
   });
   document.getElementById('calendarMonth').addEventListener('change', async (event) => {
     currentMonth = event.target.value;
+    await loadConsistency();
+  });
+
+  document.getElementById('calPrev')?.addEventListener('click', async () => {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    currentMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    document.getElementById('calendarMonth').value = currentMonth;
+    await loadConsistency();
+  });
+  document.getElementById('calNext')?.addEventListener('click', async () => {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const d = new Date(y, m, 1);
+    currentMonth = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    document.getElementById('calendarMonth').value = currentMonth;
     await loadConsistency();
   });
 
@@ -2025,8 +2095,16 @@ function initDateFilterBars() {
     await loadTeamDaily();
   });
 
-  // ── Calendar button ──────────────────────────────────────────────
-  document.getElementById('tdCalBtn')?.addEventListener('click', () => openCalPopup());
+  // ── Calendar button + clicking the dfb date inputs ───────────────
+  document.getElementById('tdCalBtn')?.addEventListener('click', () => openCalPopup('daily'));
+  document.getElementById('dailyDFBInputsRow')?.addEventListener('click', () => openCalPopup('daily'));
+  document.getElementById('histDFBInputsRow')?.addEventListener('click', () => openCalPopup('hist'));
+  document.getElementById('adrDateField')?.addEventListener('click', () =>
+    openCalPopup('single', { inputId: 'adrDateInput' }));
+  document.getElementById('dgAdmDateField')?.addEventListener('click', () =>
+    openCalPopup('single', { inputId: 'dgAdmDate' }));
+  document.getElementById('tcManualDateField')?.addEventListener('click', () =>
+    openCalPopup('single', { inputId: 'tcManualDate' }));
 
   // Pré-carrega histórico em background para que já esteja pronto ao abrir a aba
   loadHistoricoPanel().catch(() => {});
@@ -2040,6 +2118,9 @@ let _cpCursor   = null;
 let _cpDays     = {};   // { 'YYYY-MM-DD': count }
 let _cpSel      = null; // { from, to }
 let _cpLoading  = false;
+let _cpTarget   = 'daily'; // which dfb target opened the popup
+let _cpMode     = 'range'; // 'range' | 'single'
+let _cpInputId  = null;    // for single mode: target input element id
 
 function _cpGetMonSat(isoDate) {
   const [y, m, d] = isoDate.split('-').map(Number);
@@ -2060,20 +2141,30 @@ function _cpGetMonSat(isoDate) {
 function renderCalPopup() {
   const { year, month } = _cpCursor;
   document.getElementById('cpYear').textContent  = year;
-  document.getElementById('cpMonth').textContent = CAL_MONTH_NAMES[month];
+  document.getElementById('cpMonth').textContent = `${CAL_MONTH_NAMES[month]} ${year}`;
 
   const grid        = document.getElementById('cpGrid');
   const firstDay    = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   // Mon=0…Sat=5; Sun is skipped
+  // Mon-Sat grid: offset = Mon=0…Sat=5 (skip Sun column)
   const firstDow    = firstDay.getDay(); // 0=Sun,1=Mon,…,6=Sat
-  const offset      = firstDow === 0 ? -1 : firstDow - 1; // cells before day 1 (Sun gets -1 = skip)
+  const offset      = firstDow === 0 ? -1 : firstDow - 1;
 
+  const prevDaysCp    = new Date(year, month, 0).getDate();
+  const prevYearCp    = month === 0 ? year - 1 : year;
+  const prevMonthCp   = month === 0 ? 11 : month - 1;
+
+  const todayYmdCp = todayISO();
   let html = '';
 
-  // Empty prefix cells
-  for (let i = 0; i < Math.max(0, offset); i++) {
-    html += `<div class="cp-cell cp-empty"></div>`;
+  // Trailing days of previous month (Mon-Sat only)
+  for (let i = offset - 1; i >= 0; i--) {
+    const d = prevDaysCp - i;
+    const date = new Date(prevYearCp, prevMonthCp, d);
+    if (date.getDay() === 0) continue; // skip Sunday
+    const iso = `${prevYearCp}-${pad(prevMonthCp + 1)}-${pad(d)}`;
+    html += `<div class="cp-cell cp-outside cp-empty">${d}</div>`;
   }
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -2085,7 +2176,10 @@ function renderCalPopup() {
     const count   = _cpDays[iso] || 0;
     let cls       = 'cp-cell';
 
-    if (_cpSel) {
+    if (_cpMode === 'single' && _cpInputId) {
+      const curVal = document.getElementById(_cpInputId)?.value;
+      if (curVal && iso === curVal) cls += ' cp-selected cp-range-start cp-range-end';
+    } else if (_cpSel) {
       if      (iso === _cpSel.from && iso === _cpSel.to) cls += ' cp-selected cp-range-start cp-range-end';
       else if (iso === _cpSel.from)                       cls += ' cp-selected cp-range-start';
       else if (iso === _cpSel.to)                         cls += ' cp-selected cp-range-end';
@@ -2095,14 +2189,37 @@ function renderCalPopup() {
     if (count > 0 && !cls.includes('cp-selected') && !cls.includes('cp-in-range')) {
       cls += ' cp-has-tasks';
     }
+    if (iso === todayYmdCp) cls += ' cp-today';
 
     html += `<button type="button" class="${cls}" data-iso="${iso}">${d}</button>`;
+  }
+
+  // Leading days of next month (Mon-Sat only)
+  const lastDow = new Date(year, month, daysInMonth).getDay();
+  if (lastDow !== 6 && lastDow !== 0) {
+    const nextYearCp  = month === 11 ? year + 1 : year;
+    const nextMonthCp = month === 11 ? 0 : month + 1;
+    let nextD = 1;
+    let curDow = lastDow + 1;
+    while (curDow !== 0 && curDow <= 6) {
+      html += `<div class="cp-cell cp-outside cp-empty">${nextD}</div>`;
+      nextD++; curDow++;
+    }
   }
 
   grid.innerHTML = html;
 
   grid.querySelectorAll('.cp-cell[data-iso]').forEach((cell) => {
     cell.addEventListener('click', () => {
+      if (_cpMode === 'single') {
+        const inputEl = document.getElementById(_cpInputId);
+        if (inputEl) {
+          inputEl.value = cell.dataset.iso;
+          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        document.getElementById('calPopupDlg').close();
+        return;
+      }
       _cpSel = _cpGetMonSat(cell.dataset.iso);
       renderCalPopup();
     });
@@ -2110,23 +2227,45 @@ function renderCalPopup() {
 
   // Period label
   const lbl = document.getElementById('cpPeriodLabel');
-  if (lbl && _cpSel) {
-    const [, sm, sd] = _cpSel.from.split('-').map(Number);
-    const [, em, ed] = _cpSel.to.split('-').map(Number);
-    lbl.textContent = sm === em
-      ? `Período: ${sd} – ${ed} de ${CAL_MONTH_NAMES[sm-1]}`
-      : `Período: ${sd} de ${CAL_MONTH_NAMES[sm-1]} – ${ed} de ${CAL_MONTH_NAMES[em-1]}`;
-  } else if (lbl) {
-    lbl.textContent = 'Selecione uma semana';
-  }
-
   const confirmBtn = document.getElementById('cpConfirm');
-  if (confirmBtn) confirmBtn.disabled = !_cpSel;
+  if (_cpMode === 'single') {
+    if (lbl) { lbl.textContent = 'Selecione uma data'; lbl.classList.remove('has-value'); }
+    if (confirmBtn) confirmBtn.style.display = 'none';
+  } else {
+    if (confirmBtn) confirmBtn.style.display = '';
+    if (lbl && _cpSel) {
+      const [, sm, sd] = _cpSel.from.split('-').map(Number);
+      const [, em, ed] = _cpSel.to.split('-').map(Number);
+      lbl.textContent = sm === em
+        ? `${sd} – ${ed} de ${CAL_MONTH_NAMES[sm-1]}`
+        : `${sd} de ${CAL_MONTH_NAMES[sm-1]} – ${ed} de ${CAL_MONTH_NAMES[em-1]}`;
+      lbl.classList.add('has-value');
+    } else if (lbl) {
+      lbl.textContent = 'Selecione um período';
+      lbl.classList.remove('has-value');
+    }
+    if (confirmBtn) confirmBtn.disabled = !_cpSel;
+  }
 }
 
-async function openCalPopup() {
-  const now    = new Date();
-  _cpCursor    = { year: now.getFullYear(), month: now.getMonth() };
+async function openCalPopup(target = 'daily', opts = {}) {
+  _cpTarget  = target;
+  _cpMode    = opts.mode    || 'range';
+  _cpInputId = opts.inputId || null;
+
+  if (_cpMode === 'single' && _cpInputId) {
+    const curVal = document.getElementById(_cpInputId)?.value;
+    if (curVal) {
+      const [y, m] = curVal.split('-').map(Number);
+      _cpCursor = { year: y, month: m - 1 };
+    } else {
+      const now = new Date();
+      _cpCursor = { year: now.getFullYear(), month: now.getMonth() };
+    }
+  } else {
+    const now = new Date();
+    _cpCursor = { year: now.getFullYear(), month: now.getMonth() };
+  }
   _cpSel       = null;
   _cpDays      = {};
 
@@ -2171,13 +2310,14 @@ function initCalPopup() {
     if (!_cpSel) return;
     document.getElementById('calPopupDlg').close();
 
-    // Apply selection to Daily filter
-    _dfb.daily.from   = _cpSel.from;
-    _dfb.daily.to     = _cpSel.to;
-    _dfb.daily.preset = 'custom';
-    dfbSetInputs('daily', _cpSel.from, _cpSel.to);
-    document.querySelectorAll('.dfb-pill[data-dfb="daily"]').forEach((b) => b.classList.remove('active'));
-    await loadTeamDaily();
+    const t = _cpTarget;
+    _dfb[t].from   = _cpSel.from;
+    _dfb[t].to     = _cpSel.to;
+    _dfb[t].preset = 'custom';
+    dfbSetInputs(t, _cpSel.from, _cpSel.to);
+    document.querySelectorAll(`.dfb-pill[data-dfb="${t}"]`).forEach((b) => b.classList.remove('active'));
+    if (t === 'hist') await loadHistoricoPanel();
+    else              await loadTeamDaily();
   });
 
   document.getElementById('calPopupDlg')?.addEventListener('click', (e) => {
@@ -5605,7 +5745,7 @@ function renderRoutineGrid() {
   const isAdmin = currentUser?.role === 'admin';
 
   // Filter
-  let filtered = routines;
+  let filtered = routines.filter(r => !r.personName?.toLowerCase().includes('clara'));
   if (_routineOnlyMine && currentUser) {
     filtered = filtered.filter(r => r.userId === currentUser.id || String(r.userId) === String(currentUser.id));
   }
