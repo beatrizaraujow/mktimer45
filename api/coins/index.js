@@ -4,14 +4,114 @@ const { json, methodNotAllowed } = require('../_lib/http');
 
 module.exports = async function handler(req, res) {
   try {
+    const { action, userId } = req.query;
+
+    // ── GET team-coins (feed público para o Turbo Dashboard) ─────────────
+    // Autenticado por chave estática TURBO_DASHBOARD_KEY (sem JWT).
+    if (action === 'team-coins') {
+      // CORS — permite chamada cross-origin do dashboard
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+      if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
+
+      const dashKey = process.env.TURBO_DASHBOARD_KEY || 'sb-turbo-2026-coins';
+      if (String(req.query.key || '') !== dashKey) {
+        return json(res, 401, { error: 'Invalid key.' });
+      }
+
+      const result = await db.query(
+        `SELECT u.name,
+                COALESCE(u.clickup_email, '') AS email,
+                COALESCE(SUM(l.amount), 0)::int AS total_coins
+         FROM users u
+         LEFT JOIN sb_coin_ledger l ON l.user_id = u.id
+         WHERE u.active = TRUE
+           AND COALESCE(u.show_in_daily, TRUE) = TRUE
+         GROUP BY u.id, u.name, u.clickup_email
+         ORDER BY u.name`
+      );
+
+      return json(res, 200, {
+        users: result.rows.map(r => ({
+          name:       r.name,
+          email:      r.email,
+          totalCoins: Number(r.total_coins),
+        })),
+      });
+    }
+
+    // ── GET team-junho-breakdown (Turbo Dashboard) ───────────────────────
+    if (action === 'team-junho-breakdown') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+      if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
+
+      const dashKey = process.env.TURBO_DASHBOARD_KEY || 'sb-turbo-2026-coins';
+      if (String(req.query.key || '') !== dashKey) {
+        return json(res, 401, { error: 'Invalid key.' });
+      }
+
+      const [usersRes, weeklyRes, ledgerRes] = await Promise.all([
+        db.query(
+          `SELECT id, name, COALESCE(clickup_email,'') AS email
+           FROM users
+           WHERE active = TRUE AND COALESCE(show_in_daily, TRUE) = TRUE
+           ORDER BY name`
+        ),
+        db.query(
+          `SELECT sc.user_id,
+                  sc.week_start::text AS week_start,
+                  sc.coins_earned::int AS coins_earned,
+                  COALESCE(sc.pts_earned, 0)::int AS pts_earned
+           FROM sb_coins sc
+           JOIN users u ON u.id = sc.user_id
+           WHERE u.active = TRUE
+             AND COALESCE(u.show_in_daily, TRUE) = TRUE
+             AND sc.week_start >= '2026-06-01'
+             AND sc.week_start <  '2026-07-01'
+           ORDER BY sc.week_start`
+        ).catch(() => ({ rows: [] })),
+        db.query(
+          `SELECT user_id, COALESCE(SUM(amount),0)::int AS total
+           FROM sb_coin_ledger GROUP BY user_id`
+        ).catch(() => ({ rows: [] })),
+      ]);
+
+      const weeklyMap  = {};
+      for (const r of weeklyRes.rows) {
+        const uid = Number(r.user_id);
+        if (!weeklyMap[uid]) weeklyMap[uid] = { total: 0, weeks: [] };
+        weeklyMap[uid].total += Number(r.coins_earned);
+        weeklyMap[uid].weeks.push({ weekStart: r.week_start, coinsEarned: Number(r.coins_earned), ptsEarned: Number(r.pts_earned) });
+      }
+      const ledgerMap = new Map(ledgerRes.rows.map(r => [Number(r.user_id), Number(r.total)]));
+
+      return json(res, 200, {
+        users: usersRes.rows.map(u => {
+          const uid = Number(u.id);
+          const w   = weeklyMap[uid] || { total: 0, weeks: [] };
+          return {
+            name:           u.name,
+            email:          u.email,
+            ledgerTotal:    ledgerMap.get(uid) || 0,
+            weeklyCoinsJun: w.total,
+            weeks:          w.weeks,
+          };
+        }),
+      });
+    }
+
+    // Todos os demais endpoints exigem JWT
     const auth = requireAuth(req, res);
     if (!auth) return;
 
     if (req.method !== 'GET' && req.method !== 'POST') {
       return methodNotAllowed(res, ['GET', 'POST']);
     }
-
-    const { action, userId } = req.query;
 
     // ── GET balance (default) ─────────────────────────────────────────────
     if (req.method === 'GET' && (!action || action === 'balance')) {
